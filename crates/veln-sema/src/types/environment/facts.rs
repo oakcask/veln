@@ -219,6 +219,7 @@ fn initial_environment(
 ) -> TypeEnvironment {
     let uses = symbols.uses;
     let adts = declarations.adts;
+    let type_symbol_index = named_type_symbol_index(&symbols.type_symbols);
     TypeEnvironment {
         resolution_use_index: Arc::default(),
         module_values: base
@@ -239,6 +240,7 @@ fn initial_environment(
         public_module_value_identities: HashSet::new(),
         functions: callables.functions,
         functions_by_name: HashMap::new(),
+        function_type_parameters_by_identity: HashMap::new(),
         unpublished_functions: base
             .map(|base| base.unpublished_functions.clone())
             .unwrap_or_default(),
@@ -250,6 +252,7 @@ fn initial_environment(
         handlers: callables.handlers,
         schema_symbols: symbols.schema_symbols,
         type_symbols: symbols.type_symbols,
+        type_symbol_index,
         uses,
         quarantined_uses: symbols.quarantined_uses,
         invalid_names: module.invalid_names.clone(),
@@ -280,6 +283,8 @@ fn finish_function_facts(module: &SurfaceModule, environment: &mut TypeEnvironme
         });
     environment.functions.extend(aliases);
     environment.functions_by_name = function_name_index(&environment.functions);
+    environment.function_type_parameters_by_identity =
+        function_type_parameter_provenance_index(&environment.functions);
 }
 
 fn install_recovery_facts(module: &SurfaceModule, environment: &mut TypeEnvironment) {
@@ -371,6 +376,7 @@ fn invalid_function_recovery_signature(
         module_name: function.module_name.clone(),
         package_name: function.package_name.clone(),
         visibility: function.visibility,
+        type_parameters: TypeParameterIdentityContext::function_parameters(function),
         params: params.into(),
         variadic,
         return_type: parse_type_or_unknown(function.return_type.as_deref()),
@@ -413,6 +419,7 @@ fn invalid_alias_recovery_signature(
         module_name: alias.module_name.clone(),
         package_name: alias.package_name.clone(),
         visibility: Visibility::Public,
+        type_parameters: target.type_parameters.clone(),
         params: target.params.clone(),
         variadic: target.variadic.clone(),
         return_type: target.return_type.clone(),

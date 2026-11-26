@@ -1,4 +1,5 @@
 command = ["lsp"]
+source_errors = "expected"
 stdin_jsonrpc_file = "requests.json"
 exit = 0
 

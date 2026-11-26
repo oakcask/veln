@@ -271,6 +271,7 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) supports_callsite_modifier: bool,
     pub(super) annotation_owner_prevalidated: bool,
     pub(super) declaration_types_are_quarantined: bool,
+    pub(super) type_parameter_context: crate::types::TypeParameterIdentityContext<'a>,
     pub(super) bindings: Vec<Binding>,
     binding_inference_transactions: Vec<(usize, usize)>,
     binding_inference_changes: Vec<BindingInferenceChange>,
@@ -534,6 +535,7 @@ fn declaration_types_are_quarantined(
     function: &Function,
     environment: &TypeEnvironment,
     annotation_owner_prevalidated: bool,
+    type_parameter_context: &crate::types::TypeParameterIdentityContext<'_>,
 ) -> bool {
     if annotation_owner_prevalidated {
         let owner_paths_are_resolved = |paths: &[veln_ast::TypePathSegments]| {
@@ -554,20 +556,20 @@ fn declaration_types_are_quarantined(
                     .any(|param| !owner_paths_are_resolved(&param.ty_paths)));
     }
 
-    annotation_has_unavailable_refinement_identity(
+    annotation_has_unavailable_refinement_identity_with_context(
         &function.return_type_refinements,
         &function.return_type_paths,
         function.module_name.as_deref(),
         environment,
-        &[],
+        type_parameter_context,
     ) || (function.kind == FunctionKind::Function
         && function.params.iter().any(|param| {
-            annotation_has_unavailable_refinement_identity(
+            annotation_has_unavailable_refinement_identity_with_context(
                 &param.ty_refinements,
                 &param.ty_paths,
                 function.module_name.as_deref(),
                 environment,
-                &[],
+                type_parameter_context,
             )
         }))
 }
@@ -583,6 +585,16 @@ fn resolution_uses_for_function(
 }
 
 impl<'a> FunctionChecker<'a> {
+    pub(super) fn canonicalize_annotation(&self, ty: Type) -> Type {
+        self.environment
+            .canonicalize_type_annotation_in_owner_with_context(
+                ty,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+                &self.type_parameter_context,
+            )
+    }
+
     pub(super) fn for_source_declaration(
         function: &'a Function,
         environment: &'a TypeEnvironment,
@@ -618,8 +630,14 @@ impl<'a> FunctionChecker<'a> {
         annotation_owner_prevalidated: bool,
         variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
-        let declaration_types_are_quarantined =
-            declaration_types_are_quarantined(function, environment, annotation_owner_prevalidated);
+        let type_parameter_context =
+            crate::types::TypeParameterIdentityContext::for_function(function);
+        let declaration_types_are_quarantined = declaration_types_are_quarantined(
+            function,
+            environment,
+            annotation_owner_prevalidated,
+            &type_parameter_context,
+        );
         let resolution_uses = resolution_uses_for_function(function, environment);
         Self {
             function,
@@ -628,6 +646,7 @@ impl<'a> FunctionChecker<'a> {
             supports_callsite_modifier,
             annotation_owner_prevalidated,
             declaration_types_are_quarantined,
+            type_parameter_context,
             bindings: Vec::new(),
             binding_inference_transactions: Vec::new(),
             binding_inference_changes: Vec::new(),

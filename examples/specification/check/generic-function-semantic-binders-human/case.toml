@@ -1,0 +1,28 @@
+# This case covers human diagnostics for declaration-local generic function binders.
+command = ["check", "main.veln", "api.veln", "unbound.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "error[name.type_parameter_shadow]: function type parameter `Int` shadows a visible type",
+  "error[name.type_parameter_shadow]: function type parameter `Item` shadows a visible type",
+  "error[name.type_parameter_shadow]: function type parameter `Alias` shadows a visible type",
+  "main.veln:63:34: error[name.type_parameter_shadow]: function type parameter `WallTime` shadows a visible type",
+  "Visible type `Item` is declared here.",
+  "Visible type `Alias` is declared here.",
+  "note: main.veln:59:1: Visible type `WallTime` is declared here.",
+  "note: api.veln:5:1: Visible type `Alias` is declared here.",
+  "main.veln:30:3: error[type.mismatch]: expected `Int`, but found `T`",
+  "main.veln:34:8: error[type.mismatch]: expected `Int`, but found `T`",
+  "main.veln:39:16: error[type.mismatch]: expected `T`, but found `Int`",
+  "main.veln:43:10: error[type.mismatch]: expected `T`, but found `T`",
+  "note: main.veln:13:11: Expected type parameter `T` is declared by function `second` here.",
+  "note: main.veln:42:21: Actual type parameter `T` is declared by function `passes_to_second` here.",
+  "error[name.unresolved]: unresolved type `api::Missing`",
+  "error[name.unresolved]: unresolved type `api::Private`",
+  "error[name.unresolved]: unresolved type `T`",
+]
+
+[stderr]
+format = "empty"

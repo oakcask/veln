@@ -4,7 +4,10 @@ use super::*;
 fn propagates_try_expected_type_from_result_return() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result<Int, AppError>\n  Ok(_?)\nend\n",
+        concat!(
+            "fn main() -> Result<Int, AppError>\n  Ok(_?)\nend\n",
+            "pub type AppError\n  pub AppError\nend\n",
+        ),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -124,6 +127,7 @@ fn lowers_qualified_builtin_constructors() {
             "  let value: Option<String> = Option::Some(\"ok\")\n",
             "  Result::Ok(value)\n",
             "end\n",
+            "pub type AppError\n  pub AppError\nend\n",
         ),
     );
     let parsed = parse(&source);

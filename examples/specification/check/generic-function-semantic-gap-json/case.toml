@@ -1,0 +1,122 @@
+# This case covers corrected generic binder signature and shadow JSON diagnostics.
+command = ["check", "--json", "main.veln", "base.veln", "alpha.veln", "beta.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "name.type_parameter_shadow"
+severity = "error"
+kind = "name"
+message = "function type parameter `Shared` shadows a visible type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 8
+column = 11
+
+[[diagnostics]]
+id = "type.generic_signature_missing"
+severity = "error"
+kind = "type"
+message = "generic parameter `value` has no type annotation"
+
+[diagnostics.span]
+file = "main.veln"
+line = 12
+column = 25
+
+[[diagnostics]]
+id = "type.generic_signature_missing"
+severity = "error"
+kind = "type"
+message = "generic function has no return type annotation"
+
+[diagnostics.span]
+file = "main.veln"
+line = 16
+column = 1
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved type `ForeignT`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 32
+column = 18
+
+[[diagnostics]]
+id = "name.type_parameter_shadow"
+severity = "error"
+kind = "name"
+message = "function type parameter `StreamAdapterAction` shadows a visible type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 39
+column = 22
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved type `U::Option`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 43
+column = 31
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved type `missing::Option`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 47
+column = 29
+
+[[json_assert]]
+path = "diagnostics.1.details.boundary"
+equals = "function_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.1.related.0.kind"
+equals = "shadowed_type_declaration"
+
+[[json_assert]]
+path = "diagnostics.1.related.0.span.file"
+equals = "alpha.veln"
+
+[[json_assert]]
+path = "diagnostics.2.details.expected_type_source"
+equals = "declared_parameter"
+
+[[json_assert]]
+path = "diagnostics.3.details.expected_type_source"
+equals = "declared_return"
+
+[[json_assert]]
+path = "diagnostics.4.details.shadowed_kind"
+equals = "builtin_type"
+
+[[json_assert]]
+path = "diagnostics.4.related.0.kind"
+equals = "shadowed_type_declaration"
+
+[[json_assert]]
+path = "diagnostics.4.related.0.span.start.line"
+equals = 35

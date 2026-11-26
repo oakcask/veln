@@ -26,17 +26,34 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         current_package: Option<&str>,
     ) -> bool {
-        crate::type_syntax::builtin_type_syntax_arity(name).is_some_and(|arity| arity == args_len)
+        crate::type_syntax::compiler_known_type_annotation_arity(name)
+            .is_some_and(|arity| arity == args_len)
             || self
-                .annotation_type_descriptor_in_owner(
+                .visible_annotation_type_descriptor_in_owner(
                     name,
                     args_len,
                     current_module,
                     current_package,
                 )
                 .is_some()
+            || !name.contains("::")
+                && self.adts.imported_type_path_has_consistent_identity(
+                    name,
+                    args_len,
+                    current_module,
+                    current_package,
+                    &self.uses,
+                )
+            || !name.contains("::")
+                && self.annotation_named_symbol_is_visible(
+                    name.to_string(),
+                    current_module.map(str::to_string),
+                    current_package.map(str::to_string),
+                    current_module,
+                    current_package,
+                )
             || name.rsplit_once("::").is_some_and(|(base, variant)| {
-                self.annotation_type_descriptor_in_owner(
+                self.visible_annotation_type_descriptor_in_owner(
                     base,
                     args_len,
                     current_module,
@@ -47,6 +64,188 @@ impl TypeEnvironment {
                 })
                 .is_some()
             })
+    }
+
+    fn visible_annotation_type_descriptor_in_owner(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
+        if let Some(descriptor) = self.adts.descriptor_for_type_path_in_owner(
+            name,
+            args_len,
+            current_module,
+            current_package,
+            &self.uses,
+        ) {
+            return Some(descriptor);
+        }
+        if let Some(descriptor) =
+            self.adts
+                .companion_descriptor_for_type_path(name, args_len, current_module, &self.uses)
+        {
+            return Some(descriptor);
+        }
+        let descriptor = self.annotation_type_descriptor_in_owner(
+            name,
+            args_len,
+            current_module,
+            current_package,
+        )?;
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        self.adts
+            .descriptor_visible_for_type_path(descriptor, &segments, current_module, &self.uses)
+            .then_some(descriptor)
+    }
+
+    pub(crate) fn annotation_type_path_has_visible_declaration_in_owner(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        if Self::annotation_type_path_is_compiler_known(name) {
+            return true;
+        }
+        self.annotation_type_path_has_visible_candidate_in_owner(
+            name,
+            current_module,
+            current_package,
+        ) || name.rsplit_once("::").is_some_and(|(base, _)| {
+            self.annotation_type_path_has_visible_candidate_in_owner(
+                base,
+                current_module,
+                current_package,
+            )
+        })
+    }
+
+    fn annotation_type_path_is_compiler_known(name: &str) -> bool {
+        crate::type_syntax::compiler_known_type_annotation_arity(name).is_some()
+            || crate::schema::primitives::exact_width_schema_primitive(name).is_some()
+            || crate::schema::primitives::lowercase_schema_primitive(name).is_some()
+            || recover_type_case(name).is_some_and(|recovered| {
+                crate::type_syntax::compiler_known_type_annotation_arity(&recovered).is_some()
+            })
+    }
+
+    fn annotation_type_path_has_visible_candidate_in_owner(
+        &self,
+        candidate: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        let segments = candidate
+            .split("::")
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        self.annotation_type_path_has_visible_named_symbol_in_owner(
+            &segments,
+            current_module,
+            current_package,
+        ) || self
+            .schema_symbols
+            .schema_target_path(
+                &segments,
+                current_module,
+                current_package,
+                &self.uses,
+                true,
+                &self.companion_schema_access_targets,
+                &mut Vec::new(),
+            )
+            .is_some()
+            || self.annotation_type_path_has_visible_adt_in_owner(
+                candidate,
+                &segments,
+                current_module,
+                current_package,
+            )
+    }
+
+    fn annotation_type_path_has_visible_named_symbol_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        self.resolve_symbol_module(segments, current_module, current_package)
+            .is_some_and(|(name, module_name, package_name)| {
+                self.annotation_named_symbol_is_visible(
+                    name,
+                    module_name,
+                    package_name,
+                    current_module,
+                    current_package,
+                )
+            })
+    }
+
+    fn annotation_named_symbol_is_visible(
+        &self,
+        name: String,
+        module_name: Option<String>,
+        package_name: Option<String>,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        record_annotation_named_symbol_index_lookup();
+        let same_owner =
+            package_name.as_deref() == current_package && module_name.as_deref() == current_module;
+        self.type_symbol_index
+            .get(&(package_name, module_name.clone(), name))
+            .is_some_and(|visibility| visibility.present && (same_owner || visibility.public))
+    }
+
+    fn annotation_type_path_has_visible_adt_in_owner(
+        &self,
+        candidate: &str,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        self.adts
+            .unique_descriptor_for_type_path_any_arity_in_owner(
+                candidate,
+                current_module,
+                current_package,
+                &self.uses,
+            )
+            .is_some()
+            || recover_type_case(candidate).is_some_and(|recovered| {
+                self.adts
+                    .unique_descriptor_for_type_path_any_arity_in_owner(
+                        &recovered,
+                        current_module,
+                        current_package,
+                        &self.uses,
+                    )
+                    .is_some()
+            })
+            || self
+                .adts
+                .descriptor_for_type_path_any_arity(
+                    candidate,
+                    current_module,
+                    &self.quarantined_uses,
+                )
+                .is_some()
+            || self.quarantined_import_type_path_has_visible_leaf(segments, current_module)
+    }
+
+    pub(crate) fn annotation_type_path_has_resolved_qualifier_in_owner(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        segments.len() > 1
+            && self
+                .resolve_symbol_module(&segments, current_module, current_package)
+                .is_some()
     }
 
     pub(crate) fn variant_refinement_descriptor_identity_in_owner(
@@ -125,12 +324,27 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         type_parameters: &TypeParameterIdentityContext<'_>,
     ) -> Type {
+        self.canonicalize_type_annotation_in_owner_with_context(
+            ty,
+            current_module,
+            None,
+            type_parameters,
+        )
+    }
+
+    pub(crate) fn canonicalize_type_annotation_in_owner_with_context(
+        &self,
+        ty: Type,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        type_parameters: &TypeParameterIdentityContext<'_>,
+    ) -> Type {
         crate::types::signature_collection::canonicalize_type_effects_with_context(
             ty,
             &self.uses,
             &self.quarantined_uses,
             current_module,
-            None,
+            current_package,
             &self.effects,
             &self.adts,
             &self.companion_effect_access_targets,

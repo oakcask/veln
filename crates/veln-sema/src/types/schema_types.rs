@@ -189,6 +189,7 @@ fn schema_decode_function_signatures_for_schema(
             module_name: schema.module_name.clone(),
             package_name: schema.package_name.clone(),
             visibility: schema.visibility,
+            type_parameters: Vec::new(),
             params: vec![byte_view.clone()].into(),
             variadic: None,
             return_type: result,
@@ -206,6 +207,7 @@ fn schema_decode_function_signatures_for_schema(
             module_name: schema.module_name.clone(),
             package_name: schema.package_name.clone(),
             visibility: schema.visibility,
+            type_parameters: Vec::new(),
             params: vec![byte_view, byte_offset].into(),
             variadic: None,
             return_type: step,
@@ -255,24 +257,17 @@ fn schema_validate_function_signature_for_schema(
     if schema.format.is_none() {
         let (erased_type, refined_type) =
             format_neutral_schema_runtime_validation_types(module, schema, adts)?;
-        return Some(FunctionSignature {
-            name: schema_runtime_validation_function_name(schema_name),
-            target_name: format!(
+        return Some(schema_function_signature(
+            schema,
+            schema_runtime_validation_function_name(schema_name),
+            format!(
                 "{}{}",
                 SCHEMA_REFINEMENT_VALIDATE_TARGET_PREFIX,
                 crate::schema::schema_link_name(module, schema)
             ),
-            module_name: schema.module_name.clone(),
-            package_name: schema.package_name.clone(),
-            visibility: schema.visibility,
-            params: vec![erased_type, Type::named("ByteOffset", Vec::new())].into(),
-            variadic: None,
-            return_type: Type::result(refined_type, Type::named("DecodeError", Vec::new())),
-            effects: Vec::new(),
-            callsite: false,
-            node_id: schema.node_id,
-            span: schema.span.clone(),
-        });
+            vec![erased_type, Type::named("ByteOffset", Vec::new())],
+            Type::result(refined_type, Type::named("DecodeError", Vec::new())),
+        ));
     }
     if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
         return None;
@@ -282,23 +277,16 @@ fn schema_validate_function_signature_for_schema(
         .map(|(name, ty, _)| (name, ty))
         .collect::<Vec<_>>();
     let decoded_type = Type::Record(fields);
-    Some(FunctionSignature {
-        name: schema_validate_function_name(schema_name),
-        target_name: format!(
+    Some(schema_function_signature(
+        schema,
+        schema_validate_function_name(schema_name),
+        format!(
             "{SCHEMA_VALIDATE_TARGET_PREFIX}{}",
             crate::schema::schema_link_name(module, schema)
         ),
-        module_name: schema.module_name.clone(),
-        package_name: schema.package_name.clone(),
-        visibility: schema.visibility,
-        params: vec![decoded_type.clone()].into(),
-        variadic: None,
-        return_type: Type::result(decoded_type, Type::string()),
-        effects: Vec::new(),
-        callsite: false,
-        node_id: schema.node_id,
-        span: schema.span.clone(),
-    })
+        vec![decoded_type.clone()],
+        Type::result(decoded_type, Type::string()),
+    ))
 }
 
 fn schema_encode_function_signature_for_schema(
@@ -311,23 +299,16 @@ fn schema_encode_function_signature_for_schema(
         let value_type = Type::Record(format_neutral_schema_encode_record_fields(
             module, schema, adts,
         )?);
-        return Some(FunctionSignature {
-            name: schema_encode_function_name(schema_name),
-            target_name: format!(
+        return Some(schema_function_signature(
+            schema,
+            schema_encode_function_name(schema_name),
+            format!(
                 "{SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX}{}",
                 crate::schema::schema_link_name(module, schema)
             ),
-            module_name: schema.module_name.clone(),
-            package_name: schema.package_name.clone(),
-            visibility: schema.visibility,
-            params: vec![value_type.clone()].into(),
-            variadic: None,
-            return_type: Type::result(value_type, Type::string()),
-            effects: Vec::new(),
-            callsite: false,
-            node_id: schema.node_id,
-            span: schema.span.clone(),
-        });
+            vec![value_type.clone()],
+            Type::result(value_type, Type::string()),
+        ));
     }
     if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
         return None;
@@ -338,23 +319,40 @@ fn schema_encode_function_signature_for_schema(
         schema_encode_value_fields(module, schema, &fields, &exact_width_field_names)?;
     let byte_chunk = Type::named("ByteChunk", Vec::new());
     let encode_error = Type::named("EncodeError", Vec::new());
-    Some(FunctionSignature {
-        name: schema_encode_function_name(schema_name),
-        target_name: format!(
+    Some(schema_function_signature(
+        schema,
+        schema_encode_function_name(schema_name),
+        format!(
             "{SCHEMA_ENCODE_TARGET_PREFIX}{}",
             crate::schema::schema_link_name(module, schema)
         ),
+        vec![Type::Record(value_fields)],
+        Type::result(byte_chunk, encode_error),
+    ))
+}
+
+fn schema_function_signature(
+    schema: &SchemaDecl,
+    name: String,
+    target_name: String,
+    params: Vec<Type>,
+    return_type: Type,
+) -> FunctionSignature {
+    FunctionSignature {
+        name,
+        target_name,
         module_name: schema.module_name.clone(),
         package_name: schema.package_name.clone(),
         visibility: schema.visibility,
-        params: vec![Type::Record(value_fields)].into(),
+        type_parameters: Vec::new(),
+        params: params.into(),
         variadic: None,
-        return_type: Type::result(byte_chunk, encode_error),
+        return_type,
         effects: Vec::new(),
         callsite: false,
         node_id: schema.node_id,
         span: schema.span.clone(),
-    })
+    }
 }
 
 pub(crate) fn schema_encode_value_type(

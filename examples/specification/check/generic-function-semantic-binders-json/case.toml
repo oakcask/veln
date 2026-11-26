@@ -1,0 +1,336 @@
+# This case covers JSON diagnostics and related context for generic function binder scope.
+command = ["check", "--json", "main.veln", "api.veln", "unbound.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 13
+
+[[diagnostics]]
+id = "name.type_parameter_shadow"
+severity = "error"
+kind = "name"
+message = "function type parameter `Int` shadows a visible type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 17
+column = 20
+
+[[diagnostics]]
+id = "name.type_parameter_shadow"
+severity = "error"
+kind = "name"
+message = "function type parameter `Item` shadows a visible type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 21
+column = 19
+
+[[diagnostics]]
+id = "name.type_parameter_shadow"
+severity = "error"
+kind = "name"
+message = "function type parameter `Alias` shadows a visible type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 25
+column = 18
+
+[[diagnostics]]
+id = "name.type_parameter_shadow"
+severity = "error"
+kind = "name"
+message = "function type parameter `WallTime` shadows a visible type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 63
+column = 34
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `T`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 30
+column = 3
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `T`, but found `Int`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 30
+column = 3
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `T`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 34
+column = 8
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `T`, but found `Int`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 39
+column = 16
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `T`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 39
+column = 3
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `T`, but found `T`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 43
+column = 10
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved type `api::Missing`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 51
+column = 34
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved type `api::Private`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 55
+column = 34
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved type `T`"
+
+[diagnostics.span]
+file = "unbound.veln"
+line = 1
+column = 19
+
+[[json_assert]]
+path = "diagnostics.1.related.0.kind"
+equals = "shadowed_type_declaration"
+
+[[json_assert]]
+path = "diagnostics.0.details.boundary"
+equals = "function_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.0.details.phase"
+equals = "name_resolution"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "Int"
+
+[[json_assert]]
+path = "diagnostics.0.details.ordinal"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.0.details.shadowed_kind"
+equals = "builtin_type"
+
+[[json_assert]]
+path = "diagnostics.1.details.boundary"
+equals = "function_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.1.details.name"
+equals = "Item"
+
+[[json_assert]]
+path = "diagnostics.1.details.ordinal"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.1.details.shadowed_kind"
+equals = "visible_type"
+
+[[json_assert]]
+path = "diagnostics.1.related.0.span.start.line"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.2.details.boundary"
+equals = "function_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.2.details.name"
+equals = "Alias"
+
+[[json_assert]]
+path = "diagnostics.2.details.ordinal"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.2.details.shadowed_kind"
+equals = "visible_type"
+
+[[json_assert]]
+path = "diagnostics.2.related.0.span.file"
+equals = "api.veln"
+
+[[json_assert]]
+path = "diagnostics.2.related.0.span.start.line"
+equals = 5
+
+[[json_assert]]
+path = "diagnostics.11.details.boundary"
+equals = "function_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.11.details.name"
+equals = "WallTime"
+
+[[json_assert]]
+path = "diagnostics.11.details.ordinal"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.11.details.shadowed_kind"
+equals = "builtin_type"
+
+[[json_assert]]
+path = "diagnostics.11.related.0.kind"
+equals = "shadowed_type_declaration"
+
+[[json_assert]]
+path = "diagnostics.11.related.0.span.file"
+equals = "main.veln"
+
+[[json_assert]]
+path = "diagnostics.11.related.0.span.start.line"
+equals = 59
+
+[[json_assert]]
+path = "diagnostics.9.details.symbol"
+equals = "api::Missing"
+
+[[json_assert]]
+path = "diagnostics.10.details.symbol"
+equals = "api::Private"
+
+[[json_assert]]
+path = "diagnostics.3.details.constraint"
+equals = "operator_operand"
+
+[[json_assert]]
+path = "diagnostics.5.details.constraint"
+equals = "operator_operand"
+
+[[json_assert]]
+path = "diagnostics.6.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.8.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.8.related.0.kind"
+equals = "expected_rigid_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.8.related.0.message"
+equals = "Expected type parameter `T` is declared by function `second` here."
+
+[[json_assert]]
+path = "diagnostics.8.related.0.span.file"
+equals = "main.veln"
+
+[[json_assert]]
+path = "diagnostics.8.related.0.span.start.line"
+equals = 13
+
+[[json_assert]]
+path = "diagnostics.8.related.0.span.start.column"
+equals = 11
+
+[[json_assert]]
+path = "diagnostics.8.related.0.span.end.line"
+equals = 13
+
+[[json_assert]]
+path = "diagnostics.8.related.0.span.end.column"
+equals = 12
+
+[[json_assert]]
+path = "diagnostics.8.related.1.kind"
+equals = "actual_rigid_type_parameter"
+
+[[json_assert]]
+path = "diagnostics.8.related.1.message"
+equals = "Actual type parameter `T` is declared by function `passes_to_second` here."
+
+[[json_assert]]
+path = "diagnostics.8.related.1.span.file"
+equals = "main.veln"
+
+[[json_assert]]
+path = "diagnostics.8.related.1.span.start.line"
+equals = 42
+
+[[json_assert]]
+path = "diagnostics.8.related.1.span.start.column"
+equals = 21
+
+[[json_assert]]
+path = "diagnostics.8.related.1.span.end.line"
+equals = 42
+
+[[json_assert]]
+path = "diagnostics.8.related.1.span.end.column"
+equals = 22

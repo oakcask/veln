@@ -12,8 +12,20 @@ use super::descriptors::{
 };
 use super::lookup_validation::{constructor_matches_visible_path, same_descriptor};
 
+type ImportedDescriptorTarget = (Option<String>, String);
+type ImportedDescriptorTargetsByTypeArity =
+    HashMap<(String, usize), HashSet<ImportedDescriptorTarget>>;
+type ImportedDescriptorLookupKey = (ResolvedImportOwner, String, Option<usize>);
+type ImportedDescriptorLookupCache =
+    Arc<std::sync::Mutex<HashMap<ImportedDescriptorLookupKey, Option<usize>>>>;
+
 mod aliases;
 mod build;
+#[cfg(test)]
+pub(crate) use build::{
+    ImportedDescriptorIndexWork, imported_descriptor_index_work,
+    reset_imported_descriptor_index_work,
+};
 mod constructors;
 mod import_owners;
 use import_owners::ImportOwners;
@@ -30,6 +42,15 @@ pub(crate) struct AdtDeclarationFacts {
     descriptors_by_type_name: HashMap<String, Vec<usize>>,
     descriptors_by_source_identity: HashMap<(Option<String>, Option<String>, String), Vec<usize>>,
     descriptors_by_identity: HashMap<String, Vec<usize>>,
+    imported_descriptors_by_type: HashMap<(Option<String>, String, String), Option<usize>>,
+    imported_descriptors_by_type_arity:
+        HashMap<(Option<String>, String, String, usize), Option<usize>>,
+    consistent_imported_descriptors_by_type:
+        HashMap<(Option<String>, String, String), Option<usize>>,
+    consistent_imported_descriptors_by_type_arity:
+        HashMap<(Option<String>, String, String, usize), Option<usize>>,
+    imported_descriptor_targets_by_type: HashMap<String, HashSet<(Option<String>, String)>>,
+    imported_descriptor_targets_by_type_arity: ImportedDescriptorTargetsByTypeArity,
     parameter_variances_by_identity: HashMap<String, HashMap<usize, Option<Vec<Variance>>>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
     variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, Option<usize>>>,
@@ -50,9 +71,9 @@ pub(crate) struct AdtRegistry {
     qualified_import_modules: HashMap<(ResolvedImportOwner, String), QualifiedImportModules>,
     qualified_import_recovery_modules:
         HashMap<(ResolvedImportOwner, String), Vec<QualifiedRecoveryModules>>,
-    imported_descriptors_by_type: HashMap<(ResolvedImportOwner, String), Option<usize>>,
-    imported_descriptors_by_type_arity:
-        HashMap<(ResolvedImportOwner, String, usize), Option<usize>>,
+    bare_import_targets_by_owner: HashMap<ResolvedImportOwner, HashSet<(Option<String>, String)>>,
+    unique_imported_descriptor_cache: ImportedDescriptorLookupCache,
+    consistent_imported_descriptor_cache: ImportedDescriptorLookupCache,
     source_import_indexes_ready: bool,
     source_import_count: usize,
     import_owner_scope: Arc<[UseDecl]>,
@@ -101,8 +122,28 @@ struct QualifiedRecoveryModules {
 
 #[derive(Debug, Default)]
 struct ImportedDescriptorCandidates {
-    any_arity: HashMap<(ResolvedImportOwner, String), Option<usize>>,
-    exact_arity: HashMap<(ResolvedImportOwner, String, usize), Option<usize>>,
+    any_arity: HashMap<(Option<String>, String, String), Option<usize>>,
+    exact_arity: HashMap<(Option<String>, String, String, usize), Option<usize>>,
+    consistent_any_arity: HashMap<(Option<String>, String, String), Option<usize>>,
+    consistent_exact_arity: HashMap<(Option<String>, String, String, usize), Option<usize>>,
+    targets_by_type: HashMap<String, HashSet<(Option<String>, String)>>,
+    targets_by_type_arity: ImportedDescriptorTargetsByTypeArity,
+}
+
+#[derive(Debug, Default)]
+struct ImportedDescriptorCandidateIndexes {
+    any_arity: HashMap<(Option<String>, String, String), Option<usize>>,
+    exact_arity: HashMap<(Option<String>, String, String, usize), Option<usize>>,
+    consistent_any_arity:
+        HashMap<(Option<String>, String, String), ConsistentImportedDescriptorCandidate>,
+    consistent_exact_arity:
+        HashMap<(Option<String>, String, String, usize), ConsistentImportedDescriptorCandidate>,
+}
+
+#[derive(Debug)]
+struct ConsistentImportedDescriptorCandidate {
+    terminal_identity: Option<String>,
+    representative: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -313,6 +354,10 @@ impl AdtRegistry {
         self.declarations_mut()
             .quarantined_type_identities
             .extend(invalid_identities);
+        if self.source_import_indexes_ready {
+            self.rebuild_shared_imported_descriptor_indexes();
+            self.rebuild_imported_descriptor_indexes();
+        }
     }
 
     pub(crate) fn descriptor_is_quarantined(&self, descriptor: &AdtDescriptor) -> bool {

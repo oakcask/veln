@@ -17,6 +17,42 @@ pub(crate) fn builtin_type_syntax_arity(name: &str) -> Option<usize> {
         .flatten()
 }
 
+pub(crate) fn compiler_known_type_annotation_arity(name: &str) -> Option<usize> {
+    builtin_type_syntax_arity(name).or(match name {
+        "Byte"
+        | "ByteChunk"
+        | "ByteView"
+        | "ByteOffset"
+        | "ByteCount"
+        | "StreamInput"
+        | "AcceptOutcome"
+        | "StreamReadOutcome"
+        | "StreamWriteOutcome"
+        | "DecodeReadiness"
+        | "DecodeError"
+        | "EncodeError"
+        | "WallTime"
+        | "CancelToken"
+        | "SendError"
+        | "SelectError"
+        | "JoinError"
+        | "Deadline"
+        | "SourceLocation"
+        | "SchemaDispatchPayload"
+        | "NetStream"
+        | "Path"
+        | "FsError"
+        | "ProcessError"
+        | "CancelOwner"
+        | "CancellableWaitOutcome"
+        | "IoOwner"
+        | "IoReader"
+        | "IoWriter" => Some(0),
+        "DecodeStep" | "EncodeStep" | "Sender" | "Receiver" | "Task" => Some(1),
+        _ => None,
+    })
+}
+
 pub fn type_annotation_reference_names(text: &str) -> Result<Vec<String>, String> {
     Ok(type_annotation_reference_paths(text)?
         .into_iter()

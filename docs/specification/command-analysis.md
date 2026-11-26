@@ -25,6 +25,16 @@ doctest creation when requested, parse diagnostics, module loading, semantic
 diagnostics, checked-core readiness, and selected-entry typed-IR readiness.
 Selection, output, execution, and write policy remain command specific.
 
+Shared semantic analysis resolves each ordinary function type parameter only
+inside its owning signature, body annotations, and executable contracts. An
+unresolved annotation type or a function type parameter that shadows a type
+visible from that declaration is a semantic error for every consuming command.
+The [type rules](types.md#usage-and-annotations) define the owner-scoped rigid
+identity, the [name-resolution rules](name-resolution.md#namespaces-and-use-roles)
+define visibility, and the
+[diagnostic specification](diagnostics-json.md#diagnostic-families) defines the
+observable failures.
+
 During shared semantic analysis, every parse-clean module immutable value is
 checked against its written annotation and the finite-data initializer rules.
 Same-module and eligible imported references are resolved before function

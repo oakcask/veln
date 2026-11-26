@@ -10,6 +10,16 @@ use recovery_helpers::{
 };
 
 impl AdtRegistry {
+    pub(crate) fn has_compiler_owned_descriptor(&self, name: &str) -> bool {
+        self.descriptors_by_type_name
+            .get(name)
+            .is_some_and(|indices| {
+                indices
+                    .iter()
+                    .any(|index| *index < self.local_descriptor_start)
+            })
+    }
+
     pub(crate) fn descriptor_for_type_path_including_quarantined(
         &self,
         name: &str,
@@ -23,6 +33,11 @@ impl AdtRegistry {
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let type_name = segments.last()?;
         let identity = self.qualified_source_identity(type_name, &segments, current_module, uses);
+        if matches!(identity, QualifiedSourceIdentity::CompilerKnown(_))
+            && !compiler_known_qualifier_is_supported(&segments)
+        {
+            return None;
+        }
         self.qualified_descriptor_candidates(&identity)
             .rev()
             .find(|descriptor| Self::descriptor_matches_arity(descriptor, Some(args_len)))
@@ -98,10 +113,7 @@ impl AdtRegistry {
             crate::adt::lookup_validation::record_import_path_comparison();
             let owner = self.import_owner_for_module(uses, current_module)?;
             return Some(
-                self.imported_descriptors_by_type
-                    .get(&(owner, name.to_string()))
-                    .copied()
-                    .flatten()
+                self.unique_indexed_imported_descriptor(name, None, &owner)
                     .map(|index| self.descriptor_lookup_candidate(index)),
             );
         }
@@ -363,6 +375,11 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
+        if matches!(identity, QualifiedSourceIdentity::CompilerKnown(_))
+            && !compiler_known_qualifier_is_supported(segments)
+        {
+            return None;
+        }
         let candidates = self
             .qualified_descriptor_candidates(identity)
             .filter(|descriptor| {
@@ -472,6 +489,11 @@ impl AdtRegistry {
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let type_name = segments.last()?;
         let identity = self.qualified_source_identity(type_name, &segments, current_module, uses);
+        if matches!(identity, QualifiedSourceIdentity::CompilerKnown(_))
+            && !compiler_known_qualifier_is_supported(&segments)
+        {
+            return None;
+        }
         self.qualified_descriptor_candidates(&identity)
             .rev()
             .find(|descriptor| {
@@ -494,6 +516,11 @@ impl AdtRegistry {
             descriptor.type_name == *name && descriptor.type_parameters.len() == args.len()
         })
     }
+}
+
+fn compiler_known_qualifier_is_supported(segments: &[String]) -> bool {
+    let qualifier = normalized_qualified_segments(&segments[..segments.len().saturating_sub(1)]);
+    matches!(qualifier.as_str(), "prelude" | "std::prelude")
 }
 
 fn fallback_exact_import_modules(

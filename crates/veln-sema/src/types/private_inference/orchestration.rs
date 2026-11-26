@@ -58,6 +58,12 @@ pub(crate) fn infer_private_function_body_return_types(
             if inferred_type_contains(&inferred, &signature.return_type) {
                 continue;
             }
+            if private_signature_contribution_has_foreign_type_parameter(
+                &inferred,
+                &signature.type_parameters,
+            ) {
+                continue;
+            }
             signature.return_type = inferred;
             changed = true;
         }
@@ -194,6 +200,7 @@ pub(crate) fn omitted_private_slots_that_can_change(
         .filter(|function| {
             function.kind == FunctionKind::Function
                 && function.visibility == Visibility::Private
+                && function.type_binders.is_empty()
                 && function.name.is_some()
                 && (function.return_type.is_none()
                     || function.params.iter().any(parameter_annotation_is_omitted))
@@ -268,6 +275,7 @@ pub(crate) fn omitted_private_return_functions(
     module.functions.iter().filter(|function| {
         function.kind == FunctionKind::Function
             && function.visibility == Visibility::Private
+            && function.type_binders.is_empty()
             && function.return_type.is_none()
     })
 }

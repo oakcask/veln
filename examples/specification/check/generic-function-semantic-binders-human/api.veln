@@ -1,0 +1,13 @@
+type State
+  Ready
+end
+
+pub type Alias = State
+
+pub type Present
+  pub Present
+end
+
+type Private
+  Private
+end

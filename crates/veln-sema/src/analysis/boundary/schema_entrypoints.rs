@@ -6,11 +6,12 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
     for function in &module.functions {
         let current_module = function.module_name.as_deref();
         let current_package = function.package_name.as_deref();
+        let type_parameters = crate::types::TypeParameterIdentityContext::for_function(function);
         for param in &function.params {
             if let Some(annotation) = &param.ty {
                 push_schema_type_reference_diagnostics(
                     module,
-                    (current_module, current_package),
+                    (current_module, current_package, Some(&type_parameters)),
                     annotation,
                     param.node_id.display("param"),
                     param.span.clone(),
@@ -22,7 +23,7 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
         if let Some(return_type) = &function.return_type {
             push_schema_type_reference_diagnostics(
                 module,
-                (current_module, current_package),
+                (current_module, current_package, Some(&type_parameters)),
                 return_type,
                 function.node_id.display(function.kind.node_prefix()),
                 function.span.clone(),
@@ -35,6 +36,7 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
             current_module,
             current_package,
             &function.body,
+            Some(&type_parameters),
             &mut diagnostics,
         );
     }
@@ -48,6 +50,7 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
                 current_module,
                 current_package,
                 &clause.body,
+                None,
                 &mut diagnostics,
             );
         }
@@ -60,7 +63,7 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
             for field in &variant.fields {
                 push_schema_type_reference_diagnostics(
                     module,
-                    (current_module, current_package),
+                    (current_module, current_package, None),
                     &field.ty,
                     field.node_id.display("field"),
                     field.span.clone(),
@@ -79,6 +82,7 @@ fn check_body_schema_type_references(
     current_module: Option<&str>,
     current_package: Option<&str>,
     body: &[BodyLine],
+    type_parameters: Option<&crate::types::TypeParameterIdentityContext<'_>>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for line in body {
@@ -89,7 +93,7 @@ fn check_body_schema_type_references(
                 if let Some(annotation) = annotation {
                     push_schema_type_reference_diagnostics(
                         module,
-                        (current_module, current_package),
+                        (current_module, current_package, type_parameters),
                         annotation,
                         line.node_id.display("let"),
                         line.span.clone(),
@@ -102,6 +106,7 @@ fn check_body_schema_type_references(
                     current_module,
                     current_package,
                     expr,
+                    type_parameters,
                     diagnostics,
                 );
             }
@@ -111,6 +116,7 @@ fn check_body_schema_type_references(
                     current_module,
                     current_package,
                     expr,
+                    type_parameters,
                     diagnostics,
                 );
             }
@@ -120,6 +126,7 @@ fn check_body_schema_type_references(
                     current_module,
                     current_package,
                     body,
+                    type_parameters,
                     diagnostics,
                 );
             }
@@ -132,6 +139,7 @@ fn check_expr_schema_type_references(
     current_module: Option<&str>,
     current_package: Option<&str>,
     expr: &Expr,
+    type_parameters: Option<&crate::types::TypeParameterIdentityContext<'_>>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if let ExprKind::Begin { body, .. } = &expr.kind {
@@ -140,6 +148,7 @@ fn check_expr_schema_type_references(
             current_module,
             current_package,
             body,
+            type_parameters,
             diagnostics,
         );
         return;
@@ -150,6 +159,7 @@ fn check_expr_schema_type_references(
             current_module,
             current_package,
             child,
+            type_parameters,
             diagnostics,
         );
     });

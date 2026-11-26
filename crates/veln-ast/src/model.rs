@@ -453,6 +453,7 @@ pub struct Function {
     pub kind: FunctionKind,
     pub visibility: Visibility,
     pub name: Option<String>,
+    pub type_binders: Vec<TypeBinder>,
     pub effect_binder: Option<EffectBinder>,
     pub params: Vec<Param>,
     pub return_binding: Option<ResultBinding>,
@@ -465,6 +466,12 @@ pub struct Function {
     pub callsite: Option<SourceSpan>,
     pub contracts: Vec<Contract>,
     pub body: FunctionBody,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct TypeBinder {
+    pub name: String,
     pub span: SourceSpan,
 }
 

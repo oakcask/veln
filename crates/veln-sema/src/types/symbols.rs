@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use crate::adt::registry::AdtRegistry;
 use veln_ast::{NameClass, PublicAliasKind, SchemaField, SurfaceModule, UseDecl, Visibility};
@@ -12,8 +12,12 @@ use crate::name_recovery::public_alias_has_invalid_target_leaf;
 pub(super) struct SchemaSymbolTable {
     schemas: Vec<SchemaSymbol>,
     aliases: Vec<SchemaAliasSymbol>,
+    schemas_by_identity: HashMap<SchemaSymbolKey, usize>,
+    aliases_by_identity: HashMap<SchemaSymbolKey, usize>,
     uses: Vec<UseDecl>,
 }
+
+type SchemaSymbolKey = (Option<String>, Option<String>, String);
 
 #[derive(Clone)]
 struct SchemaSymbol {
@@ -68,23 +72,29 @@ impl SchemaSymbolTable {
     }
 
     pub(super) fn extend(&mut self, other: Self) {
-        self.schemas.extend(other.schemas);
-        self.aliases.extend(other.aliases);
+        for schema in other.schemas {
+            self.index_schema(self.schemas.len(), &schema);
+            self.schemas.push(schema);
+        }
+        for alias in other.aliases {
+            self.index_alias(self.aliases.len(), &alias);
+            self.aliases.push(alias);
+        }
         self.uses.extend(other.uses);
     }
 
     pub(super) fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {
-        Self {
-            schemas: selected_symbols(&self.schemas, module_names, |symbol| {
+        Self::from_parts(
+            selected_symbols(&self.schemas, module_names, |symbol| {
                 symbol.module_name.as_deref()
             }),
-            aliases: selected_symbols(&self.aliases, module_names, |symbol| {
+            selected_symbols(&self.aliases, module_names, |symbol| {
                 symbol.module_name.as_deref()
             }),
-            uses: selected_symbols(&self.uses, module_names, |use_decl| {
+            selected_symbols(&self.uses, module_names, |use_decl| {
                 use_decl.module_name.as_deref()
             }),
-        }
+        )
     }
 
     pub(super) fn from_module(module: &SurfaceModule, adts: &AdtRegistry) -> Self {
@@ -117,11 +127,66 @@ impl SchemaSymbolTable {
                 })
             })
             .collect();
-        Self {
+        Self::from_parts(schemas, aliases, module.uses.clone())
+    }
+
+    fn from_parts(
+        schemas: Vec<SchemaSymbol>,
+        aliases: Vec<SchemaAliasSymbol>,
+        uses: Vec<UseDecl>,
+    ) -> Self {
+        let mut table = Self {
             schemas,
             aliases,
-            uses: module.uses.clone(),
+            schemas_by_identity: HashMap::new(),
+            aliases_by_identity: HashMap::new(),
+            uses,
+        };
+        for (index, schema) in table.schemas.iter().enumerate() {
+            super::environment::record_schema_symbol_index_entry(false);
+            table
+                .schemas_by_identity
+                .entry(schema_key(
+                    schema.package_name.as_ref(),
+                    schema.module_name.as_ref(),
+                    &schema.name,
+                ))
+                .or_insert(index);
         }
+        for (index, alias) in table.aliases.iter().enumerate() {
+            super::environment::record_schema_symbol_index_entry(true);
+            table
+                .aliases_by_identity
+                .entry(schema_key(
+                    alias.package_name.as_ref(),
+                    alias.module_name.as_ref(),
+                    &alias.name,
+                ))
+                .or_insert(index);
+        }
+        table
+    }
+
+    fn index_schema(&mut self, index: usize, schema: &SchemaSymbol) {
+        super::environment::record_schema_symbol_index_entry(false);
+        self.schemas_by_identity
+            .entry(schema_key(
+                schema.package_name.as_ref(),
+                schema.module_name.as_ref(),
+                &schema.name,
+            ))
+            .or_insert(index);
+    }
+
+    fn index_alias(&mut self, index: usize, alias: &SchemaAliasSymbol) {
+        super::environment::record_schema_symbol_index_entry(true);
+        self.aliases_by_identity
+            .entry(schema_key(
+                alias.package_name.as_ref(),
+                alias.module_name.as_ref(),
+                &alias.name,
+            ))
+            .or_insert(index);
     }
 
     pub(super) fn private_schema(
@@ -175,11 +240,7 @@ impl SchemaSymbolTable {
         package_name: Option<&str>,
         name: &str,
     ) -> Option<SchemaAliasTarget> {
-        let alias = self.aliases.iter().find(|alias| {
-            alias.name == name
-                && alias.module_name.as_deref() == module_name
-                && alias.package_name.as_deref() == package_name
-        })?;
+        let alias = self.alias_in_module(module_name, package_name, name)?;
         Some(SchemaAliasTarget {
             target: alias.target.clone(),
             module_name: alias.module_name.clone(),
@@ -244,11 +305,7 @@ impl SchemaSymbolTable {
         companion_access_targets: &BTreeMap<String, String>,
         visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
     ) -> Option<ResolvedSchemaSymbol> {
-        if let Some(schema) = self.schemas.iter().find(|schema| {
-            schema.name == name
-                && schema.module_name.as_deref() == module_name
-                && schema.package_name.as_deref() == package_name
-        }) {
+        if let Some(schema) = self.schema_in_index(module_name, package_name, name) {
             return (allow_private_schema || schema.visibility == Visibility::Public).then(|| {
                 ResolvedSchemaSymbol {
                     name: schema.name.clone(),
@@ -261,11 +318,7 @@ impl SchemaSymbolTable {
                 }
             });
         }
-        let alias = self.aliases.iter().find(|alias| {
-            alias.name == name
-                && alias.module_name.as_deref() == module_name
-                && alias.package_name.as_deref() == package_name
-        })?;
+        let alias = self.alias_in_module(module_name, package_name, name)?;
         let key = (
             alias.package_name.clone(),
             alias.module_name.clone(),
@@ -347,22 +400,14 @@ impl SchemaSymbolTable {
         companion_access_targets: &BTreeMap<String, String>,
         visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
     ) -> SchemaPathLookup {
-        if let Some(schema) = self.schemas.iter().find(|schema| {
-            schema.name == name
-                && schema.module_name.as_deref() == module_name
-                && schema.package_name.as_deref() == package_name
-        }) {
+        if let Some(schema) = self.schema_in_index(module_name, package_name, name) {
             return if allow_private_schema || schema.visibility == Visibility::Public {
                 SchemaPathLookup::Visible
             } else {
                 SchemaPathLookup::Private
             };
         }
-        let Some(alias) = self.aliases.iter().find(|alias| {
-            alias.name == name
-                && alias.module_name.as_deref() == module_name
-                && alias.package_name.as_deref() == package_name
-        }) else {
+        let Some(alias) = self.alias_in_module(module_name, package_name, name) else {
             return SchemaPathLookup::Missing;
         };
         let key = (
@@ -386,6 +431,54 @@ impl SchemaSymbolTable {
         visited_aliases.pop();
         result
     }
+
+    fn schema_in_index(
+        &self,
+        module_name: Option<&str>,
+        package_name: Option<&str>,
+        name: &str,
+    ) -> Option<&SchemaSymbol> {
+        super::environment::record_schema_symbol_index_lookup(false);
+        self.schemas_by_identity
+            .get(&schema_key_borrowed(package_name, module_name, name))
+            .map(|index| &self.schemas[*index])
+    }
+
+    fn alias_in_module(
+        &self,
+        module_name: Option<&str>,
+        package_name: Option<&str>,
+        name: &str,
+    ) -> Option<&SchemaAliasSymbol> {
+        super::environment::record_schema_symbol_index_lookup(true);
+        self.aliases_by_identity
+            .get(&schema_key_borrowed(package_name, module_name, name))
+            .map(|index| &self.aliases[*index])
+    }
+}
+
+fn schema_key(
+    package_name: Option<&String>,
+    module_name: Option<&String>,
+    name: &str,
+) -> SchemaSymbolKey {
+    (
+        package_name.cloned(),
+        module_name.cloned(),
+        name.to_string(),
+    )
+}
+
+fn schema_key_borrowed(
+    package_name: Option<&str>,
+    module_name: Option<&str>,
+    name: &str,
+) -> SchemaSymbolKey {
+    (
+        package_name.map(str::to_string),
+        module_name.map(str::to_string),
+        name.to_string(),
+    )
 }
 
 #[derive(Clone)]

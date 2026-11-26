@@ -33,11 +33,10 @@ also states it.
   handler list and block body to `handle`, with outermost-first nesting,
   scoped context evaluation, and existing cleanup and provider behavior.
 - [Generic Functions](generic-functions.md): implement explicit rank-one type
-  parameters, independent call instantiation, and scheme-preserving aliases.
-  Declaration binder parsing, syntax retention, diagnostics, and canonical
-  formatting are implemented. Binder name resolution, checker schemes,
-  artifacts, tooling, and backend acceptance remain implementation work; a
-  separate prototype is not required for Ready.
+  schemes, independent call instantiation, scheme-preserving aliases,
+  artifacts and tooling, and backend acceptance. Current declaration syntax
+  and rigid definition checking are owned by the source-surface, type, and
+  contract specifications; a separate prototype is not required for Ready.
 - [Filesystem IO Feasibility](filesystem-io-feasibility.md): complete the
   remaining F4 provider and host positional IO conformance, uncertain
   host-seek cursor outcomes, host translation, open-mode, metadata,

@@ -45,6 +45,15 @@ boundary.
 
 ## Analysis gates
 
+For an ordinary function with type binders, `check` resolves each binder only
+inside its owning signature, body annotations, and executable contracts, then
+checks the body against that rigid identity. A binder that shadows a visible
+type, or a binder spelling used outside its declaration without another type
+of that name, fails the semantic gate. The [type rules](types.md#usage-and-annotations)
+define scope and rigid checking, while the
+[diagnostic specification](diagnostics-json.md#diagnostic-families) defines the
+human and JSON failures.
+
 A parse-clean module immutable value declaration passes `check` when analysis
 validates its initializer against the written annotation, resolves acyclic same-module
 references including forward references, resolves eligible imported references

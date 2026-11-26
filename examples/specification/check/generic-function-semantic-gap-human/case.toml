@@ -1,0 +1,21 @@
+# This case covers corrected generic binder signature and shadow diagnostics.
+command = ["check", "main.veln", "base.veln", "alpha.veln", "beta.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "error[name.type_parameter_shadow]: function type parameter `Shared` shadows a visible type",
+  "note: alpha.veln:2:1: Visible type `Shared` is declared here.",
+  "error[type.generic_signature_missing]: generic parameter `value` has no type annotation",
+  "error[type.generic_signature_missing]: generic function has no return type annotation",
+  "error[name.unresolved]: unresolved type `ForeignT`",
+  "main.veln:39:22: error[name.type_parameter_shadow]: function type parameter `StreamAdapterAction` shadows a visible type",
+  "note: main.veln:35:1: Visible type `StreamAdapterAction` is declared here.",
+  "error[name.unresolved]: unresolved type `U::Option`",
+  "error[name.unresolved]: unresolved type `missing::Option`",
+]
+not_contains = ["schema `T` cannot be used as an ordinary type"]
+
+[stderr]
+format = "empty"

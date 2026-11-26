@@ -140,7 +140,7 @@ fn run_blocks_reachable_holes_before_jdk_execution() {
     let project = TestProject::new("run-hole");
     project.write(
         "main.veln",
-        "pub fn main() -> Result<(), AppError>\n  _\nend\n",
+        "pub fn main() -> Result<(), AppError>\n  _\nend\npub type AppError\n  pub AppError\nend\n",
     );
 
     let output = project.run(&["main", "main.veln"]);

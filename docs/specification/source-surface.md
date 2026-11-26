@@ -50,10 +50,14 @@ end
 The list is nonempty. A trailing comma is accepted. `veln fmt` writes the
 binders in their declared order with comma-space separators and omits the
 trailing comma. The syntax tree retains each ordinary binder's name and exact
-name span. It also retains the optional effect binder and uses the complete
-binder-list span for that binder. This preserves the source behavior of an
-effect-only list such as `<effect E>` and applies it to a final effect binder in
-a mixed list.
+name span. Lowering preserves those binders in declaration order, and the AST
+wire form encodes each name and span between the optional function name and the
+optional effect binder. A decoder rejects the preceding wire layout rather
+than interpreting a function record without that binder vector. The syntax
+tree and lowered AST also retain the optional effect binder and use the
+complete binder-list span for that binder. This preserves the source behavior
+of an effect-only list such as `<effect E>` and applies it to a final effect
+binder in a mixed list.
 
 Binder names must be unique across both binder kinds. An effect binder must be
 the final entry, and a declaration accepts at most one. Empty lists, ordinary
@@ -62,10 +66,11 @@ other entry forms are syntax errors. Ordinary type binders are not accepted on
 `test` declarations, variadic functions, or `callsite` functions. An
 effect-only binder list does not impose those ordinary-generic restrictions:
 an effect-only function may retain a variadic parameter or the `callsite`
-modifier under the corresponding existing function rules. These rules define
-declaration parsing and formatting only; generic type schemes, body checking,
-call instantiation, lowering, and execution remain outside the implemented
-source-surface contract.
+modifier under the corresponding existing function rules. The
+[type specification](types.md#usage-and-annotations) defines how semantic
+analysis binds the retained ordinary names and checks a declaration rigidly.
+Generic type schemes, call instantiation, and execution remain outside the
+implemented contract.
 
 Malformed-list recovery retains each binder recognized before the failed
 entry. If the failure reaches the parameter-list boundary, parsing resumes at

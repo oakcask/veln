@@ -31,6 +31,18 @@ mod items;
 
 use invalid_names::collect_invalid_names;
 
+struct LoweredFunctionHeader {
+    node_id: NodeId,
+    module_name: Option<String>,
+    package_name: Option<String>,
+    kind: FunctionKind,
+    visibility: Visibility,
+    name: Option<String>,
+    type_binders: Vec<crate::TypeBinder>,
+    effect_binder: Option<crate::EffectBinder>,
+    params: Vec<Param>,
+}
+
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
     let mut builder = AstBuilder { next_node_id: 1 };
     let module = tree
@@ -466,27 +478,17 @@ impl AstBuilder {
         module_name: Option<String>,
         package_name: Option<String>,
     ) -> Function {
+        let header = self.lower_function_header(function, module_name, package_name);
         Function {
-            node_id: self.alloc(),
-            module_name,
-            package_name,
-            kind: match function.kind {
-                veln_syntax::FunctionKind::Function => FunctionKind::Function,
-                veln_syntax::FunctionKind::Test => FunctionKind::Test,
-            },
-            visibility: match function.visibility {
-                SyntaxVisibility::Public => Visibility::Public,
-                SyntaxVisibility::Private => Visibility::Private,
-            },
-            name: function.name.clone(),
-            effect_binder: function
-                .effect_binder
-                .as_ref()
-                .map(|binder| crate::EffectBinder {
-                    name: binder.name.clone(),
-                    span: binder.span.clone(),
-                }),
-            params: self.lower_params(&function.params),
+            node_id: header.node_id,
+            module_name: header.module_name,
+            package_name: header.package_name,
+            kind: header.kind,
+            visibility: header.visibility,
+            name: header.name,
+            type_binders: header.type_binders,
+            effect_binder: header.effect_binder,
+            params: header.params,
             return_binding: function
                 .return_binding
                 .as_ref()
@@ -513,6 +515,44 @@ impl AstBuilder {
                 .map(|line| self.lower_body_line(line))
                 .collect(),
             span: function.span.clone(),
+        }
+    }
+
+    fn lower_function_header(
+        &mut self,
+        function: &SyntaxFunction,
+        module_name: Option<String>,
+        package_name: Option<String>,
+    ) -> LoweredFunctionHeader {
+        LoweredFunctionHeader {
+            node_id: self.alloc(),
+            module_name,
+            package_name,
+            kind: match function.kind {
+                veln_syntax::FunctionKind::Function => FunctionKind::Function,
+                veln_syntax::FunctionKind::Test => FunctionKind::Test,
+            },
+            visibility: match function.visibility {
+                SyntaxVisibility::Public => Visibility::Public,
+                SyntaxVisibility::Private => Visibility::Private,
+            },
+            name: function.name.clone(),
+            type_binders: function
+                .type_binders
+                .iter()
+                .map(|binder| crate::TypeBinder {
+                    name: binder.name.clone(),
+                    span: binder.span.clone(),
+                })
+                .collect(),
+            effect_binder: function
+                .effect_binder
+                .as_ref()
+                .map(|binder| crate::EffectBinder {
+                    name: binder.name.clone(),
+                    span: binder.span.clone(),
+                }),
+            params: self.lower_params(&function.params),
         }
     }
 

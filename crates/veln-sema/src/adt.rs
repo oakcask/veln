@@ -1,5 +1,10 @@
 pub(crate) mod descriptors;
 pub(crate) mod registry;
+#[cfg(test)]
+pub(crate) use registry::{
+    ImportedDescriptorIndexWork, imported_descriptor_index_work,
+    reset_imported_descriptor_index_work,
+};
 pub(crate) mod variance;
 
 mod builtin_codec_descriptors;

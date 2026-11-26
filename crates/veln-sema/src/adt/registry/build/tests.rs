@@ -12,13 +12,13 @@ fn type_free_scopes_share_declarations_and_keep_imports_and_quarantine_isolated(
         "mod library\npub type Packet\n  PacketValue\nend\n",
     ));
     let mut derived = AdtRegistry::from_module_with_base(
-        &module("mod consumer\nuse library as wire\nfn entry() -> Int\n  1\nend\n"),
+        &module("mod consumer\nuse library\nfn entry() -> Int\n  1\nend\n"),
         &base,
     );
     assert!(Arc::ptr_eq(&base.declarations, &derived.declarations));
     let uses = derived.import_scope();
     let descriptor = derived
-        .unique_descriptor_for_type_path("wire::Packet", 0, Some("consumer"), &uses)
+        .unique_descriptor_for_type_path("Packet", 0, Some("consumer"), &uses)
         .expect("restore inherited type lookup through the derived import scope");
     assert_eq!(descriptor.module_name.as_deref(), Some("library"));
     assert!(
@@ -26,6 +26,13 @@ fn type_free_scopes_share_declarations_and_keep_imports_and_quarantine_isolated(
             .iter()
             .all(|use_decl| use_decl.alias != "wire")
     );
+    assert!(derived.imported_type_path_has_consistent_identity(
+        "Packet",
+        0,
+        Some("consumer"),
+        None,
+        &uses,
+    ));
 
     derived.quarantine_public_source_types(&HashSet::from([(
         None,
@@ -33,6 +40,14 @@ fn type_free_scopes_share_declarations_and_keep_imports_and_quarantine_isolated(
         "Packet".to_string(),
     )]));
     assert!(!Arc::ptr_eq(&base.declarations, &derived.declarations));
+    let uses = derived.import_scope();
+    assert!(!derived.imported_type_path_has_consistent_identity(
+        "Packet",
+        0,
+        Some("consumer"),
+        None,
+        &uses,
+    ));
     for (registry, expected) in [(&base, Visibility::Public), (&derived, Visibility::Private)] {
         let descriptor = registry
             .descriptors()

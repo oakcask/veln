@@ -89,25 +89,64 @@ impl TypeEnvironment {
         )
     }
 
+    pub(crate) fn quarantined_import_type_path_has_visible_leaf(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> bool {
+        let Some(current_package) = self.unique_quarantined_import_owner_package(current_module)
+        else {
+            return false;
+        };
+        self.quarantined_import_type_path_has_visible_leaf_in_owner(
+            segments,
+            current_module,
+            current_package,
+        )
+    }
+
     pub(crate) fn quarantined_import_type_path_lacks_visible_leaf_in_owner(
         &self,
         segments: &[String],
         current_module: Option<&str>,
         current_package: Option<&str>,
     ) -> bool {
-        let Some((use_decl, name)) =
-            self.quarantined_import_for_segments(segments, current_module, current_package)
-        else {
-            return false;
-        };
+        self.quarantined_import_type_path_visibility_in_owner(
+            segments,
+            current_module,
+            current_package,
+        ) == Some(false)
+    }
+
+    pub(crate) fn quarantined_import_type_path_has_visible_leaf_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        self.quarantined_import_type_path_visibility_in_owner(
+            segments,
+            current_module,
+            current_package,
+        ) == Some(true)
+    }
+
+    fn quarantined_import_type_path_visibility_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<bool> {
+        let (use_decl, name) =
+            self.quarantined_import_for_segments(segments, current_module, current_package)?;
         let module_name = Some(use_decl.name.as_str());
         let target_package = use_decl.resolved_target().package;
-        !self.type_symbols.iter().any(|symbol| {
+        Some(self.type_symbols.iter().any(|symbol| {
             symbol.name == name
                 && symbol.module_name.as_deref() == module_name
                 && symbol.package_name == target_package
                 && symbol.visibility() == Visibility::Public
-        })
+        }))
     }
 
     pub(crate) fn quarantined_import_type_path_uses_nested_alias(

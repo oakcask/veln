@@ -38,6 +38,7 @@ Implemented checker namespaces are:
 - handler declarations
 - effect operation declarations
 - source type declarations and public type aliases
+- ordinary function type parameters within their owning declaration
 - source ADT constructor declarations
 - value declarations, including functions, parameters, and local `let` bindings
 - record fields inside one record literal
@@ -54,6 +55,65 @@ both a visible ordinary type and a visible schema use the same spelling because
 that position admits both namespaces. Namespace selection is therefore fixed
 by the syntactic role, while same-namespace duplicates remain errors and
 unrelated namespaces may share a spelling.
+
+An ordinary function type parameter enters the type namespace only for its
+owning declaration. Its unqualified name resolves in that function's parameter
+and result annotations, local annotations, and executable contracts. The same
+spelling in another function selects a distinct parameter, and a use outside
+the owning declaration remains unresolved unless a visible type declaration
+provides that name. An inaccessible declaration in the same analysis cannot
+lend its binder to another declaration or suppress that unresolved result. A
+binder is not a module or named-type qualifier: `T::Leaf` remains one
+unresolved type path even inside the declaration that owns `T`. A binder also
+has arity zero, so `T<Int>` is an invalid type application rather than a
+resolution of the unqualified binder.
+
+A binder that would shadow a compiler-owned type descriptor, source type, or
+imported type alias is rejected at the binder; a source declaration is
+reported as related context. Compiler-owned descriptors include opaque
+resource types and non-opaque standard ADTs from the complete compiler
+descriptor registry. Multiple unqualified imported aliases with the binder's
+spelling count as one visible type when every alias chain terminates at the
+same canonical type identity. Aliases that terminate at different identities
+remain ambiguous and do not supply an arbitrary shadow target. For this rule,
+an import must belong to the binder declaration's owning package and module.
+An import attached to a same-spelled module in another package does not expose
+its bare types to that declaration. When a spelling names both a compiler-owned
+descriptor and a visible source type, the diagnostic classifies the shadowed
+type as `builtin_type` and still reports the source declaration as related
+context. The
+[type rules](types.md#usage-and-annotations)
+define the rigid identity and checking behavior, and the
+[diagnostic contract](diagnostics-json.md#diagnostic-families) defines the
+observable failure records.
+
+Owner-scoped annotation lookup has deterministic scaling checks. One workload
+defines `N` public schemas, `N` aliases, and `N` unresolved local annotations
+for `N = 32`, `64`, and `128`. Its work metric counts schema and alias index
+entries and lookups. For adjacent sizes, the larger total must not exceed twice
+the smaller total plus 32 operations. A second workload gives one provider `N`
+public types and gives `N` owner modules a bare import of that provider for
+`N = 16`, `32`, and `64`. Separate counters cover index-construction work and
+retained entries. For either counter, the larger adjacent size must not exceed
+twice the smaller value plus 16 operations. These checks use operation counts
+instead of elapsed time, so runner timing noise does not affect the bounds.
+Two lookup workloads jointly increase providers and annotation occurrences for
+the same terminal spelling at `N = 16`, `32`, and `64`. One keeps a single
+owner-visible provider among `N` distinct providers; the other imports `N`
+aliases that converge on one terminal type. The lookup metric counts every
+candidate inspected during owner/provider intersection, including rejected
+candidates, plus the indexed probes. For either workload, the larger adjacent
+size must not exceed twice the smaller value plus eight operations.
+
+Rigid-parameter provenance lookup has a separate deterministic scaling check.
+The workload defines `N` pairs of generic functions for `N = 16` and `32`.
+Each pair produces one mismatch between two same-spelled parameters owned by
+different declarations. The metric counts binder entries processed while
+building the provenance index and identity probes used to produce the related
+diagnostic context. Doubling `N` must not make the entry count exceed twice
+the smaller count, and each mismatch performs exactly two identity probes.
+The check counts operations instead of elapsed time, so runner timing noise
+does not affect the bound.
 
 ### Explicit import aliases
 
@@ -146,8 +206,16 @@ import qualifier does not become part of the published identity.
 For a qualified type annotation, an exact written import path is selected
 before a same-spelled current-module path. The selected type therefore retains
 the imported package identity even when the import target and the importing
-module have the same module spelling. An unqualified type name continues to
-select the current module's declaration.
+module have the same module spelling. After import selection, the final segment
+must identify a type or type alias with the written arity that is visible from
+the owning declaration. An exact test companion may use an explicitly imported
+private type from its target module; other imported private types remain
+inaccessible. A missing or inaccessible final segment reports
+`name.unresolved`; lookup does not accept the module qualifier by itself or
+fall through to a namesake in another module. An unqualified type name
+continues to select the current module's declaration. These rules also apply
+to parameter, result, and local annotations inside an ordinary function
+declaration.
 
 Every import retains both its written target package and the package that owns
 the importing source. An explicit `from` package determines target origin;
@@ -445,7 +513,9 @@ module names its module. An explicitly aliased import supplies no bare type
 candidate. Imports declared in other modules neither supply a candidate nor
 make the current lookup ambiguous. This module-local import boundary applies
 both when lookup checks an exact generic arity and when recovery accepts any
-arity.
+arity. If several eligible bare imports expose the same leaf, lookup succeeds
+only when every candidate's alias chain terminates at the same canonical type
+identity. Candidates with different terminal identities remain ambiguous.
 
 Each public type-alias declaration resolves its own target, including when
 another declaration in the same module has the same alias name. The later
@@ -1031,6 +1101,29 @@ not become fallback targets.
   `crates/veln-sema/src/name_recovery.rs`.
 - Unqualified ADT import lookup:
   `crates/veln-sema/src/adt/tests/variant_lookup.rs`.
+- Owner-scoped annotation lookup scaling:
+  `annotation_schema_symbol_lookup_work_is_linear_in_symbols_and_occurrences`
+  in
+  `crates/veln-sema/src/tests/generic_function_semantic_binders.rs` and
+  `imported_descriptor_index_construction_and_retention_are_linear_across_both_axes`,
+  `unique_imported_descriptor_lookup_work_is_linear_across_providers_and_annotations`,
+  and
+  `consistent_imported_descriptor_lookup_work_is_linear_across_providers_and_annotations`
+  in
+  `crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs`.
+- Rigid-parameter provenance lookup scaling:
+  `distinct_rigid_provenance_work_is_bounded_by_binders_and_identity_probes`
+  in
+  `crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs`.
+- Same-terminal bare-import annotation selection:
+  `annotation_consistent_imported_alias_selection_preserves_behavior` in
+  `crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs` and
+  `examples/specification/check/generic-function-semantic-gap-human/`.
+- Owner-scoped function annotation visibility across package-distinct
+  same-spelled modules:
+  `qualified_private_named_type_requires_matching_package_and_module_owner`
+  in
+  `crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs`.
 - Explicit-import-alias behavior evidence:
 
   | Behavior | Evidence |

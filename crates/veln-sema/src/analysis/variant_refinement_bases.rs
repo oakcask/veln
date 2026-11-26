@@ -290,25 +290,26 @@ fn collect_function_annotations(
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     for function in &module.functions {
+        let type_parameters = TypeParameterIdentityContext::for_function(function);
         crate::pipeline::record_variant_refinement_annotation_work(1);
         for param in &function.params {
             crate::pipeline::record_variant_refinement_annotation_work(1);
-            collect_annotation(
+            collect_annotation_with_context(
                 &param.ty_refinements,
                 &param.ty_paths,
                 function.module_name.as_deref(),
                 environment,
-                &[],
+                &type_parameters,
                 ParseDiagnosticLocation::type_annotation("function_parameters"),
                 diagnostics,
             );
         }
-        collect_annotation(
+        collect_annotation_with_context(
             &function.return_type_refinements,
             &function.return_type_paths,
             function.module_name.as_deref(),
             environment,
-            &[],
+            &type_parameters,
             ParseDiagnosticLocation::type_annotation(match function.kind {
                 FunctionKind::Function => "function_return",
                 FunctionKind::Test => "test_return",
@@ -321,6 +322,7 @@ fn collect_function_annotations(
                 line,
                 function.module_name.as_deref(),
                 environment,
+                &type_parameters,
                 diagnostics,
             );
         }
@@ -372,6 +374,7 @@ fn collect_handler_annotations(
                 handler.module_name.as_deref(),
                 environment,
                 "handler_operation_clause",
+                &[],
                 diagnostics,
             );
         }
@@ -419,19 +422,18 @@ pub(crate) fn annotation_has_invalid_refinement(
         })
 }
 
-pub(crate) fn annotation_has_unavailable_refinement_identity(
+pub(crate) fn annotation_has_unavailable_refinement_identity_with_context(
     refinements: &[veln_ast::VariantRefinementType],
     paths: &[TypePathSegments],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
-    type_parameters: &[String],
+    type_parameter_context: &TypeParameterIdentityContext<'_>,
 ) -> bool {
-    let type_parameter_context = TypeParameterIdentityContext::new(type_parameters);
     annotation_has_type_parameter_base_arity_failure(
         refinements,
         current_module,
         environment,
-        &type_parameter_context,
+        type_parameter_context,
     ) || annotation_has_ambiguous_module_qualifier(refinements, current_module, environment)
         || annotation_has_unavailable_declared_base(refinements, current_module, environment)
         || annotation_has_base_failure(
@@ -439,21 +441,21 @@ pub(crate) fn annotation_has_unavailable_refinement_identity(
             paths,
             current_module,
             environment,
-            &type_parameter_context,
+            type_parameter_context,
         )
         || (annotation_needs_recovery(
             refinements,
             paths,
             current_module,
             environment,
-            &type_parameter_context,
+            type_parameter_context,
         ) && {
-            let recovery = analyze_annotation(
+            let recovery = analyze_annotation_with_context(
                 refinements,
                 paths,
                 current_module,
                 environment,
-                type_parameters,
+                type_parameter_context,
             );
             (annotation_has_lowercase_final(refinements, current_module, environment)
                 && !recovery.errors.is_empty())
@@ -740,6 +742,23 @@ fn analyze_annotation(
     environment: &TypeEnvironment,
     type_parameters: &[String],
 ) -> AnnotationRecovery {
+    let declaration_type_parameters = TypeParameterIdentityContext::new(type_parameters);
+    analyze_annotation_with_context(
+        refinements,
+        paths,
+        current_module,
+        environment,
+        &declaration_type_parameters,
+    )
+}
+
+fn analyze_annotation_with_context(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    declaration_type_parameters: &TypeParameterIdentityContext<'_>,
+) -> AnnotationRecovery {
     #[cfg(test)]
     {
         let (recovery, cloned_nodes) = crate::semantic_model::measure_type_clone_nodes(|| {
@@ -748,7 +767,7 @@ fn analyze_annotation(
                 paths,
                 current_module,
                 environment,
-                type_parameters,
+                declaration_type_parameters,
             )
         });
         crate::pipeline::record_variant_refinement_recovery_type_clones(cloned_nodes);
@@ -760,7 +779,7 @@ fn analyze_annotation(
         paths,
         current_module,
         environment,
-        type_parameters,
+        declaration_type_parameters,
     )
 }
 
@@ -769,12 +788,11 @@ fn analyze_annotation_unmeasured(
     paths: &[TypePathSegments],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
-    type_parameters: &[String],
+    declaration_type_parameters: &TypeParameterIdentityContext<'_>,
 ) -> AnnotationRecovery {
     let mut recovery = AnnotationRecovery::default();
     let mut visited_paths = HashMap::new();
     let mut materialized_refinements = HashMap::new();
-    let declaration_type_parameters = TypeParameterIdentityContext::new(type_parameters);
     collect_independent_refinement_errors(
         refinements,
         paths,
@@ -786,7 +804,7 @@ fn analyze_annotation_unmeasured(
         &mut recovery.unknown_variant_occurrences,
         &mut recovery.unavailable_variant_occurrences,
         &mut recovery.unresolved_base_occurrences,
-        &declaration_type_parameters,
+        declaration_type_parameters,
         &mut materialized_refinements,
     );
     collect_independent_structural_arity_errors(
@@ -795,7 +813,7 @@ fn analyze_annotation_unmeasured(
         environment,
         &mut recovery.errors,
         &mut visited_paths,
-        &declaration_type_parameters,
+        declaration_type_parameters,
     );
     recovery
 }
@@ -2132,30 +2150,29 @@ fn variant_union_base_diagnostic(
     }
 }
 
-fn collect_annotation(
+fn collect_annotation_with_context(
     refinements: &[veln_ast::VariantRefinementType],
     paths: &[TypePathSegments],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
-    type_parameters: &[String],
+    type_parameter_context: &TypeParameterIdentityContext<'_>,
     parse_location: ParseDiagnosticLocation,
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
-    let type_parameter_context = TypeParameterIdentityContext::new(type_parameters);
     let recovery = if annotation_needs_recovery(
         refinements,
         paths,
         current_module,
         environment,
-        &type_parameter_context,
+        type_parameter_context,
     ) {
-        analyze_annotation(
+        analyze_annotation_with_context(
             refinements,
             paths,
             current_module,
             environment,
-            type_parameters,
+            type_parameter_context,
         )
     } else {
         AnnotationRecovery::default()
@@ -2246,14 +2263,39 @@ fn collect_declaration_annotation(
     parse_location: ParseDiagnosticLocation,
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
-    crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
     let type_parameter_context = TypeParameterIdentityContext::new(type_parameters);
-    let has_base_failure = annotation_has_base_failure(
+    collect_declaration_annotation_with_context(
         refinements,
         paths,
         current_module,
         environment,
         &type_parameter_context,
+        node_id,
+        origin_node_ids,
+        parse_location,
+        diagnostics,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_declaration_annotation_with_context(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    type_parameter_context: &TypeParameterIdentityContext<'_>,
+    node_id: String,
+    origin_node_ids: impl IntoIterator<Item = String> + Clone,
+    parse_location: ParseDiagnosticLocation,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
+) {
+    crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
+    let has_base_failure = annotation_has_base_failure(
+        refinements,
+        paths,
+        current_module,
+        environment,
+        type_parameter_context,
     );
     let recovery = if has_base_failure
         || annotation_needs_recovery(
@@ -2261,14 +2303,14 @@ fn collect_declaration_annotation(
             paths,
             current_module,
             environment,
-            &type_parameter_context,
+            type_parameter_context,
         ) {
-        analyze_annotation(
+        analyze_annotation_with_context(
             refinements,
             paths,
             current_module,
             environment,
-            type_parameters,
+            type_parameter_context,
         )
     } else {
         AnnotationRecovery::default()
@@ -2613,6 +2655,7 @@ fn collect_body_line(
     line: &BodyLine,
     current_module: Option<&str>,
     environment: &TypeEnvironment,
+    type_parameters: &TypeParameterIdentityContext<'_>,
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     match &line.kind {
@@ -2621,35 +2664,43 @@ fn collect_body_line(
             expr,
             ..
         } => {
-            collect_annotation(
+            collect_annotation_with_context(
                 &annotation_structure.variant_refinements,
                 &annotation_structure.paths,
                 current_module,
                 environment,
-                &[],
+                type_parameters,
                 ParseDiagnosticLocation::type_annotation("let_statement"),
                 diagnostics,
             );
-            collect_expr(
+            collect_expr_with_context(
                 expr,
                 current_module,
                 environment,
                 "let_statement",
+                type_parameters,
                 diagnostics,
             );
         }
         BodyLineKind::Expr { expr } => {
-            collect_expr(
+            collect_expr_with_context(
                 expr,
                 current_module,
                 environment,
                 "expression_line",
+                type_parameters,
                 diagnostics,
             );
         }
         BodyLineKind::Defer { body, .. } => {
             for line in body {
-                collect_body_line(line, current_module, environment, diagnostics);
+                collect_body_line(
+                    line,
+                    current_module,
+                    environment,
+                    type_parameters,
+                    diagnostics,
+                );
             }
         }
     }
@@ -2660,6 +2711,26 @@ fn collect_expr(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     parser_context: &'static str,
+    type_parameters: &[String],
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
+) {
+    let type_parameter_context = TypeParameterIdentityContext::new(type_parameters);
+    collect_expr_with_context(
+        expr,
+        current_module,
+        environment,
+        parser_context,
+        &type_parameter_context,
+        diagnostics,
+    );
+}
+
+fn collect_expr_with_context(
+    expr: &Expr,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    parser_context: &'static str,
+    type_parameters: &TypeParameterIdentityContext<'_>,
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     if let ExprKind::TypeApply {
@@ -2669,12 +2740,12 @@ fn collect_expr(
     } = &expr.kind
     {
         for (refinements, paths) in type_arg_refinements.iter().zip(type_arg_paths) {
-            collect_declaration_annotation(
+            collect_declaration_annotation_with_context(
                 refinements,
                 paths,
                 current_module,
                 environment,
-                &[],
+                type_parameters,
                 expr.node_id.display("expr"),
                 [expr.node_id.display("expr")],
                 ParseDiagnosticLocation::type_argument(parser_context),
@@ -2684,15 +2755,22 @@ fn collect_expr(
     }
     if let ExprKind::Begin { body, .. } = &expr.kind {
         for line in body {
-            collect_body_line(line, current_module, environment, diagnostics);
+            collect_body_line(
+                line,
+                current_module,
+                environment,
+                type_parameters,
+                diagnostics,
+            );
         }
     } else {
         expr.for_each_child(&mut |child| {
-            collect_expr(
+            collect_expr_with_context(
                 child,
                 current_module,
                 environment,
                 parser_context,
+                type_parameters,
                 diagnostics,
             )
         });

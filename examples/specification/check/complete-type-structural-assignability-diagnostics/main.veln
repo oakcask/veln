@@ -1,11 +1,29 @@
-use source_vec
-
 type State
 	Ready
 	Closed
 end
 
 pub type Table = Dict
+
+pub type SourceVec<A>
+	pub Wrapped(A)
+end
+
+pub type SourceOption<A>
+	pub SourceOption(A)
+end
+
+pub type SourceResult<A, E>
+	pub SourceResult(A, E)
+end
+
+pub type SourceList<A>
+	pub SourceList(A)
+end
+
+pub type SourceDict<K, V>
+	pub SourceDict(K, V)
+end
 
 fn ready_to_state(value: State::Ready) -> State
 	value
@@ -51,7 +69,7 @@ fn reject_nested_argument(value: Option<State>::None) -> Option<State::Ready>::S
 	value
 end
 
-fn main(value: State, record: {state: State}, state_values: Vec<State>, optional: Option<State>, success: Result<State, String>, failure: Result<Int, State>, list: List<State>, key_table: Dict<State, Int>, value_table: Dict<String, State>, alias_key_table: Table<State, Int>, alias_value_table: Table<String, State>, alias_unrelated: Table<String, Int>, unrelated: Option<Int>, unrelated_result_value: Result<String, String>, unrelated_result_error: Result<Int, String>, unrelated_list: List<String>, source_values: source_vec::Vec<State>, source_optional: source_vec::Option<State>, source_result: source_vec::Result<State, String>, source_list: source_vec::List<State>, source_dict: source_vec::Dict<String, State>, source_table: source_vec::Table<String, State::Ready>) -> ()
+fn main(value: State, record: {state: State}, state_values: Vec<State>, optional: Option<State>, success: Result<State, String>, failure: Result<Int, State>, list: List<State>, key_table: Dict<State, Int>, value_table: Dict<String, State>, alias_key_table: Table<State, Int>, alias_value_table: Table<String, State>, alias_unrelated: Table<String, Int>, unrelated: Option<Int>, unrelated_result_value: Result<String, String>, unrelated_result_error: Result<Int, String>, unrelated_list: List<String>, source_values: SourceVec<State>, source_optional: SourceOption<State>, source_result: SourceResult<State, String>, source_list: SourceList<State>, source_dict: SourceDict<String, State>) -> ()
 	let narrowed: State::Ready = value
 	let narrowed_record: {state: State::Ready, label: String} = record
 	let reversed: fn(State) -> State::Ready = ready_to_state
@@ -84,5 +102,4 @@ fn main(value: State, record: {state: State}, state_values: Vec<State>, optional
 	let distinct_result: Result<State, String> = source_result
 	let distinct_list: List<State> = source_list
 	let distinct_dict: Dict<String, State> = source_dict
-	let invariant_source_alias: source_vec::Table<String, State> = source_table
 end

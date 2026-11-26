@@ -1,6 +1,7 @@
 use super::*;
 
 mod expressions;
+mod functions;
 
 pub fn decode_surface_module(bytes: &[u8]) -> Result<SurfaceModule, String> {
     let mut reader = Reader {
@@ -552,30 +553,6 @@ impl<'a> Reader<'a> {
             }
             value => Err(format!("invalid codec implementation tag {value}")),
         }
-    }
-
-    fn function(&mut self) -> Result<Function, String> {
-        Ok(Function {
-            node_id: self.node_id()?,
-            module_name: self.option(Self::string)?,
-            package_name: self.option(Self::string)?,
-            kind: self.function_kind()?,
-            visibility: self.visibility()?,
-            name: self.option(Self::string)?,
-            effect_binder: self.option(Self::effect_binder)?,
-            params: self.vec(Self::param)?,
-            return_binding: self.option(Self::result_binding)?,
-            return_type: self.option(Self::string)?,
-            return_type_span: self.option(Self::span)?,
-            return_type_paths: self.vec(Self::type_path_segments)?,
-            return_type_refinements: self.vec(Self::variant_refinement)?,
-            effects: self.option(|reader| reader.vec(Self::string))?,
-            effect_spans: self.option(|reader| reader.vec(Self::span))?,
-            callsite: self.option(Self::span)?,
-            contracts: self.vec(Self::contract)?,
-            body: self.vec(Self::body_line)?.into(),
-            span: self.span()?,
-        })
     }
 
     fn function_kind(&mut self) -> Result<FunctionKind, String> {

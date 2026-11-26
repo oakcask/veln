@@ -361,6 +361,7 @@ impl Writer {
         self.function_kind(value.kind);
         self.visibility(value.visibility);
         self.option(&value.name, |writer, value| writer.string(value));
+        self.vec(&value.type_binders, Self::type_binder);
         self.option(&value.effect_binder, Self::effect_binder);
         self.vec(&value.params, Self::param);
         self.option(&value.return_binding, Self::result_binding);
@@ -377,6 +378,11 @@ impl Writer {
         self.option(&value.callsite, Self::span);
         self.vec(&value.contracts, Self::contract);
         self.vec(&value.body, Self::body_line);
+        self.span(&value.span);
+    }
+
+    fn type_binder(&mut self, value: &TypeBinder) {
+        self.string(&value.name);
         self.span(&value.span);
     }
 

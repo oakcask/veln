@@ -10,7 +10,8 @@ use crate::types::private_inference::function_signature_params;
 use crate::types::signatures::{CompanionAccessTarget, EffectSignature, FunctionSignature};
 use veln_ast::{Function, UseDecl};
 
-use super::{canonical_declared_effects, canonicalize_type_effects_in_owner};
+use super::{canonical_declared_effects, canonicalize_type_effects_with_context};
+use crate::types::TypeParameterIdentityContext;
 
 #[derive(Clone, Copy)]
 pub(in crate::types) enum FunctionSignaturePurpose {
@@ -72,16 +73,21 @@ impl OrdinarySignatureContext<'_> {
     }
 
     fn typechecking_shape(&self, function: &Function) -> OrdinarySignatureShape {
+        let type_parameters = TypeParameterIdentityContext::function_parameters(function);
+        let type_parameter_context = TypeParameterIdentityContext::for_function(function);
         let (params, variadic) = function_signature_params(function);
         OrdinarySignatureShape {
+            type_parameters,
             params: params
                 .into_iter()
-                .map(|ty| self.canonicalize_for_function(ty, function))
+                .map(|ty| self.canonicalize_for_function(ty, function, &type_parameter_context))
                 .collect(),
-            variadic: variadic.map(|ty| self.canonicalize_for_function(ty, function)),
+            variadic: variadic
+                .map(|ty| self.canonicalize_for_function(ty, function, &type_parameter_context)),
             return_type: self.canonicalize_for_function(
                 parse_type_or_unknown(function.return_type.as_deref()),
                 function,
+                &type_parameter_context,
             ),
             effects: canonical_declared_effects(
                 function.effects.clone().unwrap_or_default(),
@@ -95,8 +101,13 @@ impl OrdinarySignatureContext<'_> {
         }
     }
 
-    fn canonicalize_for_function(&self, ty: Type, function: &Function) -> Type {
-        canonicalize_type_effects_in_owner(
+    fn canonicalize_for_function(
+        &self,
+        ty: Type,
+        function: &Function,
+        type_parameters: &TypeParameterIdentityContext<'_>,
+    ) -> Type {
+        canonicalize_type_effects_with_context(
             ty,
             self.uses,
             self.quarantined_uses,
@@ -105,11 +116,13 @@ impl OrdinarySignatureContext<'_> {
             self.effects,
             self.adts,
             self.companion_effect_access_targets,
+            Some(type_parameters),
         )
     }
 }
 
 struct OrdinarySignatureShape {
+    type_parameters: Vec<crate::types::signatures::FunctionTypeParameter>,
     params: Vec<Type>,
     variadic: Option<Type>,
     return_type: Type,
@@ -119,6 +132,7 @@ struct OrdinarySignatureShape {
 fn path_classification_shape(function: &Function) -> OrdinarySignatureShape {
     // Path roles need callable identity and arity, not annotation types.
     OrdinarySignatureShape {
+        type_parameters: Vec::new(),
         params: function
             .params
             .iter()
@@ -156,6 +170,7 @@ fn ordinary_function_signature(
         module_name: function.module_name.clone(),
         package_name: function.package_name.clone(),
         visibility: function.visibility,
+        type_parameters: shape.type_parameters,
         params: shape.params.into(),
         variadic: shape.variadic,
         return_type: shape.return_type,

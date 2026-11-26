@@ -441,13 +441,7 @@ impl<'a> FunctionChecker<'a> {
                     .as_deref()
                     .filter(|_| !self.declaration_types_are_quarantined)
                     .and_then(|return_type| parse_type_annotation(return_type).ok())
-                    .map(|ty| {
-                        self.environment.canonicalize_type_annotation_in_owner(
-                            ty,
-                            self.function.module_name.as_deref(),
-                            self.function.package_name.as_deref(),
-                        )
-                    })
+                    .map(|ty| self.canonicalize_annotation(ty))
                     .unwrap_or(Type::Unknown),
             ));
         }
@@ -476,12 +470,12 @@ impl<'a> FunctionChecker<'a> {
     ) -> Option<ExpectedType> {
         let (refinements, paths) = structure;
         let invalid_refinement = !self.annotation_owner_prevalidated
-            && super::super::annotation_has_unavailable_refinement_identity(
+            && super::super::annotation_has_unavailable_refinement_identity_with_context(
                 refinements,
                 paths,
                 self.function.module_name.as_deref(),
                 self.environment,
-                &[],
+                &self.type_parameter_context,
             );
         if invalid_refinement {
             for (failed_annotation, error, failure_span) in
@@ -534,11 +528,7 @@ impl<'a> FunctionChecker<'a> {
                     return None;
                 }
                 Some(ExpectedType {
-                    ty: self.environment.canonicalize_type_annotation_in_owner(
-                        ty,
-                        self.function.module_name.as_deref(),
-                        self.function.package_name.as_deref(),
-                    ),
+                    ty: self.canonicalize_annotation(ty),
                     source,
                     origin_node_id,
                     origin_span: Some(origin_span.clone()),
@@ -566,13 +556,7 @@ impl<'a> FunctionChecker<'a> {
             .return_type
             .as_deref()
             .and_then(|return_type| parse_type_annotation(return_type).ok())
-            .map(|ty| {
-                self.environment.canonicalize_type_annotation_in_owner(
-                    ty,
-                    self.function.module_name.as_deref(),
-                    self.function.package_name.as_deref(),
-                )
-            })
+            .map(|ty| self.canonicalize_annotation(ty))
             .map(|ty| ExpectedType {
                 ty,
                 source: ExpectedTypeSource::DeclaredReturn,

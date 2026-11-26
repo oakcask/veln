@@ -1,6 +1,16 @@
 use super::*;
 use crate::analysis::check_function_body_with_facts;
 use crate::semantic_model::Type;
+use crate::types::TypeParameterIdentityContext;
+use veln_diagnostics::{DiagnosticKind, JsonValue};
+
+mod adt_payload_type_names;
+mod type_parameter_checks;
+
+use adt_payload_type_names::check_unresolved_adt_payload_type_names;
+use type_parameter_checks::{
+    check_function_type_parameter_shadowing, check_function_type_parameter_signature,
+};
 
 pub(super) struct SurfaceAnalysis {
     pub(super) diagnostics: Vec<Diagnostic>,
@@ -75,6 +85,7 @@ fn append_boundary_diagnostics(
     diagnostics.extend(check_module_boundary(module));
     diagnostics.extend(check_reserved_prelude_aliases(module));
     diagnostics.extend(check_public_aliases(module, environment));
+    diagnostics.extend(check_unresolved_adt_payload_type_names(module, environment));
     for declaration in &module.types {
         diagnostics.extend(check_public_adt_variant_refinement_visibility(
             declaration,
@@ -95,6 +106,12 @@ pub(super) fn check_function_declaration_and_body(
 ) -> (Vec<Diagnostic>, HashMap<veln_ast::NodeId, Type>) {
     let mut diagnostics = Vec::new();
 
+    diagnostics.extend(check_function_type_parameter_shadowing(
+        function,
+        environment,
+    ));
+    diagnostics.extend(check_function_type_parameter_signature(function));
+    diagnostics.extend(check_unresolved_function_type_names(function, environment));
     diagnostics.extend(check_declared_effect_labels(function, environment));
     let mut visibility_diagnostics = Vec::new();
     if function.visibility == Visibility::Public {
@@ -112,4 +129,422 @@ pub(super) fn check_function_declaration_and_body(
     diagnostics.extend(body.diagnostics);
     diagnostics.extend(visibility_diagnostics);
     (diagnostics, body.state_call_types)
+}
+
+fn check_unresolved_function_type_names(
+    function: &veln_ast::Function,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
+    let type_parameters = function
+        .type_binders
+        .iter()
+        .map(|binder| binder.name.as_str())
+        .collect::<std::collections::HashSet<_>>();
+    let mut paths = Vec::new();
+    collect_non_refinement_annotation_paths(
+        &function.return_type_paths,
+        &function.return_type_refinements,
+        &type_parameters,
+        &mut paths,
+    );
+    for param in &function.params {
+        collect_non_refinement_annotation_paths(
+            &param.ty_paths,
+            &param.ty_refinements,
+            &type_parameters,
+            &mut paths,
+        );
+    }
+    collect_body_annotation_paths(&function.body, &type_parameters, &mut paths);
+    let type_parameter_context = TypeParameterIdentityContext::for_function(function);
+
+    paths
+        .into_iter()
+        .filter_map(|path| {
+            unresolved_function_type_diagnostic(
+                path,
+                &type_parameters,
+                &type_parameter_context,
+                function,
+                environment,
+            )
+        })
+        .collect()
+}
+
+#[cfg(test)]
+thread_local! {
+    static ANNOTATION_PATH_CLASSIFICATION_WORK: std::cell::Cell<(usize, usize)> =
+        const { std::cell::Cell::new((0, 0)) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_annotation_path_classification_work() {
+    ANNOTATION_PATH_CLASSIFICATION_WORK.set((0, 0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_annotation_path_classification_work() -> (usize, usize) {
+    ANNOTATION_PATH_CLASSIFICATION_WORK.replace((0, 0))
+}
+
+fn collect_non_refinement_annotation_paths<'a>(
+    paths: &'a [veln_ast::TypePathSegments],
+    refinements: &'a [veln_ast::VariantRefinementType],
+    type_parameters: &HashSet<&str>,
+    output: &mut Vec<&'a veln_ast::TypePathSegments>,
+) {
+    #[cfg(test)]
+    ANNOTATION_PATH_CLASSIFICATION_WORK.update(|(path_work, refinement_work)| {
+        (path_work + paths.len(), refinement_work + refinements.len())
+    });
+
+    // The flattened annotation paths omit some applied paths inside refinement
+    // arguments. Keep the established span classifier for refinement bases,
+    // restore argument paths from the refinement tree, then merge the two
+    // source-ordered streams. Refinement nesting has a parser-owned bound, so
+    // each path is visited only a bounded number of times.
+    debug_assert!(paths.windows(2).all(|pair| {
+        pair[0].application_span.file != pair[1].application_span.file
+            || pair[0].application_span.start.offset <= pair[1].application_span.start.offset
+    }));
+    debug_assert!(refinements.windows(2).all(|pair| {
+        pair[0].span.file != pair[1].span.file
+            || pair[0].span.start.offset <= pair[1].span.start.offset
+    }));
+    let mut direct = Vec::new();
+    let mut refinement_index = 0;
+    let mut furthest_refinement_end = 0;
+    for path in paths {
+        while refinements.get(refinement_index).is_some_and(|refinement| {
+            refinement.span.file == path.application_span.file
+                && refinement.span.start.offset <= path.application_span.start.offset
+        }) {
+            furthest_refinement_end =
+                furthest_refinement_end.max(refinements[refinement_index].span.end.offset);
+            refinement_index += 1;
+        }
+        let qualified_function_type_parameter =
+            path.segments.len() > 1 && type_parameters.contains(path.segments[0].as_str());
+        if path.application_span.end.offset > furthest_refinement_end
+            || qualified_function_type_parameter
+        {
+            direct.push(path);
+        }
+    }
+    let mut nested = Vec::new();
+    collect_variant_refinement_argument_paths(refinements, type_parameters, &mut nested);
+    merge_annotation_paths(&direct, &nested, output);
+}
+
+fn collect_variant_refinement_argument_paths<'a>(
+    refinements: &'a [veln_ast::VariantRefinementType],
+    type_parameters: &HashSet<&str>,
+    output: &mut Vec<&'a veln_ast::TypePathSegments>,
+) {
+    for refinement in refinements {
+        for alternative in &refinement.alternatives {
+            for argument in &alternative.type_arguments {
+                collect_non_refinement_annotation_paths(
+                    &argument.ty_paths,
+                    &argument.ty_refinements,
+                    type_parameters,
+                    output,
+                );
+            }
+        }
+    }
+}
+
+fn merge_annotation_paths<'a>(
+    direct: &[&'a veln_ast::TypePathSegments],
+    nested: &[&'a veln_ast::TypePathSegments],
+    output: &mut Vec<&'a veln_ast::TypePathSegments>,
+) {
+    let mut direct_index = 0;
+    let mut nested_index = 0;
+    while direct_index < direct.len() || nested_index < nested.len() {
+        let direct_path = direct.get(direct_index).copied();
+        let nested_path = nested.get(nested_index).copied();
+        let selected = match (direct_path, nested_path) {
+            (Some(direct_path), Some(nested_path)) => {
+                let direct_key = annotation_path_span_key(direct_path);
+                let nested_key = annotation_path_span_key(nested_path);
+                if direct_key <= nested_key {
+                    direct_index += 1;
+                    if direct_key == nested_key {
+                        nested_index += 1;
+                    }
+                    direct_path
+                } else {
+                    nested_index += 1;
+                    nested_path
+                }
+            }
+            (Some(direct_path), None) => {
+                direct_index += 1;
+                direct_path
+            }
+            (None, Some(nested_path)) => {
+                nested_index += 1;
+                nested_path
+            }
+            (None, None) => break,
+        };
+        output.push(selected);
+    }
+}
+
+fn annotation_path_span_key(path: &veln_ast::TypePathSegments) -> (&str, usize, usize) {
+    (
+        path.application_span.file.as_str(),
+        path.application_span.start.offset,
+        path.application_span.end.offset,
+    )
+}
+
+fn unresolved_function_type_diagnostic(
+    path: &veln_ast::TypePathSegments,
+    type_parameters: &HashSet<&str>,
+    type_parameter_context: &TypeParameterIdentityContext<'_>,
+    function: &veln_ast::Function,
+    environment: &TypeEnvironment,
+) -> Option<Diagnostic> {
+    let name = path.segments.join("::");
+    if let Some(diagnostic) = function_type_parameter_application_diagnostic(
+        path,
+        &name,
+        type_parameters,
+        type_parameter_context,
+        function,
+        environment,
+    ) {
+        return Some(diagnostic);
+    }
+    if function_type_path_is_known(path, &name, type_parameters, function, environment) {
+        return None;
+    }
+    let span = unresolved_function_type_span(path, &name, function, environment)?;
+    Some(unresolved_type_diagnostic(name, span))
+}
+
+fn function_type_parameter_application_diagnostic(
+    path: &veln_ast::TypePathSegments,
+    name: &str,
+    type_parameters: &HashSet<&str>,
+    type_parameter_context: &TypeParameterIdentityContext<'_>,
+    function: &veln_ast::Function,
+    environment: &TypeEnvironment,
+) -> Option<Diagnostic> {
+    let unqualified =
+        path.segments.len() == 1 && type_parameters.contains(path.segments[0].as_str());
+    if !unqualified {
+        return None;
+    }
+    environment
+        .type_path_arity_error_with_context(
+            name,
+            path.type_argument_count,
+            function.module_name.as_deref(),
+            type_parameter_context,
+        )
+        .map(|error| invalid_function_type_parameter_application_diagnostic(path, function, error))
+}
+
+fn function_type_path_is_known(
+    path: &veln_ast::TypePathSegments,
+    name: &str,
+    type_parameters: &HashSet<&str>,
+    function: &veln_ast::Function,
+    environment: &TypeEnvironment,
+) -> bool {
+    path.segments.last().is_some_and(|segment| {
+        segment
+            .chars()
+            .next()
+            .is_some_and(|initial| initial.is_ascii_lowercase())
+    }) || is_function_type_parameter_path(path, type_parameters)
+        || is_compiler_known_standard_signature_type_parameter(name, function)
+        || environment.annotation_type_path_is_resolved_in_owner(
+            name,
+            path.type_argument_count,
+            function.module_name.as_deref(),
+            function.package_name.as_deref(),
+        )
+        || environment.annotation_type_path_has_visible_declaration_in_owner(
+            name,
+            function.module_name.as_deref(),
+            function.package_name.as_deref(),
+        )
+}
+
+fn unresolved_function_type_span(
+    path: &veln_ast::TypePathSegments,
+    name: &str,
+    function: &veln_ast::Function,
+    environment: &TypeEnvironment,
+) -> Option<veln_source::SourceSpan> {
+    if environment.annotation_type_path_has_resolved_qualifier_in_owner(
+        name,
+        function.module_name.as_deref(),
+        function.package_name.as_deref(),
+    ) {
+        path.segment_spans.last().cloned()
+    } else {
+        path.segment_spans.first().cloned()
+    }
+}
+
+fn invalid_function_type_parameter_application_diagnostic(
+    path: &veln_ast::TypePathSegments,
+    function: &veln_ast::Function,
+    error: String,
+) -> Diagnostic {
+    Diagnostic::new(
+        "type.invalid_annotation",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!("invalid type annotation `{}`: {error}", path.written),
+        Some(path.application_span.clone()),
+        crate::diagnostics::type_details(
+            function.node_id.display("fn"),
+            "valid_type",
+            path.written.clone(),
+            "source",
+            "source",
+            "assignable",
+            [function.node_id.display("fn")],
+        ),
+    )
+}
+
+fn is_compiler_known_standard_signature_type_parameter(
+    name: &str,
+    function: &veln_ast::Function,
+) -> bool {
+    if name.contains("::")
+        || !function.type_binders.is_empty()
+        || function.package_name.as_deref() != Some(veln_stdlib::PACKAGE_NAME)
+    {
+        return false;
+    }
+    let function_name = function.name.as_deref().unwrap_or_default();
+    let allowed = match (function.module_name.as_deref(), function_name) {
+        (Some("std::prelude"), "vec_fold") => &["A", "B"][..],
+        (
+            Some("std::prelude"),
+            "vec_len" | "vec_is_empty" | "vec_push" | "vec_concat" | "vec_append" | "vec_filter"
+            | "vec_filter_step",
+        ) => &["A"],
+        (Some("std::prelude"), "vec_map" | "vec_map_step") => &["Item", "A"],
+        (Some("std::prelude"), "vec_try_map" | "vec_try_map_state" | "vec_try_map_step") => {
+            &["Item", "A", "E"]
+        }
+        (
+            Some("std::prelude"),
+            "vec_try_map_with" | "vec_try_map_with_state" | "vec_try_map_with_step",
+        ) => &["C", "Item", "A", "E"],
+        (
+            Some("std::prelude"),
+            "list_nil" | "list_cons" | "list_is_empty" | "list_reverse" | "list_reverse_step"
+            | "list_filter" | "list_filter_step",
+        ) => &["A"],
+        (Some("std::prelude"), "list_fold") => &["Item", "B"],
+        (Some("std::prelude"), "list_map" | "list_map_step") => &["Item", "A"],
+        (Some("std::prelude"), "list_try_map" | "list_try_map_step") => &["Item", "A", "E"],
+        (
+            Some("std::prelude"),
+            "dict_get" | "dict_contains" | "dict_insert" | "dict_remove" | "dict_filter",
+        ) => &["K", "V"],
+        (Some("std::prelude"), "dict_map" | "dict_fold") => &["K", "V", "A"],
+        (
+            Some("std::prelude"),
+            "dict_map_with" | "dict_map_with_step" | "dict_fold_with" | "dict_fold_with_step",
+        ) => &["C", "K", "V", "A"],
+        (Some("std::prelude"), "dict_filter_with" | "dict_filter_with_step") => &["C", "K", "V"],
+        (Some("std::prelude"), "dict_try_map") => &["K", "V", "A", "E"],
+        (
+            Some("std::prelude"),
+            "dict_try_map_with" | "dict_try_map_with_state" | "dict_try_map_with_step",
+        ) => &["C", "K", "V", "A", "E"],
+        (Some("std::prelude"), "option_map" | "option_and_then") => &["A", "B"],
+        (Some("std::prelude"), "option_unwrap_or") => &["A"],
+        (Some("std::prelude"), "result_map" | "result_and_then") => &["A", "E", "B"],
+        (Some("std::prelude"), "result_map_err") => &["A", "E", "F"],
+        (Some("std::io_provider"), "state") => &["T"],
+        (Some("std::io_provider"), "update") => &["T", "C", "R"],
+        _ => &[],
+    };
+    allowed.contains(&name)
+}
+
+fn is_function_type_parameter_path(
+    path: &veln_ast::TypePathSegments,
+    type_parameters: &HashSet<&str>,
+) -> bool {
+    path.segments.len() == 1
+        && path.type_argument_count == 0
+        && type_parameters.contains(path.segments[0].as_str())
+}
+
+fn unresolved_type_diagnostic(name: String, span: veln_source::SourceSpan) -> Diagnostic {
+    Diagnostic::new(
+        "name.unresolved",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!("unresolved type `{name}`"),
+        Some(span),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("node_id", JsonValue::Null),
+            ("symbol", JsonValue::string(name)),
+            ("namespace", JsonValue::string("type")),
+            ("resolution_status", JsonValue::string("unresolved")),
+            ("candidates", JsonValue::array([])),
+        ]),
+    )
+}
+
+fn collect_body_annotation_paths<'a>(
+    body: &'a [veln_ast::BodyLine],
+    type_parameters: &HashSet<&str>,
+    paths: &mut Vec<&'a veln_ast::TypePathSegments>,
+) {
+    for line in body {
+        match &line.kind {
+            veln_ast::BodyLineKind::Let {
+                annotation_structure,
+                expr,
+                ..
+            } => {
+                collect_non_refinement_annotation_paths(
+                    &annotation_structure.paths,
+                    &annotation_structure.variant_refinements,
+                    type_parameters,
+                    paths,
+                );
+                collect_expr_annotation_paths(expr, type_parameters, paths);
+            }
+            veln_ast::BodyLineKind::Expr { expr } => {
+                collect_expr_annotation_paths(expr, type_parameters, paths);
+            }
+            veln_ast::BodyLineKind::Defer { body, .. } => {
+                collect_body_annotation_paths(body, type_parameters, paths);
+            }
+        }
+    }
+}
+
+fn collect_expr_annotation_paths<'a>(
+    expr: &'a veln_ast::Expr,
+    type_parameters: &HashSet<&str>,
+    paths: &mut Vec<&'a veln_ast::TypePathSegments>,
+) {
+    if let veln_ast::ExprKind::Begin { body, .. } = &expr.kind {
+        collect_body_annotation_paths(body, type_parameters, paths);
+    } else {
+        expr.for_each_child(&mut |child| {
+            collect_expr_annotation_paths(child, type_parameters, paths)
+        });
+    }
 }

@@ -59,6 +59,69 @@ Unresolved names and call targets retain `name.unresolved`, and a constructor
 with the wrong payload arity retains `core.constructor_arity_mismatch`; these
 failures do not add `value.module_initializer_unsupported`.
 
+A function type binder that shadows a visible type reports
+`name.type_parameter_shadow` at the binder. Its details identify the
+`name_resolution` phase, `function_type_parameter` boundary, binder `name`,
+zero-based declaration-order `ordinal`, and `shadowed_kind` as either
+`builtin_type` or `visible_type`.
+When source context exists, `related` contains a
+`shadowed_type_declaration` entry with that declaration's span. If multiple
+unqualified imported aliases expose the same terminal type identity, changing
+their declaration or source-discovery order does not change the declaration
+selected for that related entry. Only imports owned by the binder declaration's
+package and module participate; a same-spelled module in another package does
+not produce this diagnostic. When the binder spelling names both a
+compiler-owned descriptor and a visible source declaration, `shadowed_kind`
+remains `builtin_type` and the source declaration remains in `related`. The
+checked [`human`](../../examples/specification/check/generic-function-semantic-binders-human/)
+and
+[`JSON`](../../examples/specification/check/generic-function-semantic-binders-json/)
+cases fix the rendered and structured forms, including an unbound binder name
+outside its owning declaration remaining `name.unresolved`. The result is
+unchanged when another analyzed source contains an inaccessible generic
+declaration whose binder has the same spelling. The same cases also fix
+qualified function-annotation failures: a missing final type, or a private
+final type that is not available through exact test-companion access, reports
+`name.unresolved`, and `details.symbol` retains the complete written type path.
+A qualified path rooted at the declaration's own binder, such as `T::Leaf`,
+also reports `name.unresolved` for the complete path. Applying type arguments
+to that binder, as in `T<Int>`, instead reports `type.invalid_annotation` over
+the application with the zero-arity mismatch in its message. These outcomes
+apply in parameter, result, and local body annotations.
+
+Schema-reference validation resolves an owning function's rigid binders before
+it searches the schema namespace. The same spelling in an ADT payload remains
+unresolved because the ADT does not own that binder. A qualified type path must
+resolve its written qualifier before a compiler-known final type can be
+selected; an unrelated qualifier does not make a built-in type visible. When a
+binder shadows a compiler-owned descriptor that also has a visible source
+declaration, the diagnostic keeps `builtin_type` in `shadowed_kind` and includes
+the source declaration in `related`. This classification applies to the
+complete compiler descriptor registry, including descriptors that are not
+opaque. The checked
+[`generic semantic gap human`](../../examples/specification/check/generic-function-semantic-gap-human/)
+and
+[`generic semantic gap JSON`](../../examples/specification/check/generic-function-semantic-gap-json/)
+cases fix these rendered and structured outcomes.
+
+A call argument whose type is a rigid parameter cannot satisfy a different
+declaration's same-spelled rigid parameter. The resulting `type.mismatch` stays
+at the failed argument and renders the source spelling on both sides. Its first
+related entry has kind `expected_rigid_type_parameter`, identifies the expected
+parameter's owning function, and spans the callee binder. Its second entry has
+kind `actual_rigid_type_parameter`, identifies the actual parameter's owning
+function, and spans the caller binder. This order is deterministic, and neither
+entry exposes the internal rigid identity. When the callee is selected through
+a transparent function alias, the expected entry still identifies and spans
+the original function's binder. The checked generic-binder human and JSON cases
+fix both messages and exact binder spans. The focused semantic coverage also
+checks the alias boundary.
+
+The focused semantic and scaling coverage is in
+[`generic_function_semantic_binders.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_binders.rs)
+and
+[`generic_function_semantic_diagnostics.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs).
+
 A cyclic dependency component formed by selected same-module or imported
 module-value references reports one `value.module_initializer_cycle` at the
 deterministic reference that closes the cycle. Its details contain
@@ -1460,12 +1523,26 @@ Type inference diagnostics include:
 - `type.private_inference_incomplete`: `boundary: "private_function"`,
   `slot_kind: "private_parameter"` with `parameter`, or
   `slot_kind: "private_return"`, plus `missing_fact` and `inferred_type`.
+- `type.generic_signature_missing`: a private function with an ordinary type
+  binder omitted a parameter or return annotation. Parameter failures use the
+  parameter span and `expected_type_source: "declared_parameter"`. Return
+  failures use the function span and `expected_type_source: "declared_return"`.
 - `type.inference_ambiguous`: `slot_kind` is `constructor_type`,
   `empty_collection`, or `match_scrutinee`. Constructor ambiguity adds
   `constructor`, `inferred_type`, and `constraint: "constructor_type_context"`;
   empty collection ambiguity adds `collection`, `inferred_type`, and
   `constraint: "empty_collection_type_context"`; match scrutinee ambiguity
   adds `candidates` and `constraint: "match_constructor_pattern_domain"`.
+
+The checked
+[`generic-function-semantic-gap-human`](../../examples/specification/check/generic-function-semantic-gap-human/)
+and
+[`generic-function-semantic-gap-json`](../../examples/specification/check/generic-function-semantic-gap-json/)
+cases fix the missing generic-signature projections and the related alias
+source selected when multiple bare aliases expose one terminal type identity.
+They also fix binder precedence over the schema namespace, ADT payload scope,
+unresolved binder and unknown qualifiers, and compiler-owned descriptor shadow
+classification described above.
 
 Deferred-block restriction diagnostics use kind `type`,
 `phase: "type_check"`, `boundary: "deferred_block"`, and one of these stable

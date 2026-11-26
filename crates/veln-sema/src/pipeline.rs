@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::hash::Hash;
 
 use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
@@ -35,6 +35,10 @@ mod publication;
 use declaration_checks::{
     SurfaceAnalysis, check_function_declaration_and_body, check_module_declarations,
     retain_function_state_call_types,
+};
+#[cfg(test)]
+pub(crate) use declaration_checks::{
+    reset_annotation_path_classification_work, take_annotation_path_classification_work,
 };
 use diagnostic_ordering::{
     merge_variant_refinement_base_diagnostics, order_delayed_parse_diagnostics,
@@ -370,7 +374,6 @@ fn analyze_surface_module_with_environment(
     let (module_diagnostics, module_value_publication, mut state_call_types) =
         check_module_declarations(module, &mut environment, &mut variant_diagnostics);
     diagnostics.extend(module_diagnostics);
-
     for function in &module.functions {
         if !validate_standard_bodies
             && function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)

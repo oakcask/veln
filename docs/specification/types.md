@@ -130,17 +130,85 @@ alias chain does not make a handle constructible or expose a representation.
 The exported static surface and runtime limit are specified by
 [Standard-library filesystem and byte IO](standard-library-filesystem-io.md).
 
-Public functions must annotate every parameter and the return type. Their
-effect clause must name every inferred effect; a pure declaration omits the
-clause. Explicit empty `effects []` declaration clauses are rejected. Private functions may omit a
-parameter or return annotation only when local inference produces a concrete
-type for the omitted fact. If the checker still has `unknown`, it reports
+Public functions must annotate every parameter and the return type. A function
+with an ordinary type binder must also annotate every parameter and its return
+type, regardless of visibility. A missing private generic slot reports
+`type.generic_signature_missing` at the parameter or function declaration.
+An effect-row binder alone does not impose this rule.
+
+A private function without an ordinary type binder may omit a parameter or
+return annotation only when local inference produces a concrete type for the
+omitted fact. If the checker still has `unknown`, it reports
 `type.private_inference_incomplete`. The JSON details identify whether the
 missing slot is a private parameter or private return, name private parameters,
-report the missing fact, and include the current inferred type.
+report the missing fact, and include the current inferred type. A function's
+effect requirements follow the [effect rules](effects.md#effect-labels): a
+public function must name every non-empty inferred effect, while a private
+function may infer its effect set. A pure public declaration omits the clause.
+Explicit empty `effects []` declaration clauses are rejected.
 
 The optional result binding in `-> name: Type` names the return value for
 postconditions, but the type annotation remains `Type`.
+
+An ordinary function type binder introduces one rigid type parameter owned by
+that declaration. The parameter is identified by its declaration and ordinal,
+not by its spelling. Its name resolves in the declaration's parameter and
+return annotations, local body annotations, and executable contracts. The same
+spelling in another function denotes a different rigid parameter. A transparent
+function alias retains the underlying declaration's parameter identities; it
+does not make a caller's same-spelled rigid parameter compatible with them.
+Outside the owning declaration, that spelling is an unresolved type name unless
+another visible type declaration defines it. A binder with the same spelling
+in an inaccessible declaration or another analyzed source does not make the
+name visible and does not suppress the unresolved-name failure.
+
+The checker validates a generic declaration once with those rigid parameters.
+Returning a value of `T` as `T` succeeds. A concrete-only operation such as
+integer addition on `T`, or returning a concrete `Int` as `T`, fails at the
+definition. Concrete callers do not specialize the declaration or make the
+operation valid. A type parameter is an ordinary type: `T::Leaf` is an
+unresolved type path, and `T<Int>` fails because a parameter accepts no type
+arguments. These checks also apply when the parameter occurs as an argument of
+a variant-refinement base such as `Option<T>::Some`. The checked semantic and
+diagnostic evidence is in
+[`generic_function_semantic_binders.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_binders.rs),
+[`generic_function_semantic_diagnostics.rs`](../../crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs),
+[`generic-function-semantic-binders-human`](../../examples/specification/check/generic-function-semantic-binders-human/),
+and
+[`generic-function-semantic-binders-json`](../../examples/specification/check/generic-function-semantic-binders-json/).
+The corrected nested-refinement, schema-namespace precedence, ADT payload
+scope, qualifier-first lookup, compiler-owned descriptor classification,
+consistent-alias, and complete-signature boundaries are checked by
+[`generic-function-semantic-gap-human`](../../examples/specification/check/generic-function-semantic-gap-human/)
+and
+[`generic-function-semantic-gap-json`](../../examples/specification/check/generic-function-semantic-gap-json/).
+
+Every other named type in a function annotation resolves from the function's
+owning package and module. A qualified annotation selects its import before it
+selects the final type. The selected module must expose a type or type alias of
+the written arity that is visible from the owning declaration. An exact test
+companion may use an explicitly imported private type from its target module;
+other imported private types remain inaccessible. A missing or inaccessible
+final type reports `name.unresolved`; the presence of the import alone does not
+make that type annotation valid. The diagnostic points at the unresolved final
+type when the qualifier resolves, and at the unresolved qualifier otherwise.
+
+Functions in the embedded standard package use the same resolution and
+visibility facts as application functions. Until those APIs declare retained
+binders, the compiler recognizes the existing collection-helper and
+`io_provider` state-helper parameter names only in their specific standard
+package functions. A function with ordinary binders uses its declared binder
+set instead of these compatibility names. An undeclared compatibility name in
+that function remains unresolved. The compatibility names do not become
+visible in another standard package function.
+
+A function type binder is rejected when it would shadow a visible type. The
+[name-resolution rules](name-resolution.md#namespaces-and-use-roles) define
+which compiler-owned, source, and imported types participate in that selection,
+including ownership, ambiguity, classification, and deterministic scaling
+boundaries. The
+[diagnostic contract](diagnostics-json.md#diagnostic-families) defines the
+observable failure record and related source context.
 
 Test declarations must use an empty parameter list and annotate the return type
 as `()` or `Result<(), E>`. Their effect clause must cover directly inferred
@@ -261,13 +329,13 @@ counters visit `D + 1` type nodes during join setup, contribution acceptance,
 and result materialization. Rejecting an incompatible leaf visits the same
 number of nodes without materializing a result or changing the admitted join.
 
-When a private non-exported helper omits parameter or return annotations,
-same-module concrete call sites may constrain the helper's single monomorphic
-signature. Concrete argument expressions constrain omitted parameters. A
-concrete expected result type at a helper call constrains an omitted return
-type, and body tail facts are checked against the inferred return type. Body
-facts and call-site facts must agree; a later incompatible call reports
-`type.mismatch` at the failed argument or expected-result use. When the body
+When a private non-exported helper without ordinary type binders omits parameter
+or return annotations, same-module concrete call sites may constrain the
+helper's single monomorphic signature. Concrete argument expressions constrain
+omitted parameters. A concrete expected result type at a helper call constrains
+an omitted return type, and body tail facts are checked against the inferred
+return type. Body facts and call-site facts must agree; a later incompatible
+call reports `type.mismatch` at the failed argument or expected-result use. When the body
 tail is a resolved constructor, an omitted return retains the constructor
 singleton and its resolved generic arguments. It can therefore satisfy a
 refined call parameter without an annotation. A compatible function-value
@@ -276,8 +344,18 @@ compatibility is checked. An ordinary direct call widens the singleton at the
 call boundary without replacing the inferred helper signature. Direct recursive
 edges do not supply inference facts for the recursive helper itself, so an
 omitted recursive slot still needs a non-recursive concrete fact or an
-annotation. Public functions, tests, exported aliases, and imported public
-functions do not receive inferred signatures.
+annotation. Public functions, tests, functions with ordinary type binders,
+exported aliases, and imported public functions do not receive inferred
+signatures. An inferred private signature cannot retain a rigid type parameter
+owned by another declaration. This exclusion applies
+recursively through named type arguments, records, and fixed or variadic
+function types, including expected function-value and callback results. The
+foreign contribution does not constrain an omitted parameter or result. Its
+caller instead checks against concrete facts from other valid callers, and
+changing caller declaration order does not change the inferred private
+signature. The focused semantic tests are in
+`crates/veln-sema/src/tests/generic_function_semantic_binders.rs`.
+
 When the tail is a local with an explicit refinement annotation, an omitted
 private result retains the resolved refinement. This applies to local and
 imported ADTs; the inferred result uses the resolved ADT's canonical display
@@ -1029,10 +1107,10 @@ diagnostic cases, and the
 
 ## Compatibility and limits
 
-The parser retains ordinary type binders written on a fixed-arity function
-declaration, but the type checker does not yet bind those names or construct a
-generic function scheme. A retained binder therefore does not make its name a
-valid signature or body type, and calls do not instantiate it. The
+The type checker retains ordinary type binders written on a fixed-arity
+function declaration and resolves them as declaration-owned rigid parameters.
+This retention does not yet construct an independently instantiable generic
+function scheme. Calls do not infer or accept ordinary type arguments. The
 [source-surface specification](source-surface.md#function-declaration-binders)
 owns the implemented declaration syntax and its parser limits.
 

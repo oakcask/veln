@@ -37,6 +37,14 @@ thread_local! {
     };
 }
 
+type NamedTypeSymbolKey = (Option<String>, Option<String>, String);
+
+#[derive(Clone, Copy, Debug, Default)]
+struct NamedTypeSymbolVisibility {
+    present: bool,
+    public: bool,
+}
+
 #[derive(Clone, Debug)]
 enum QualifiedModuleValueImportSelection {
     Unique(Box<UseDecl>),
@@ -333,6 +341,117 @@ fn record_qualified_module_value_visibility_work() {
     });
 }
 
+#[cfg(test)]
+thread_local! {
+    static ANNOTATION_NAMED_SYMBOL_INDEX_WORK: std::cell::Cell<(usize, usize)> = const { std::cell::Cell::new((0, 0)) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_annotation_named_symbol_index_work() {
+    ANNOTATION_NAMED_SYMBOL_INDEX_WORK.set((0, 0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_annotation_named_symbol_index_work() -> (usize, usize) {
+    ANNOTATION_NAMED_SYMBOL_INDEX_WORK.replace((0, 0))
+}
+
+fn record_annotation_named_symbol_index_entry() {
+    #[cfg(test)]
+    ANNOTATION_NAMED_SYMBOL_INDEX_WORK.update(|(entries, lookups)| (entries + 1, lookups));
+}
+
+fn record_annotation_named_symbol_index_lookup() {
+    #[cfg(test)]
+    ANNOTATION_NAMED_SYMBOL_INDEX_WORK.update(|(entries, lookups)| (entries, lookups + 1));
+}
+
+#[cfg(test)]
+thread_local! {
+    static SCHEMA_SYMBOL_INDEX_WORK: std::cell::Cell<SchemaSymbolIndexWork> =
+        const { std::cell::Cell::new(SchemaSymbolIndexWork::ZERO) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SchemaSymbolIndexWork {
+    pub(crate) schema_entries: usize,
+    pub(crate) alias_entries: usize,
+    pub(crate) schema_lookups: usize,
+    pub(crate) alias_lookups: usize,
+}
+
+#[cfg(test)]
+impl SchemaSymbolIndexWork {
+    const ZERO: Self = Self {
+        schema_entries: 0,
+        alias_entries: 0,
+        schema_lookups: 0,
+        alias_lookups: 0,
+    };
+
+    pub(crate) fn total(self) -> usize {
+        self.schema_entries + self.alias_entries + self.schema_lookups + self.alias_lookups
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn reset_schema_symbol_index_work() {
+    SCHEMA_SYMBOL_INDEX_WORK.set(SchemaSymbolIndexWork::ZERO);
+}
+
+#[cfg(test)]
+pub(crate) fn take_schema_symbol_index_work() -> SchemaSymbolIndexWork {
+    SCHEMA_SYMBOL_INDEX_WORK.replace(SchemaSymbolIndexWork::ZERO)
+}
+
+pub(super) fn record_schema_symbol_index_entry(alias: bool) {
+    #[cfg(test)]
+    SCHEMA_SYMBOL_INDEX_WORK.update(|mut work| {
+        if alias {
+            work.alias_entries += 1;
+        } else {
+            work.schema_entries += 1;
+        }
+        work
+    });
+    #[cfg(not(test))]
+    let _ = alias;
+}
+
+pub(super) fn record_schema_symbol_index_lookup(alias: bool) {
+    #[cfg(test)]
+    SCHEMA_SYMBOL_INDEX_WORK.update(|mut work| {
+        if alias {
+            work.alias_lookups += 1;
+        } else {
+            work.schema_lookups += 1;
+        }
+        work
+    });
+    #[cfg(not(test))]
+    let _ = alias;
+}
+
+fn named_type_symbol_index(
+    symbols: &[NamedSymbol],
+) -> HashMap<NamedTypeSymbolKey, NamedTypeSymbolVisibility> {
+    let mut index = HashMap::new();
+    for symbol in symbols {
+        record_annotation_named_symbol_index_entry();
+        let visibility = index
+            .entry((
+                symbol.package_name.clone(),
+                symbol.module_name.clone(),
+                symbol.name.clone(),
+            ))
+            .or_insert_with(NamedTypeSymbolVisibility::default);
+        visibility.present = true;
+        visibility.public |= symbol.visibility() == Visibility::Public;
+    }
+    index
+}
+
 fn function_publication_key(function: &FunctionSignature) -> FunctionPublicationKey {
     (
         function.package_name.clone(),
@@ -358,12 +477,64 @@ fn source_function_publication_key(function: &Function) -> FunctionPublicationKe
 #[cfg(test)]
 thread_local! {
     static TYPE_PARAMETER_INDEX_ENTRIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static FUNCTION_TYPE_PARAMETER_PROVENANCE_WORK: std::cell::Cell<(usize, usize)> =
+        const { std::cell::Cell::new((0, 0)) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_function_type_parameter_provenance_work() {
+    FUNCTION_TYPE_PARAMETER_PROVENANCE_WORK.set((0, 0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_function_type_parameter_provenance_work() -> (usize, usize) {
+    FUNCTION_TYPE_PARAMETER_PROVENANCE_WORK.replace((0, 0))
+}
+
+fn function_type_parameter_provenance_index(
+    functions: &[FunctionSignature],
+) -> HashMap<String, (usize, usize)> {
+    let mut index = HashMap::new();
+    for (function_index, function) in functions.iter().enumerate() {
+        for (parameter_index, parameter) in function.type_parameters.iter().enumerate() {
+            #[cfg(test)]
+            FUNCTION_TYPE_PARAMETER_PROVENANCE_WORK
+                .update(|(entries, probes)| (entries + 1, probes));
+            index
+                .entry(parameter.identity.clone())
+                .or_insert((function_index, parameter_index));
+        }
+    }
+    index
 }
 
 pub(crate) struct TypeParameterIdentityContext<'a> {
-    type_parameters: &'a [String],
-    positions: std::cell::OnceCell<HashMap<String, usize>>,
+    type_parameters: Option<&'a [String]>,
+    positions: std::cell::OnceCell<HashMap<String, (usize, String)>>,
     lookups: Option<std::cell::Cell<usize>>,
+}
+
+#[cfg(test)]
+thread_local! {
+    static TYPE_PARAMETER_CONTEXT_WORK: std::cell::Cell<(usize, usize)> =
+        const { std::cell::Cell::new((0, 0)) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_type_parameter_context_work() {
+    TYPE_PARAMETER_CONTEXT_WORK.set((0, 0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_type_parameter_context_work() -> (usize, usize) {
+    TYPE_PARAMETER_CONTEXT_WORK.replace((0, 0))
+}
+
+fn record_type_parameter_context(name_count: usize) {
+    #[cfg(test)]
+    TYPE_PARAMETER_CONTEXT_WORK.update(|(contexts, names)| (contexts + 1, names + name_count));
+    #[cfg(not(test))]
+    let _ = name_count;
 }
 
 impl<'a> TypeParameterIdentityContext<'a> {
@@ -376,8 +547,9 @@ impl<'a> TypeParameterIdentityContext<'a> {
     }
 
     fn with_lookup_recording(type_parameters: &'a [String], record_lookups: bool) -> Self {
+        record_type_parameter_context(type_parameters.len());
         Self {
-            type_parameters,
+            type_parameters: Some(type_parameters),
             positions: std::cell::OnceCell::new(),
             lookups: record_lookups.then(|| std::cell::Cell::new(0)),
         }
@@ -387,27 +559,78 @@ impl<'a> TypeParameterIdentityContext<'a> {
         if let Some(lookups) = &self.lookups {
             lookups.set(lookups.get() + 1);
         }
-        self.positions().get(name).copied()
+        self.positions().get(name).map(|(ordinal, _)| *ordinal)
     }
 
-    fn positions(&self) -> &HashMap<String, usize> {
+    fn positions(&self) -> &HashMap<String, (usize, String)> {
         // Most payload annotations never inspect a type-parameter identity.
         // Building the full index for each such field makes wide ADTs quadratic.
         self.positions.get_or_init(|| {
+            let type_parameters = self
+                .type_parameters
+                .expect("an uninitialized index needs retained type parameters");
             #[cfg(test)]
             TYPE_PARAMETER_INDEX_ENTRIES
-                .set(TYPE_PARAMETER_INDEX_ENTRIES.get() + self.type_parameters.len());
-            self.type_parameters
+                .set(TYPE_PARAMETER_INDEX_ENTRIES.get() + type_parameters.len());
+            type_parameters
                 .iter()
                 .enumerate()
-                .map(|(index, parameter)| (parameter.clone(), index))
+                .map(|(index, parameter)| {
+                    (
+                        parameter.clone(),
+                        (index, format!("type-parameter:{index}")),
+                    )
+                })
                 .collect()
         })
     }
 
     pub(crate) fn identity(&self, name: &str) -> Option<String> {
-        self.ordinal(name)
-            .map(|ordinal| format!("type-parameter:{ordinal}"))
+        if let Some(lookups) = &self.lookups {
+            lookups.set(lookups.get() + 1);
+        }
+        self.positions()
+            .get(name)
+            .map(|(_, identity)| identity.clone())
+    }
+
+    pub(crate) fn for_function(function: &'a veln_ast::Function) -> Self {
+        record_type_parameter_context(function.type_binders.len());
+        Self {
+            type_parameters: None,
+            positions: std::cell::OnceCell::from(
+                function
+                    .type_binders
+                    .iter()
+                    .enumerate()
+                    .map(|(ordinal, parameter)| {
+                        (
+                            parameter.name.clone(),
+                            (ordinal, function_type_parameter_identity(function, ordinal)),
+                        )
+                    })
+                    .collect::<HashMap<_, _>>(),
+            ),
+            lookups: None,
+        }
+    }
+
+    pub(crate) fn function_parameters(
+        function: &veln_ast::Function,
+    ) -> Vec<crate::types::signatures::FunctionTypeParameter> {
+        function
+            .type_binders
+            .iter()
+            .enumerate()
+            .map(
+                |(ordinal, binder)| crate::types::signatures::FunctionTypeParameter {
+                    name: binder.name.clone(),
+                    ordinal,
+                    identity: function_type_parameter_identity(function, ordinal),
+                    span: binder.span.clone(),
+                },
+            )
+            .collect()
     }
 
     pub(crate) fn is_identity(identity: &str) -> bool {
@@ -431,6 +654,33 @@ impl<'a> TypeParameterIdentityContext<'a> {
     pub(crate) fn take_index_entries() -> usize {
         TYPE_PARAMETER_INDEX_ENTRIES.replace(0)
     }
+}
+
+fn function_type_parameter_identity(function: &veln_ast::Function, ordinal: usize) -> String {
+    fn push_optional_component(output: &mut String, component: Option<&str>) {
+        match component {
+            Some(component) => {
+                output.push('s');
+                output.push_str(&component.len().to_string());
+                output.push(':');
+                output.push_str(component);
+            }
+            None => output.push('n'),
+        }
+    }
+
+    let span = function.span.resolved_or_generated();
+    let mut identity = String::from("type-parameter:");
+    push_optional_component(&mut identity, function.package_name.as_deref());
+    push_optional_component(&mut identity, function.module_name.as_deref());
+    push_optional_component(&mut identity, Some(span.file.as_str()));
+    identity.push('o');
+    identity.push_str(&span.start.offset.to_string());
+    identity.push(':');
+    identity.push_str(&span.end.offset.to_string());
+    identity.push(':');
+    identity.push_str(&ordinal.to_string());
+    identity
 }
 
 mod effect_handlers;
@@ -468,6 +718,7 @@ pub(crate) struct TypeEnvironment {
     public_module_value_identities: HashSet<ModuleValueIdentity>,
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
+    function_type_parameters_by_identity: HashMap<String, (usize, usize)>,
     unpublished_functions: HashSet<FunctionPublicationKey>,
     function_recovery_signatures: Vec<FunctionSignature>,
     function_recoveries: BTreeMap<FunctionRecoveryKey, usize>,
@@ -477,6 +728,7 @@ pub(crate) struct TypeEnvironment {
     handlers: Vec<HandlerSignature>,
     schema_symbols: SchemaSymbolTable,
     type_symbols: Vec<NamedSymbol>,
+    type_symbol_index: HashMap<NamedTypeSymbolKey, NamedTypeSymbolVisibility>,
     pub(crate) uses: Arc<[UseDecl]>,
     resolution_use_index: Arc<std::sync::OnceLock<ResolutionUseIndex>>,
     quarantined_uses: Vec<UseDecl>,
@@ -1332,6 +1584,22 @@ impl TypeEnvironment {
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
         self.functions_named(name).next()
+    }
+
+    pub(crate) fn function_type_parameter(
+        &self,
+        identity: &str,
+    ) -> Option<(
+        &FunctionSignature,
+        &crate::types::signatures::FunctionTypeParameter,
+    )> {
+        #[cfg(test)]
+        FUNCTION_TYPE_PARAMETER_PROVENANCE_WORK.update(|(entries, probes)| (entries, probes + 1));
+        let (function_index, parameter_index) =
+            *self.function_type_parameters_by_identity.get(identity)?;
+        let function = self.functions.get(function_index)?;
+        let parameter = function.type_parameters.get(parameter_index)?;
+        (parameter.identity == identity).then_some((function, parameter))
     }
 
     #[cfg(test)]

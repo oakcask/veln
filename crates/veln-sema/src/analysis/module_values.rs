@@ -549,6 +549,7 @@ fn synthetic_module_value_function(value: &veln_ast::ModuleValueDecl, index: usi
         kind: FunctionKind::Function,
         visibility: Visibility::Private,
         name: Some(format!("__module_value_{index}")),
+        type_binders: Vec::new(),
         effect_binder: None,
         params: Vec::new(),
         return_binding: None,

@@ -105,6 +105,11 @@ pub(crate) fn with_builtin_adt_registry<R>(
     with_source_less_lookup_registries(|registries| lookup(&registries.builtin_adts))
 }
 
+pub(crate) fn is_builtin_adt_type(name: &str) -> bool {
+    with_builtin_adt_registry(|registry| registry.has_compiler_owned_descriptor(name))
+        .expect("source-less lookup registries are valid")
+}
+
 pub(crate) fn with_builtin_type_syntax_registry<R>(
     lookup: impl FnOnce(&BuiltinTypeSyntaxRegistry) -> R,
 ) -> Result<R, InvalidStandardSymbolCase> {

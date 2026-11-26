@@ -1,0 +1,65 @@
+use api
+
+type Item
+  Item
+end
+
+fn identity<T>(value: T) -> result: T
+ensure result == value
+  let local: T = value
+  local
+end
+
+fn second<T>(value: T) -> T
+  value
+end
+
+fn shadows_builtin<Int>(value: Int) -> Int
+  value
+end
+
+fn shadows_source<Item>(value: Item) -> Item
+  value
+end
+
+fn shadows_alias<Alias>(value: Alias) -> Alias
+  value
+end
+
+fn invalid_body<T>(value: T) -> T
+  value + 1
+end
+
+fn invalid_contract<T>(value: T) -> result: T
+ensure result % 2 == 0
+  value
+end
+
+fn concrete_caller() -> Int
+  invalid_body(1)
+end
+
+fn passes_to_second<T>(value: T) -> ()
+  second(value)
+  ()
+end
+
+fn accepts_qualified(value: api::Present, alias: api::Alias) -> ()
+  ()
+end
+
+fn missing_qualified(value: api::Missing) -> ()
+  ()
+end
+
+fn private_qualified(value: api::Private) -> ()
+  ()
+end
+
+type WallTime
+  WallTime
+end
+
+fn shadows_compiler_known_source<WallTime>(value: WallTime) -> WallTime
+  value
+end

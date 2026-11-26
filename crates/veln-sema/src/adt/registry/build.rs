@@ -10,7 +10,8 @@ use crate::source_less_names::InvalidStandardSymbolCase;
 
 use super::aliases::{ResolvedTypeAliases, descriptor_for_alias_target, type_alias_descriptors};
 use super::{
-    AdtDeclarationFacts, AdtRegistry, DescriptorKey, ImportOwners, ImportedDescriptorCandidates,
+    AdtDeclarationFacts, AdtRegistry, ConsistentImportedDescriptorCandidate, DescriptorKey,
+    ImportOwners, ImportedDescriptorCandidateIndexes, ImportedDescriptorCandidates,
     QualifiedImportModules, QualifiedRecoveryModules, TypeAliasDeclarationIdentity,
     VariantDeclarationOrder, VariantDescriptorKey, descriptor_identity,
 };
@@ -32,6 +33,15 @@ type ParameterVarianceKey = (String, usize);
 type TargetVariance = (String, Vec<crate::adt::variance::Variance>);
 type ParameterVarianceIndex =
     HashMap<String, HashMap<usize, Option<Vec<crate::adt::variance::Variance>>>>;
+
+fn extended_companion_targets(
+    base: &AdtRegistry,
+    module: &SurfaceModule,
+) -> BTreeMap<String, String> {
+    let mut targets = base.companion_access_targets.clone();
+    targets.extend(companion_access_targets(module));
+    targets
+}
 
 impl RegistryIndexes {
     fn from_descriptors(descriptors: &[AdtDescriptor]) -> Self {
@@ -131,11 +141,14 @@ impl AdtRegistry {
                 Some((descriptor_identity(descriptor), ty))
             })
             .collect();
-        Self::from_parts_with_annotation_types(
+        let mut registry = Self::from_parts_with_annotation_types(
             descriptors,
             companion_access_targets,
             annotation_types,
-        )
+        );
+        registry.rebuild_shared_imported_descriptor_indexes();
+        registry.mark_declarations_reusable();
+        registry
     }
 
     fn from_parts_with_annotation_types(
@@ -159,6 +172,12 @@ impl AdtRegistry {
             descriptors_by_type_name,
             descriptors_by_source_identity,
             descriptors_by_identity,
+            imported_descriptors_by_type: HashMap::new(),
+            imported_descriptors_by_type_arity: HashMap::new(),
+            consistent_imported_descriptors_by_type: HashMap::new(),
+            consistent_imported_descriptors_by_type_arity: HashMap::new(),
+            imported_descriptor_targets_by_type: HashMap::new(),
+            imported_descriptor_targets_by_type_arity: HashMap::new(),
             parameter_variances_by_identity: HashMap::new(),
             variants_by_name,
             variants_by_descriptor,
@@ -187,8 +206,9 @@ impl AdtRegistry {
             companion_access_targets,
             qualified_import_modules: HashMap::new(),
             qualified_import_recovery_modules: HashMap::new(),
-            imported_descriptors_by_type: HashMap::new(),
-            imported_descriptors_by_type_arity: HashMap::new(),
+            bare_import_targets_by_owner: HashMap::new(),
+            unique_imported_descriptor_cache: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            consistent_imported_descriptor_cache: Arc::new(std::sync::Mutex::new(HashMap::new())),
             source_import_indexes_ready: false,
             source_import_count: 0,
             import_owner_scope: Arc::from([]),
@@ -214,13 +234,7 @@ impl AdtRegistry {
     }
 
     pub(crate) fn from_module_with_base(module: &SurfaceModule, base: &Self) -> Self {
-        if module.types.is_empty() && module.aliases.is_empty() && base.declarations.extension_ready
-        {
-            let mut companion_targets = base.companion_access_targets.clone();
-            companion_targets.extend(companion_access_targets(module));
-            let mut registry =
-                Self::with_declarations(base.declarations.clone(), companion_targets);
-            registry.finish_import_scope(base, module, base.descriptors.len());
+        if let Some(registry) = Self::reuse_declarations_for_type_free_module(module, base) {
             return registry;
         }
         let mut descriptors = base.descriptors.clone();
@@ -257,15 +271,14 @@ impl AdtRegistry {
         descriptors.extend(aliases);
         let source_descriptor_start = descriptors.len();
         descriptors.extend(source_descriptors);
-        let mut companion_targets = base.companion_access_targets.clone();
-        companion_targets.extend(companion_access_targets(module));
         let mut registry = Self::from_parts_with_annotation_types(
             descriptors,
-            companion_targets,
+            extended_companion_targets(base, module),
             annotation_types,
         );
         registry.declarations_mut().type_alias_exposure_segments = type_alias_exposure_segments;
         registry.declarations_mut().type_alias_exposure_paths = type_alias_exposure_paths;
+        registry.rebuild_shared_imported_descriptor_indexes();
         registry.finish_source_registry(
             base,
             module,
@@ -275,6 +288,24 @@ impl AdtRegistry {
             resolved_type_alias_declarations,
         );
         registry
+    }
+
+    fn reuse_declarations_for_type_free_module(
+        module: &SurfaceModule,
+        base: &Self,
+    ) -> Option<Self> {
+        if !module.types.is_empty()
+            || !module.aliases.is_empty()
+            || !base.declarations.extension_ready
+        {
+            return None;
+        }
+        let mut registry = Self::with_declarations(
+            base.declarations.clone(),
+            extended_companion_targets(base, module),
+        );
+        registry.finish_import_scope(base, module, base.descriptors.len());
+        Some(registry)
     }
 
     fn finish_source_registry(
@@ -288,14 +319,7 @@ impl AdtRegistry {
     ) {
         self.declarations_mut().type_alias_identities = type_alias_identities;
         self.declarations_mut().resolved_type_alias_declarations = resolved_type_alias_declarations;
-        self.declarations_mut().declaration_spans = base.declaration_spans.clone();
-        self.declarations_mut()
-            .declaration_spans
-            .extend(source_declaration_spans(module));
-        self.declarations_mut().variant_declaration_spans = base.variant_declaration_spans.clone();
-        self.declarations_mut()
-            .variant_declaration_spans
-            .extend(source_variant_declaration_spans(module));
+        self.extend_source_declaration_spans(base, module);
         self.declarations_mut().quarantined_type_identities =
             base.quarantined_type_identities.clone();
         self.finish_import_scope(base, module, local_descriptor_start);
@@ -319,6 +343,17 @@ impl AdtRegistry {
         self.mark_declarations_reusable();
     }
 
+    fn extend_source_declaration_spans(&mut self, base: &Self, module: &SurfaceModule) {
+        self.declarations_mut().declaration_spans = base.declaration_spans.clone();
+        self.declarations_mut()
+            .declaration_spans
+            .extend(source_declaration_spans(module));
+        self.declarations_mut().variant_declaration_spans = base.variant_declaration_spans.clone();
+        self.declarations_mut()
+            .variant_declaration_spans
+            .extend(source_variant_declaration_spans(module));
+    }
+
     fn finish_import_scope(
         &mut self,
         base: &Self,
@@ -331,13 +366,32 @@ impl AdtRegistry {
         self.qualified_import_modules = qualified_import_modules(&uses);
         self.qualified_import_recovery_modules =
             qualified_import_recovery_modules(&self.qualified_import_modules);
-        let imported_descriptors = imported_descriptor_candidates(&self.descriptors, &uses);
-        self.imported_descriptors_by_type = imported_descriptors.any_arity;
-        self.imported_descriptors_by_type_arity = imported_descriptors.exact_arity;
+        self.bind_import_owner_scope(uses);
+        self.rebuild_imported_descriptor_indexes();
+        self.local_descriptor_start = local_descriptor_start;
+    }
+
+    pub(super) fn rebuild_imported_descriptor_indexes(&mut self) {
+        let uses = Arc::clone(&self.import_owner_scope);
+        self.bare_import_targets_by_owner = bare_import_targets_by_owner(&uses);
+        self.unique_imported_descriptor_cache = Arc::new(std::sync::Mutex::new(HashMap::new()));
+        self.consistent_imported_descriptor_cache = Arc::new(std::sync::Mutex::new(HashMap::new()));
+        record_imported_descriptor_index_retained(self.imported_descriptor_retained_entries());
         self.source_import_indexes_ready = true;
         self.source_import_count = uses.len();
-        self.bind_import_owner_scope(uses.clone());
-        self.local_descriptor_start = local_descriptor_start;
+    }
+
+    pub(super) fn rebuild_shared_imported_descriptor_indexes(&mut self) {
+        let candidates = self.imported_descriptor_candidates();
+        let declarations = self.declarations_mut();
+        declarations.imported_descriptors_by_type = candidates.any_arity;
+        declarations.imported_descriptors_by_type_arity = candidates.exact_arity;
+        declarations.consistent_imported_descriptors_by_type = candidates.consistent_any_arity;
+        declarations.consistent_imported_descriptors_by_type_arity =
+            candidates.consistent_exact_arity;
+        declarations.imported_descriptor_targets_by_type = candidates.targets_by_type;
+        declarations.imported_descriptor_targets_by_type_arity = candidates.targets_by_type_arity;
+        record_imported_descriptor_index_retained(self.imported_descriptor_retained_entries());
     }
 
     fn resolved_source_constructor_uses(
@@ -494,6 +548,7 @@ impl AdtRegistry {
             retained_variant_declaration_spans(source, self);
         self.declarations_mut().quarantined_type_identities =
             source.quarantined_type_identities.clone();
+        self.rebuild_shared_imported_descriptor_indexes();
         self.rebuild_parameter_variance_index();
     }
 
@@ -926,62 +981,230 @@ fn normalized_qualified_path(path: &str) -> String {
     normalized
 }
 
-fn imported_descriptor_candidates(
-    descriptors: &[AdtDescriptor],
+impl AdtRegistry {
+    fn imported_descriptor_candidates(&self) -> ImportedDescriptorCandidates {
+        let mut candidates = ImportedDescriptorCandidateIndexes::default();
+        let mut targets_by_type = HashMap::<String, HashSet<_>>::new();
+        let mut targets_by_type_arity = HashMap::<(String, usize), HashSet<_>>::new();
+        for (index, descriptor) in self.descriptors.iter().enumerate() {
+            let Some(module_name) = descriptor.module_name.as_ref() else {
+                continue;
+            };
+            if descriptor.visibility != Visibility::Public {
+                continue;
+            }
+            record_imported_descriptor_index_construction(1);
+            crate::adt::lookup_validation::record_import_path_comparison();
+            let target = (descriptor.package_name.clone(), module_name.clone());
+            record_imported_descriptor_index_construction(2);
+            targets_by_type
+                .entry(descriptor.type_name.clone())
+                .or_default()
+                .insert(target.clone());
+            targets_by_type_arity
+                .entry((
+                    descriptor.type_name.clone(),
+                    descriptor.type_parameters.len(),
+                ))
+                .or_default()
+                .insert(target.clone());
+            self.record_imported_descriptor_candidates(index, descriptor, &target, &mut candidates);
+        }
+        ImportedDescriptorCandidates {
+            any_arity: candidates.any_arity,
+            exact_arity: candidates.exact_arity,
+            consistent_any_arity: finish_consistent_imported_candidates(
+                candidates.consistent_any_arity,
+            ),
+            consistent_exact_arity: finish_consistent_imported_candidates(
+                candidates.consistent_exact_arity,
+            ),
+            targets_by_type,
+            targets_by_type_arity,
+        }
+    }
+
+    fn record_imported_descriptor_candidates(
+        &self,
+        index: usize,
+        descriptor: &AdtDescriptor,
+        target: &(Option<String>, String),
+        candidates: &mut ImportedDescriptorCandidateIndexes,
+    ) {
+        let terminal_identity = self
+            .terminal_descriptor_for_alias(descriptor)
+            .unwrap_or_else(|| self.canonical_descriptor_for(descriptor))
+            .identity();
+        crate::adt::lookup_validation::record_import_path_comparison();
+        record_imported_descriptor_index_construction(4);
+        let any_arity_key = (
+            target.0.clone(),
+            target.1.clone(),
+            descriptor.type_name.clone(),
+        );
+        let exact_arity_key = (
+            target.0.clone(),
+            target.1.clone(),
+            descriptor.type_name.clone(),
+            descriptor.type_parameters.len(),
+        );
+        record_imported_candidate(&mut candidates.any_arity, any_arity_key.clone(), index);
+        record_imported_candidate(&mut candidates.exact_arity, exact_arity_key.clone(), index);
+        record_consistent_imported_candidate(
+            &mut candidates.consistent_any_arity,
+            any_arity_key,
+            index,
+            terminal_identity.clone(),
+            &self.descriptors,
+        );
+        record_consistent_imported_candidate(
+            &mut candidates.consistent_exact_arity,
+            exact_arity_key,
+            index,
+            terminal_identity,
+            &self.descriptors,
+        );
+    }
+}
+
+fn bare_import_targets_by_owner(
     uses: &[UseDecl],
-) -> ImportedDescriptorCandidates {
-    let mut owners_by_imported_module =
-        HashMap::<(Option<String>, String), HashSet<ResolvedImportOwner>>::new();
+) -> HashMap<ResolvedImportOwner, HashSet<(Option<String>, String)>> {
+    let mut targets = HashMap::new();
     for use_decl in uses {
         if !crate::name_recovery::use_decl_contributes_bare_exports(use_decl) {
             continue;
         }
+        record_imported_descriptor_index_construction(1);
         crate::adt::lookup_validation::record_import_path_comparison();
-        owners_by_imported_module
-            .entry({
-                let target = use_decl.resolved_target();
-                (target.package, target.module)
-            })
-            .or_default()
-            .insert(use_decl.resolved_owner());
+        let target = use_decl.resolved_target();
+        targets
+            .entry(use_decl.resolved_owner())
+            .or_insert_with(HashSet::new)
+            .insert((target.package, target.module));
     }
+    targets
+}
 
-    let mut any_arity = HashMap::new();
-    let mut exact_arity = HashMap::new();
-    for (index, descriptor) in descriptors.iter().enumerate() {
-        let Some(module_name) = descriptor.module_name.as_ref() else {
-            continue;
-        };
-        if descriptor.visibility != Visibility::Public {
-            continue;
+impl AdtRegistry {
+    fn imported_descriptor_retained_entries(&self) -> usize {
+        self.bare_import_targets_by_owner
+            .values()
+            .map(HashSet::len)
+            .sum::<usize>()
+            + self.imported_descriptors_by_type.len()
+            + self.imported_descriptors_by_type_arity.len()
+            + self.consistent_imported_descriptors_by_type.len()
+            + self.consistent_imported_descriptors_by_type_arity.len()
+            + self
+                .imported_descriptor_targets_by_type
+                .values()
+                .map(HashSet::len)
+                .sum::<usize>()
+            + self
+                .imported_descriptor_targets_by_type_arity
+                .values()
+                .map(HashSet::len)
+                .sum::<usize>()
+    }
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct ImportedDescriptorIndexWork {
+    pub(crate) construction_work: usize,
+    pub(crate) retained_entries: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static IMPORTED_DESCRIPTOR_INDEX_WORK: std::cell::Cell<ImportedDescriptorIndexWork> =
+        const { std::cell::Cell::new(ImportedDescriptorIndexWork { construction_work: 0, retained_entries: 0 }) };
+}
+
+#[cfg(test)]
+fn record_imported_descriptor_index_construction(units: usize) {
+    IMPORTED_DESCRIPTOR_INDEX_WORK.set(ImportedDescriptorIndexWork {
+        construction_work: IMPORTED_DESCRIPTOR_INDEX_WORK.get().construction_work + units,
+        retained_entries: IMPORTED_DESCRIPTOR_INDEX_WORK.get().retained_entries,
+    });
+}
+
+#[cfg(not(test))]
+fn record_imported_descriptor_index_construction(_units: usize) {}
+
+#[cfg(test)]
+fn record_imported_descriptor_index_retained(entries: usize) {
+    IMPORTED_DESCRIPTOR_INDEX_WORK.set(ImportedDescriptorIndexWork {
+        construction_work: IMPORTED_DESCRIPTOR_INDEX_WORK.get().construction_work,
+        retained_entries: entries,
+    });
+}
+
+#[cfg(not(test))]
+fn record_imported_descriptor_index_retained(_entries: usize) {}
+
+#[cfg(test)]
+pub(crate) fn reset_imported_descriptor_index_work() {
+    IMPORTED_DESCRIPTOR_INDEX_WORK.set(ImportedDescriptorIndexWork::default());
+}
+
+#[cfg(test)]
+pub(crate) fn imported_descriptor_index_work() -> ImportedDescriptorIndexWork {
+    IMPORTED_DESCRIPTOR_INDEX_WORK.get()
+}
+
+fn record_consistent_imported_candidate<K: std::hash::Hash + Eq>(
+    candidates: &mut HashMap<K, ConsistentImportedDescriptorCandidate>,
+    key: K,
+    index: usize,
+    terminal_identity: String,
+    descriptors: &[AdtDescriptor],
+) {
+    crate::adt::lookup_validation::record_import_path_comparison();
+    match candidates.entry(key) {
+        std::collections::hash_map::Entry::Vacant(entry) => {
+            entry.insert(ConsistentImportedDescriptorCandidate {
+                terminal_identity: Some(terminal_identity),
+                representative: index,
+            });
         }
-        crate::adt::lookup_validation::record_import_path_comparison();
-        let target = (descriptor.package_name.clone(), module_name.clone());
-        let Some(owners) = owners_by_imported_module.get(&target) else {
-            continue;
-        };
-        for owner in owners {
-            crate::adt::lookup_validation::record_import_path_comparison();
-            record_imported_candidate(
-                &mut any_arity,
-                (owner.clone(), descriptor.type_name.clone()),
-                index,
-            );
-            record_imported_candidate(
-                &mut exact_arity,
-                (
-                    owner.clone(),
-                    descriptor.type_name.clone(),
-                    descriptor.type_parameters.len(),
-                ),
-                index,
-            );
+        std::collections::hash_map::Entry::Occupied(mut entry) => {
+            let candidate = entry.get_mut();
+            if candidate.terminal_identity.as_deref() != Some(terminal_identity.as_str()) {
+                candidate.terminal_identity = None;
+            } else if descriptor_stable_source_key(&descriptors[index])
+                < descriptor_stable_source_key(&descriptors[candidate.representative])
+            {
+                candidate.representative = index;
+            }
         }
     }
-    ImportedDescriptorCandidates {
-        any_arity,
-        exact_arity,
-    }
+}
+
+fn finish_consistent_imported_candidates<K: std::hash::Hash + Eq>(
+    candidates: HashMap<K, ConsistentImportedDescriptorCandidate>,
+) -> HashMap<K, Option<usize>> {
+    candidates
+        .into_iter()
+        .map(|(key, candidate)| {
+            (
+                key,
+                candidate
+                    .terminal_identity
+                    .is_some()
+                    .then_some(candidate.representative),
+            )
+        })
+        .collect()
+}
+
+fn descriptor_stable_source_key(descriptor: &AdtDescriptor) -> (Option<&str>, Option<&str>, &str) {
+    (
+        descriptor.package_name.as_deref(),
+        descriptor.module_name.as_deref(),
+        descriptor.type_name.as_str(),
+    )
 }
 
 fn record_imported_candidate<K: std::hash::Hash + Eq>(
