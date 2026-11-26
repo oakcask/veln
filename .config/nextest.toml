@@ -8,5 +8,10 @@ fail-fast = false
 filter = 'binary(=toolchain_harness) & test(generated_toolchain_cases::)'
 threads-required = 2
 
+[[profile.ci.overrides]]
+# Java harnesses launch a multithreaded compiler and VM in child processes.
+filter = 'package(=veln-backend-jvm) & (test(tests::runtime_integration::) | test(tests::effect_injection::) | test(tests::result_diagnostic_harness::))'
+threads-required = 2
+
 [profile.ci.junit]
 path = "junit.xml"
