@@ -53,6 +53,9 @@ pub(crate) struct AdtRegistry {
     imported_descriptors_by_type: HashMap<(ResolvedImportOwner, String), Option<usize>>,
     imported_descriptors_by_type_arity:
         HashMap<(ResolvedImportOwner, String, usize), Option<usize>>,
+    consistent_imported_descriptors_by_type: HashMap<(ResolvedImportOwner, String), Option<usize>>,
+    consistent_imported_descriptors_by_type_arity:
+        HashMap<(ResolvedImportOwner, String, usize), Option<usize>>,
     source_import_indexes_ready: bool,
     source_import_count: usize,
     import_owner_scope: Arc<[UseDecl]>,
@@ -103,6 +106,14 @@ struct QualifiedRecoveryModules {
 struct ImportedDescriptorCandidates {
     any_arity: HashMap<(ResolvedImportOwner, String), Option<usize>>,
     exact_arity: HashMap<(ResolvedImportOwner, String, usize), Option<usize>>,
+    consistent_any_arity: HashMap<(ResolvedImportOwner, String), Option<usize>>,
+    consistent_exact_arity: HashMap<(ResolvedImportOwner, String, usize), Option<usize>>,
+}
+
+#[derive(Debug)]
+struct ConsistentImportedDescriptorCandidate {
+    terminal_identity: Option<String>,
+    representative: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -313,6 +324,9 @@ impl AdtRegistry {
         self.declarations_mut()
             .quarantined_type_identities
             .extend(invalid_identities);
+        if self.source_import_indexes_ready {
+            self.rebuild_imported_descriptor_indexes();
+        }
     }
 
     pub(crate) fn descriptor_is_quarantined(&self, descriptor: &AdtDescriptor) -> bool {

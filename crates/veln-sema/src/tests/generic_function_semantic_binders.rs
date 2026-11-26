@@ -246,6 +246,74 @@ fn annotation_named_symbol_lookup_work_is_linear_in_symbols_and_occurrences() {
 }
 
 #[test]
+fn annotation_schema_symbol_lookup_work_is_linear_in_symbols_and_occurrences() {
+    fn measurement(size: usize) -> (crate::types::SchemaSymbolIndexWork, Vec<Diagnostic>) {
+        let mut source = String::new();
+        for index in 0..size {
+            source.push_str(&format!(
+                "pub schema Packet{index}\n  value: Int\nend\npub schema Alias{index} = Packet{index}\n"
+            ));
+        }
+        source.push_str("fn inspect(value: Int) -> ()\n");
+        for index in 0..size {
+            source.push_str(&format!("  let missing{index}: Missing = value\n"));
+        }
+        source.push_str("  ()\nend\n");
+
+        let source = SourceFile::new("schema_lookup.veln", source);
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::types::reset_schema_symbol_index_work();
+        let diagnostics = analyze_surface_module(&module);
+        (crate::types::take_schema_symbol_index_work(), diagnostics)
+    }
+
+    let mut totals = Vec::new();
+    for size in [32, 64, 128] {
+        let (work, diagnostics) = measurement(size);
+        let missing = diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.id == "name.unresolved"
+                    && diagnostic.message == "unresolved type `Missing`"
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(missing.len(), size, "{diagnostics:#?}");
+        assert_eq!(
+            missing
+                .iter()
+                .filter_map(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.line))
+                .collect::<HashSet<_>>()
+                .len(),
+            size,
+            "each missing annotation must retain its own span"
+        );
+        assert!(
+            work.schema_entries >= size,
+            "schema index build was not measured"
+        );
+        assert!(
+            work.alias_entries >= size,
+            "alias index build was not measured"
+        );
+        assert!(
+            work.schema_lookups >= size,
+            "schema probes were not measured"
+        );
+        assert!(work.alias_lookups >= size, "alias probes were not measured");
+        totals.push(work.total());
+    }
+    for adjacent in totals.windows(2) {
+        assert!(
+            adjacent[1] <= adjacent[0] * 2 + 32,
+            "doubling schemas, aliases, and annotations must remain linear: {totals:?}"
+        );
+    }
+    eprintln!("schema annotation index work for sizes 32/64/128: {totals:?}");
+}
+
+#[test]
 fn function_binders_retain_declaration_order_in_signature_annotations() {
     let (module, diagnostics) = analyze(concat!(
         "fn ordered<First, Second>(first: First, second: Second) -> Second\n",

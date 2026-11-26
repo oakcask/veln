@@ -1,4 +1,6 @@
 use super::*;
+use crate::semantic_model::Type;
+use crate::types::TypeEnvironment;
 
 fn analyze(source_text: &str) -> (SurfaceModule, Vec<Diagnostic>) {
     let source = SourceFile::new("main.veln", source_text);
@@ -121,6 +123,109 @@ fn annotation_path_classification_work_has_a_linear_bound() {
             assert_eq!((small_unresolved, large_unresolved), (0, 0));
         }
     }
+}
+
+#[test]
+fn annotation_consistent_imported_alias_lookup_work_is_linear() {
+    fn measurement(size: usize) -> (usize, SurfaceModule, Vec<Diagnostic>) {
+        let mut module = package_module(
+            "base.veln",
+            "pub type Root\n  pub Value\nend\n",
+            "workspace",
+            "base",
+        );
+        for index in 0..size {
+            let provider = format!("provider{index:03}");
+            let path = format!("{provider}.veln");
+            extend_surface_module(
+                &mut module,
+                package_module(
+                    &path,
+                    "use base\npub type Shared = base::Root\n",
+                    "workspace",
+                    &provider,
+                ),
+            );
+        }
+
+        let mut app = String::new();
+        for index in 0..size {
+            app.push_str(&format!("use provider{index:03}\n"));
+        }
+        app.push_str("fn accepts(value: Shared) -> Shared\n");
+        for index in 0..size {
+            app.push_str(&format!("  let alias{index}: Shared = value\n"));
+        }
+        app.push_str("  value\nend\n");
+        app.push_str("fn shadow<Shared>(value: Shared) -> Shared\n  value\nend\n");
+        extend_surface_module(
+            &mut module,
+            package_module("app.veln", &app, "workspace", "app"),
+        );
+
+        crate::adt::reset_import_path_comparisons();
+        let diagnostics = analyze_surface_module(&module);
+        let work = crate::adt::import_path_comparisons();
+        (work, module, diagnostics)
+    }
+
+    let mut totals = Vec::new();
+    for size in [16, 32, 64] {
+        let (work, module, diagnostics) = measurement(size);
+        assert!(
+            diagnostics.iter().all(|diagnostic| {
+                diagnostic.id != "name.unresolved"
+                    || diagnostic
+                        .span
+                        .as_ref()
+                        .is_none_or(|span| span.file.as_str() != "app.veln")
+            }),
+            "consistent imports must resolve every annotation: {diagnostics:#?}"
+        );
+        let shadows = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.type_parameter_shadow")
+            .collect::<Vec<_>>();
+        assert_eq!(shadows.len(), 1, "{diagnostics:#?}");
+        assert!(shadows[0].related.iter().any(|related| {
+            let json = related.to_json();
+            json.contains("\"file\":\"provider000.veln\"") && json.contains("\"line\":2")
+        }));
+
+        let environment = TypeEnvironment::from_module(&module);
+        let accepts = environment.function("accepts").expect("accepts signature");
+        let Type::Named { name, identity, .. } = &accepts.params[0] else {
+            panic!(
+                "expected resolved imported type, found {:?}",
+                accepts.params[0]
+            );
+        };
+        let Type::Named {
+            identity: return_identity,
+            ..
+        } = &accepts.return_type
+        else {
+            panic!(
+                "expected resolved return type, found {:?}",
+                accepts.return_type
+            );
+        };
+        assert_eq!(name, "Shared");
+        assert_eq!(identity, return_identity);
+
+        assert!(
+            work >= size * 3,
+            "index construction and lookup were not measured"
+        );
+        totals.push(work);
+    }
+    for adjacent in totals.windows(2) {
+        assert!(
+            adjacent[1] <= adjacent[0] * 2 + 64,
+            "doubling providers, imports, and annotations must remain linear: {totals:?}"
+        );
+    }
+    eprintln!("consistent imported alias work for sizes 16/32/64: {totals:?}");
 }
 
 #[test]

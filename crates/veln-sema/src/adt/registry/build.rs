@@ -10,9 +10,10 @@ use crate::source_less_names::InvalidStandardSymbolCase;
 
 use super::aliases::{ResolvedTypeAliases, descriptor_for_alias_target, type_alias_descriptors};
 use super::{
-    AdtDeclarationFacts, AdtRegistry, DescriptorKey, ImportOwners, ImportedDescriptorCandidates,
-    QualifiedImportModules, QualifiedRecoveryModules, TypeAliasDeclarationIdentity,
-    VariantDeclarationOrder, VariantDescriptorKey, descriptor_identity,
+    AdtDeclarationFacts, AdtRegistry, ConsistentImportedDescriptorCandidate, DescriptorKey,
+    ImportOwners, ImportedDescriptorCandidates, QualifiedImportModules, QualifiedRecoveryModules,
+    TypeAliasDeclarationIdentity, VariantDeclarationOrder, VariantDescriptorKey,
+    descriptor_identity,
 };
 use crate::adt::descriptors::AdtDescriptor;
 use crate::adt::lookup_validation::{
@@ -189,6 +190,8 @@ impl AdtRegistry {
             qualified_import_recovery_modules: HashMap::new(),
             imported_descriptors_by_type: HashMap::new(),
             imported_descriptors_by_type_arity: HashMap::new(),
+            consistent_imported_descriptors_by_type: HashMap::new(),
+            consistent_imported_descriptors_by_type_arity: HashMap::new(),
             source_import_indexes_ready: false,
             source_import_count: 0,
             import_owner_scope: Arc::from([]),
@@ -331,13 +334,21 @@ impl AdtRegistry {
         self.qualified_import_modules = qualified_import_modules(&uses);
         self.qualified_import_recovery_modules =
             qualified_import_recovery_modules(&self.qualified_import_modules);
-        let imported_descriptors = imported_descriptor_candidates(&self.descriptors, &uses);
+        self.bind_import_owner_scope(uses);
+        self.rebuild_imported_descriptor_indexes();
+        self.local_descriptor_start = local_descriptor_start;
+    }
+
+    pub(super) fn rebuild_imported_descriptor_indexes(&mut self) {
+        let uses = Arc::clone(&self.import_owner_scope);
+        let imported_descriptors = self.imported_descriptor_candidates(&uses);
         self.imported_descriptors_by_type = imported_descriptors.any_arity;
         self.imported_descriptors_by_type_arity = imported_descriptors.exact_arity;
+        self.consistent_imported_descriptors_by_type = imported_descriptors.consistent_any_arity;
+        self.consistent_imported_descriptors_by_type_arity =
+            imported_descriptors.consistent_exact_arity;
         self.source_import_indexes_ready = true;
         self.source_import_count = uses.len();
-        self.bind_import_owner_scope(uses.clone());
-        self.local_descriptor_start = local_descriptor_start;
     }
 
     fn resolved_source_constructor_uses(
@@ -926,62 +937,140 @@ fn normalized_qualified_path(path: &str) -> String {
     normalized
 }
 
-fn imported_descriptor_candidates(
-    descriptors: &[AdtDescriptor],
-    uses: &[UseDecl],
-) -> ImportedDescriptorCandidates {
-    let mut owners_by_imported_module =
-        HashMap::<(Option<String>, String), HashSet<ResolvedImportOwner>>::new();
-    for use_decl in uses {
-        if !crate::name_recovery::use_decl_contributes_bare_exports(use_decl) {
-            continue;
-        }
-        crate::adt::lookup_validation::record_import_path_comparison();
-        owners_by_imported_module
-            .entry({
-                let target = use_decl.resolved_target();
-                (target.package, target.module)
-            })
-            .or_default()
-            .insert(use_decl.resolved_owner());
-    }
-
-    let mut any_arity = HashMap::new();
-    let mut exact_arity = HashMap::new();
-    for (index, descriptor) in descriptors.iter().enumerate() {
-        let Some(module_name) = descriptor.module_name.as_ref() else {
-            continue;
-        };
-        if descriptor.visibility != Visibility::Public {
-            continue;
-        }
-        crate::adt::lookup_validation::record_import_path_comparison();
-        let target = (descriptor.package_name.clone(), module_name.clone());
-        let Some(owners) = owners_by_imported_module.get(&target) else {
-            continue;
-        };
-        for owner in owners {
+impl AdtRegistry {
+    fn imported_descriptor_candidates(&self, uses: &[UseDecl]) -> ImportedDescriptorCandidates {
+        let mut owners_by_imported_module =
+            HashMap::<(Option<String>, String), HashSet<ResolvedImportOwner>>::new();
+        for use_decl in uses {
+            if !crate::name_recovery::use_decl_contributes_bare_exports(use_decl) {
+                continue;
+            }
             crate::adt::lookup_validation::record_import_path_comparison();
-            record_imported_candidate(
-                &mut any_arity,
-                (owner.clone(), descriptor.type_name.clone()),
-                index,
-            );
-            record_imported_candidate(
-                &mut exact_arity,
-                (
-                    owner.clone(),
-                    descriptor.type_name.clone(),
-                    descriptor.type_parameters.len(),
-                ),
-                index,
-            );
+            owners_by_imported_module
+                .entry({
+                    let target = use_decl.resolved_target();
+                    (target.package, target.module)
+                })
+                .or_default()
+                .insert(use_decl.resolved_owner());
+        }
+
+        let mut any_arity = HashMap::new();
+        let mut exact_arity = HashMap::new();
+        let mut consistent_any_arity = HashMap::new();
+        let mut consistent_exact_arity = HashMap::new();
+        for (index, descriptor) in self.descriptors.iter().enumerate() {
+            let Some(module_name) = descriptor.module_name.as_ref() else {
+                continue;
+            };
+            if descriptor.visibility != Visibility::Public {
+                continue;
+            }
+            crate::adt::lookup_validation::record_import_path_comparison();
+            let target = (descriptor.package_name.clone(), module_name.clone());
+            let Some(owners) = owners_by_imported_module.get(&target) else {
+                continue;
+            };
+            for owner in owners {
+                crate::adt::lookup_validation::record_import_path_comparison();
+                record_imported_candidate(
+                    &mut any_arity,
+                    (owner.clone(), descriptor.type_name.clone()),
+                    index,
+                );
+                record_imported_candidate(
+                    &mut exact_arity,
+                    (
+                        owner.clone(),
+                        descriptor.type_name.clone(),
+                        descriptor.type_parameters.len(),
+                    ),
+                    index,
+                );
+                let terminal_identity = self
+                    .terminal_descriptor_for_alias(descriptor)
+                    .unwrap_or_else(|| self.canonical_descriptor_for(descriptor))
+                    .identity();
+                record_consistent_imported_candidate(
+                    &mut consistent_any_arity,
+                    (owner.clone(), descriptor.type_name.clone()),
+                    index,
+                    terminal_identity.clone(),
+                    &self.descriptors,
+                );
+                record_consistent_imported_candidate(
+                    &mut consistent_exact_arity,
+                    (
+                        owner.clone(),
+                        descriptor.type_name.clone(),
+                        descriptor.type_parameters.len(),
+                    ),
+                    index,
+                    terminal_identity,
+                    &self.descriptors,
+                );
+            }
+        }
+        ImportedDescriptorCandidates {
+            any_arity,
+            exact_arity,
+            consistent_any_arity: finish_consistent_imported_candidates(consistent_any_arity),
+            consistent_exact_arity: finish_consistent_imported_candidates(consistent_exact_arity),
         }
     }
-    ImportedDescriptorCandidates {
-        any_arity,
-        exact_arity,
+}
+
+fn record_consistent_imported_candidate<K: std::hash::Hash + Eq>(
+    candidates: &mut HashMap<K, ConsistentImportedDescriptorCandidate>,
+    key: K,
+    index: usize,
+    terminal_identity: String,
+    descriptors: &[AdtDescriptor],
+) {
+    crate::adt::lookup_validation::record_import_path_comparison();
+    match candidates.entry(key) {
+        std::collections::hash_map::Entry::Vacant(entry) => {
+            entry.insert(ConsistentImportedDescriptorCandidate {
+                terminal_identity: Some(terminal_identity),
+                representative: index,
+            });
+        }
+        std::collections::hash_map::Entry::Occupied(mut entry) => {
+            let candidate = entry.get_mut();
+            if candidate.terminal_identity.as_deref() != Some(terminal_identity.as_str()) {
+                candidate.terminal_identity = None;
+            } else if descriptor_stable_source_key(&descriptors[index])
+                < descriptor_stable_source_key(&descriptors[candidate.representative])
+            {
+                candidate.representative = index;
+            }
+        }
     }
+}
+
+fn finish_consistent_imported_candidates<K: std::hash::Hash + Eq>(
+    candidates: HashMap<K, ConsistentImportedDescriptorCandidate>,
+) -> HashMap<K, Option<usize>> {
+    candidates
+        .into_iter()
+        .map(|(key, candidate)| {
+            (
+                key,
+                candidate
+                    .terminal_identity
+                    .is_some()
+                    .then_some(candidate.representative),
+            )
+        })
+        .collect()
+}
+
+fn descriptor_stable_source_key(descriptor: &AdtDescriptor) -> (Option<&str>, Option<&str>, &str) {
+    (
+        descriptor.package_name.as_deref(),
+        descriptor.module_name.as_deref(),
+        descriptor.type_name.as_str(),
+    )
 }
 
 fn record_imported_candidate<K: std::hash::Hash + Eq>(

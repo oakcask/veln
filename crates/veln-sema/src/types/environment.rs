@@ -366,6 +366,73 @@ fn record_annotation_named_symbol_index_lookup() {
     ANNOTATION_NAMED_SYMBOL_INDEX_WORK.update(|(entries, lookups)| (entries, lookups + 1));
 }
 
+#[cfg(test)]
+thread_local! {
+    static SCHEMA_SYMBOL_INDEX_WORK: std::cell::Cell<SchemaSymbolIndexWork> =
+        const { std::cell::Cell::new(SchemaSymbolIndexWork::ZERO) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SchemaSymbolIndexWork {
+    pub(crate) schema_entries: usize,
+    pub(crate) alias_entries: usize,
+    pub(crate) schema_lookups: usize,
+    pub(crate) alias_lookups: usize,
+}
+
+#[cfg(test)]
+impl SchemaSymbolIndexWork {
+    const ZERO: Self = Self {
+        schema_entries: 0,
+        alias_entries: 0,
+        schema_lookups: 0,
+        alias_lookups: 0,
+    };
+
+    pub(crate) fn total(self) -> usize {
+        self.schema_entries + self.alias_entries + self.schema_lookups + self.alias_lookups
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn reset_schema_symbol_index_work() {
+    SCHEMA_SYMBOL_INDEX_WORK.set(SchemaSymbolIndexWork::ZERO);
+}
+
+#[cfg(test)]
+pub(crate) fn take_schema_symbol_index_work() -> SchemaSymbolIndexWork {
+    SCHEMA_SYMBOL_INDEX_WORK.replace(SchemaSymbolIndexWork::ZERO)
+}
+
+pub(super) fn record_schema_symbol_index_entry(alias: bool) {
+    #[cfg(test)]
+    SCHEMA_SYMBOL_INDEX_WORK.update(|mut work| {
+        if alias {
+            work.alias_entries += 1;
+        } else {
+            work.schema_entries += 1;
+        }
+        work
+    });
+    #[cfg(not(test))]
+    let _ = alias;
+}
+
+pub(super) fn record_schema_symbol_index_lookup(alias: bool) {
+    #[cfg(test)]
+    SCHEMA_SYMBOL_INDEX_WORK.update(|mut work| {
+        if alias {
+            work.alias_lookups += 1;
+        } else {
+            work.schema_lookups += 1;
+        }
+        work
+    });
+    #[cfg(not(test))]
+    let _ = alias;
+}
+
 fn named_type_symbol_index(
     symbols: &[NamedSymbol],
 ) -> HashMap<NamedTypeSymbolKey, NamedTypeSymbolVisibility> {

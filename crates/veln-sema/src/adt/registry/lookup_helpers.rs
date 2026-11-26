@@ -142,6 +142,26 @@ impl AdtRegistry {
         current_package: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
+        if self.source_import_indexes_ready {
+            crate::adt::lookup_validation::record_import_path_comparison();
+            let owner = veln_ast::ResolvedImportOwner {
+                package: current_package.map(str::to_string),
+                module: current_module.map(str::to_string),
+            };
+            let index = if let Some(args_len) = args_len {
+                self.consistent_imported_descriptors_by_type_arity.get(&(
+                    owner,
+                    name.to_string(),
+                    args_len,
+                ))
+            } else {
+                self.consistent_imported_descriptors_by_type
+                    .get(&(owner, name.to_string()))
+            }
+            .copied()
+            .flatten()?;
+            return Some(self.descriptor_lookup_candidate(index));
+        }
         let mut descriptors = self.descriptors_named(name).filter(|descriptor| {
             Self::descriptor_matches_arity(descriptor, args_len)
                 && Self::descriptor_is_unqualified_import_in_owner(
