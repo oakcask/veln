@@ -302,10 +302,12 @@ including when its name is missing. An invalid binder entry at the
 parameter-list boundary resumes parsing that function's parameter list,
 signature, and body. A rejected applied binder with a balanced closing `>`
 consumes its nested parentheses without reporting a missing binder separator
-at them. If that closing `>` is absent, a complete following parameter list is
-the recovery boundary and remains available to the function declaration. An
-unclosed binder list at a newline ends the malformed declaration without
-consuming the following top-level declaration.
+at them. If that closing `>` is absent, the first complete parenthesized
+sequence followed by a function-header continuation token is the recovery
+boundary and remains available to the function declaration. An earlier
+sequence inside malformed type text can therefore be selected instead of a
+later intended parameter list. An unclosed binder list at a newline ends the
+malformed declaration without consuming the following top-level declaration.
 Recovery from a malformed binder bound also leaves a following top-level
 declaration available to the parser.
 The

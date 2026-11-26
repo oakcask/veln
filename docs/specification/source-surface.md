@@ -75,11 +75,16 @@ the declaration's parameter list. If the applied binder has a balanced closing
 `>`, recovery consumes its nested parentheses and closing delimiter before it
 resumes at the declaration's parameters. For example, the parentheses in
 `T<Foo(Int) -> Int>` remain part of the malformed binder entry. If the applied
-binder has no balanced closing `>`, a complete following parameter list is the
-recovery boundary. Thus, an unclosed `T<Int` followed by
-`(value: Int) -> Int` still preserves that parameter and return signature. If
-an unclosed list reaches a newline, the malformed declaration ends there and
-the next top-level declaration remains a separate syntax item.
+binder has no balanced closing `>`, recovery uses the first complete
+parenthesized sequence followed by `->`, `effects`, `callsite`, a newline, or
+the end of the file as the parameter-list boundary. Thus, an unclosed `T<Int`
+followed by `(value: Int) -> Int` still preserves that parameter and return
+signature. This recovery is intentionally bounded rather than an
+interpretation of arbitrary malformed type text. If an earlier parenthesized
+sequence inside that text also satisfies the boundary shape, it is selected
+and a later intended parameter list is not retained. If an unclosed list
+reaches a newline, the malformed declaration ends there and the next top-level
+declaration remains a separate syntax item.
 The focused parser diagnostics for these failures are specified by
 [Check JSON And Diagnostics](diagnostics-json.md#diagnostic-families).
 
