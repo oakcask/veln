@@ -77,6 +77,7 @@ fn append_boundary_diagnostics(
     diagnostics.extend(check_module_boundary(module));
     diagnostics.extend(check_reserved_prelude_aliases(module));
     diagnostics.extend(check_public_aliases(module, environment));
+    diagnostics.extend(check_unresolved_adt_payload_type_names(module, environment));
     for declaration in &module.types {
         diagnostics.extend(check_public_adt_variant_refinement_visibility(
             declaration,
@@ -88,6 +89,74 @@ fn append_boundary_diagnostics(
     let handlers = check_handler_declarations(module, environment);
     diagnostics.extend(handlers.diagnostics);
     handlers.state_call_types
+}
+
+fn check_unresolved_adt_payload_type_names(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for declaration in &module.types {
+        let type_parameters = declaration
+            .params
+            .iter()
+            .map(String::as_str)
+            .collect::<HashSet<_>>();
+        for field in declaration
+            .variants
+            .iter()
+            .flat_map(|variant| &variant.fields)
+        {
+            let mut paths = Vec::new();
+            collect_non_refinement_annotation_paths(
+                &field.ty_paths,
+                &field.ty_refinements,
+                &type_parameters,
+                &mut paths,
+            );
+            for path in paths {
+                let name = path.segments.join("::");
+                let own_parameter = path.segments.len() == 1
+                    && path.type_argument_count == 0
+                    && type_parameters.contains(path.segments[0].as_str());
+                let lowercase_recovery = path.segments.last().is_some_and(|segment| {
+                    segment
+                        .chars()
+                        .next()
+                        .is_some_and(|initial| initial.is_ascii_lowercase())
+                });
+                if own_parameter
+                    || lowercase_recovery
+                    || environment.annotation_type_path_is_resolved_in_owner(
+                        &name,
+                        path.type_argument_count,
+                        declaration.module_name.as_deref(),
+                        declaration.package_name.as_deref(),
+                    )
+                    || environment.annotation_type_path_has_visible_declaration_in_owner(
+                        &name,
+                        declaration.module_name.as_deref(),
+                        declaration.package_name.as_deref(),
+                    )
+                {
+                    continue;
+                }
+                let span = if environment.annotation_type_path_has_resolved_qualifier_in_owner(
+                    &name,
+                    declaration.module_name.as_deref(),
+                    declaration.package_name.as_deref(),
+                ) {
+                    path.segment_spans.last()
+                } else {
+                    path.segment_spans.first()
+                };
+                if let Some(span) = span {
+                    diagnostics.push(unresolved_type_diagnostic(name, span.clone()));
+                }
+            }
+        }
+    }
+    diagnostics
 }
 
 pub(super) fn check_function_declaration_and_body(
@@ -614,7 +683,8 @@ fn function_type_parameter_shadow_diagnostic(
     function: &veln_ast::Function,
     environment: &TypeEnvironment,
 ) -> Option<Diagnostic> {
-    let builtin = crate::type_syntax::compiler_known_type_annotation_arity(&binder.name).is_some();
+    let builtin = crate::type_syntax::compiler_known_type_annotation_arity(&binder.name).is_some()
+        || crate::adt::is_opaque_builtin_type(&binder.name);
     let descriptor = environment
         .adts
         .unique_descriptor_for_type_path_any_arity_in_owner(
@@ -632,6 +702,15 @@ fn function_type_parameter_shadow_diagnostic(
                     function.package_name.as_deref(),
                     &environment.uses,
                 )
+        })
+        .or_else(|| {
+            builtin.then(|| {
+                environment.adts.local_source_descriptor_with_declaration(
+                    &binder.name,
+                    function.module_name.as_deref(),
+                    function.package_name.as_deref(),
+                )
+            })?
         });
     if !builtin && descriptor.is_none() {
         return None;

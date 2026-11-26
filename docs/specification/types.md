@@ -174,8 +174,9 @@ diagnostic evidence is in
 [`generic-function-semantic-binders-human`](../../examples/specification/check/generic-function-semantic-binders-human/),
 and
 [`generic-function-semantic-binders-json`](../../examples/specification/check/generic-function-semantic-binders-json/).
-The corrected nested-refinement, consistent-alias, and complete-signature
-boundaries are checked by
+The corrected nested-refinement, schema-namespace precedence, ADT payload
+scope, qualifier-first lookup, opaque built-in classification,
+consistent-alias, and complete-signature boundaries are checked by
 [`generic-function-semantic-gap-human`](../../examples/specification/check/generic-function-semantic-gap-human/)
 and
 [`generic-function-semantic-gap-json`](../../examples/specification/check/generic-function-semantic-gap-json/).

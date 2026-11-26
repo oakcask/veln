@@ -2,7 +2,11 @@ use super::*;
 
 pub(super) fn push_schema_type_reference_diagnostics(
     module: &SurfaceModule,
-    owner: (Option<&str>, Option<&str>),
+    owner: (
+        Option<&str>,
+        Option<&str>,
+        Option<&crate::types::TypeParameterIdentityContext<'_>>,
+    ),
     annotation: &str,
     node_id: String,
     span: SourceSpan,
@@ -13,7 +17,7 @@ pub(super) fn push_schema_type_reference_diagnostics(
         return;
     };
     let mut schemas = Vec::new();
-    collect_schema_type_references(module, owner.0, owner.1, &ty, &mut schemas);
+    collect_schema_type_references(module, owner.0, owner.1, &ty, owner.2, &mut schemas);
     for schema in schemas {
         diagnostics.push(schema_type_reference_diagnostic(
             schema,
@@ -53,11 +57,17 @@ pub(super) fn collect_schema_type_references<'a>(
     current_module: Option<&str>,
     current_package: Option<&str>,
     ty: &Type,
+    type_parameters: Option<&crate::types::TypeParameterIdentityContext<'_>>,
     schemas: &mut Vec<&'a SchemaDecl>,
 ) {
     match ty {
         Type::Named { name, args, .. } | Type::VariantRefinement { name, args, .. } => {
-            if let Some(schema) =
+            if !name.contains("::")
+                && type_parameters.is_some_and(|parameters| parameters.ordinal(name).is_some())
+            {
+                // A declaration-owned rigid parameter resolves in the type
+                // namespace before a same-spelled schema is considered.
+            } else if let Some(schema) =
                 schema_for_type_name(module, current_module, current_package, name)
             {
                 schemas.push(schema);
@@ -68,6 +78,7 @@ pub(super) fn collect_schema_type_references<'a>(
                     current_module,
                     current_package,
                     arg,
+                    type_parameters,
                     schemas,
                 );
             }
@@ -79,6 +90,7 @@ pub(super) fn collect_schema_type_references<'a>(
                     current_module,
                     current_package,
                     field_ty,
+                    type_parameters,
                     schemas,
                 );
             }
@@ -94,6 +106,7 @@ pub(super) fn collect_schema_type_references<'a>(
                     current_module,
                     current_package,
                     param,
+                    type_parameters,
                     schemas,
                 );
             }
@@ -102,6 +115,7 @@ pub(super) fn collect_schema_type_references<'a>(
                 current_module,
                 current_package,
                 return_type,
+                type_parameters,
                 schemas,
             );
         }

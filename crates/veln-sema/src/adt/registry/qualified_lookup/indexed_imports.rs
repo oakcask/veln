@@ -320,9 +320,12 @@ impl AdtRegistry {
                 normalized_qualified_path(current_module) == normalized
             }) || self
                 .qualified_import_recovery_modules
-                .contains_key(&(owner.clone(), normalized)))
+                .contains_key(&(owner.clone(), normalized.clone())))
         {
             return None;
+        }
+        if !matches!(normalized.as_str(), "prelude" | "std::prelude") {
+            return Some(None);
         }
         let mut builtin = self
             .descriptors_by_source_identity

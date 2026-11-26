@@ -1,6 +1,25 @@
 use super::*;
 
 impl AdtRegistry {
+    pub(crate) fn local_source_descriptor_with_declaration(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<&AdtDescriptor> {
+        self.descriptors_by_type_name
+            .get(name)
+            .into_iter()
+            .flatten()
+            .rev()
+            .map(|index| self.descriptor_lookup_candidate(*index))
+            .find(|descriptor| {
+                descriptor.module_name.as_deref() == current_module
+                    && descriptor.package_name.as_deref() == current_package
+                    && self.declaration_span(descriptor).is_some()
+            })
+    }
+
     pub(super) fn descriptor_matches_arity(
         descriptor: &AdtDescriptor,
         args_len: Option<usize>,
@@ -188,11 +207,36 @@ impl AdtRegistry {
         } else {
             self.imported_descriptor_targets_by_type.get(name)?
         };
+        let cache_key = (owner.clone(), name.to_string(), args_len);
+        if let Some(cached) = self
+            .unique_imported_descriptor_cache
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(&cache_key)
+            .copied()
+        {
+            return cached;
+        }
+        let visible_targets = if owner_targets.len() <= targets.len() {
+            owner_targets
+                .iter()
+                .filter(|target| {
+                    crate::adt::lookup_validation::record_import_path_comparison();
+                    targets.contains(*target)
+                })
+                .collect::<Vec<_>>()
+        } else {
+            targets
+                .iter()
+                .filter(|target| {
+                    crate::adt::lookup_validation::record_import_path_comparison();
+                    owner_targets.contains(*target)
+                })
+                .collect::<Vec<_>>()
+        };
         let mut selected = None;
-        for (package, module) in targets {
-            if !owner_targets.contains(&(package.clone(), module.clone())) {
-                continue;
-            }
+        let mut ambiguous = false;
+        for (package, module) in visible_targets {
             crate::adt::lookup_validation::record_import_path_comparison();
             let candidate = if let Some(args_len) = args_len {
                 self.imported_descriptors_by_type_arity.get(&(
@@ -213,9 +257,17 @@ impl AdtRegistry {
             };
             let candidate = (*candidate)?;
             if selected.replace(candidate).is_some() {
-                return None;
+                ambiguous = true;
+                break;
             }
         }
+        if ambiguous {
+            selected = None;
+        }
+        self.unique_imported_descriptor_cache
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(cache_key, selected);
         selected
     }
 
@@ -232,12 +284,37 @@ impl AdtRegistry {
         } else {
             self.imported_descriptor_targets_by_type.get(name)?
         };
+        let cache_key = (owner.clone(), name.to_string(), args_len);
+        if let Some(cached) = self
+            .consistent_imported_descriptor_cache
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(&cache_key)
+            .copied()
+        {
+            return cached;
+        }
+        let visible_targets = if owner_targets.len() <= targets.len() {
+            owner_targets
+                .iter()
+                .filter(|target| {
+                    crate::adt::lookup_validation::record_import_path_comparison();
+                    targets.contains(*target)
+                })
+                .collect::<Vec<_>>()
+        } else {
+            targets
+                .iter()
+                .filter(|target| {
+                    crate::adt::lookup_validation::record_import_path_comparison();
+                    owner_targets.contains(*target)
+                })
+                .collect::<Vec<_>>()
+        };
         let mut selected = None;
         let mut terminal_identity = None;
-        for (package, module) in targets {
-            if !owner_targets.contains(&(package.clone(), module.clone())) {
-                continue;
-            }
+        let mut inconsistent = false;
+        for (package, module) in visible_targets {
             crate::adt::lookup_validation::record_import_path_comparison();
             let candidate = if let Some(args_len) = args_len {
                 self.consistent_imported_descriptors_by_type_arity.get(&(
@@ -266,7 +343,8 @@ impl AdtRegistry {
                 .as_ref()
                 .is_some_and(|identity| identity != &candidate_identity)
             {
-                return None;
+                inconsistent = true;
+                break;
             }
             terminal_identity = Some(candidate_identity);
             if selected.is_none_or(|selected| {
@@ -276,6 +354,13 @@ impl AdtRegistry {
                 selected = Some(candidate);
             }
         }
+        if inconsistent {
+            selected = None;
+        }
+        self.consistent_imported_descriptor_cache
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(cache_key, selected);
         selected
     }
 

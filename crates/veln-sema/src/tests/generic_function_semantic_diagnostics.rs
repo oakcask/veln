@@ -193,6 +193,107 @@ fn imported_descriptor_index_construction_and_retention_are_linear_across_both_a
     eprintln!("two-axis imported descriptor index work for sizes 16/32/64: {measured:?}");
 }
 
+#[test]
+fn unique_imported_descriptor_lookup_work_is_linear_across_providers_and_annotations() {
+    fn measurement(size: usize) -> usize {
+        let mut module = package_module(
+            "provider000.veln",
+            "pub type Shared\n  pub Value\nend\n",
+            "workspace",
+            "provider000",
+        );
+        for index in 1..size {
+            let provider = format!("provider{index:03}");
+            extend_surface_module(
+                &mut module,
+                package_module(
+                    &format!("{provider}.veln"),
+                    "pub type Shared\n  pub Value\nend\n",
+                    "workspace",
+                    &provider,
+                ),
+            );
+        }
+        extend_surface_module(
+            &mut module,
+            package_module("app.veln", "use provider000\n", "workspace", "app"),
+        );
+        let registry = crate::adt::registry::AdtRegistry::from_module(&module);
+        let uses = registry.import_scope();
+        crate::adt::reset_import_path_comparisons();
+        for _ in 0..size {
+            let descriptor = registry
+                .unique_descriptor_for_type_path("Shared", 0, Some("app"), &uses)
+                .expect("the owner-visible provider must resolve uniquely");
+            assert_eq!(descriptor.module_name.as_deref(), Some("provider000"));
+        }
+        crate::adt::import_path_comparisons()
+    }
+
+    let measured = [16, 32, 64].map(measurement);
+    for adjacent in measured.windows(2) {
+        assert!(
+            adjacent[1] <= adjacent[0] * 2 + 8,
+            "unique lookup work must remain adjacent-linear: {measured:?}"
+        );
+    }
+    eprintln!("unique imported descriptor lookup work for sizes 16/32/64: {measured:?}");
+}
+
+#[test]
+fn consistent_imported_descriptor_lookup_work_is_linear_across_providers_and_annotations() {
+    fn measurement(size: usize) -> usize {
+        let mut module = package_module(
+            "base.veln",
+            "pub type Root\n  pub Value\nend\n",
+            "workspace",
+            "base",
+        );
+        let mut app = String::new();
+        for index in 0..size {
+            let provider = format!("provider{index:03}");
+            extend_surface_module(
+                &mut module,
+                package_module(
+                    &format!("{provider}.veln"),
+                    "use base\npub type Shared = base::Root\n",
+                    "workspace",
+                    &provider,
+                ),
+            );
+            app.push_str(&format!("use {provider}\n"));
+        }
+        extend_surface_module(
+            &mut module,
+            package_module("app.veln", &app, "workspace", "app"),
+        );
+        let registry = crate::adt::registry::AdtRegistry::from_module(&module);
+        let uses = registry.import_scope();
+        crate::adt::reset_import_path_comparisons();
+        for _ in 0..size {
+            let descriptor = registry
+                .consistent_imported_type_path_descriptor_any_arity(
+                    "Shared",
+                    Some("app"),
+                    Some("workspace"),
+                    &uses,
+                )
+                .expect("same-terminal aliases must converge");
+            assert_eq!(descriptor.module_name.as_deref(), Some("provider000"));
+        }
+        crate::adt::import_path_comparisons()
+    }
+
+    let measured = [16, 32, 64].map(measurement);
+    for adjacent in measured.windows(2) {
+        assert!(
+            adjacent[1] <= adjacent[0] * 2 + 8,
+            "same-terminal lookup work must remain adjacent-linear: {measured:?}"
+        );
+    }
+    eprintln!("consistent imported descriptor lookup work for sizes 16/32/64: {measured:?}");
+}
+
 fn consistent_imported_alias_measurement(size: usize) -> (usize, SurfaceModule, Vec<Diagnostic>) {
     let mut module = package_module(
         "base.veln",
@@ -456,6 +557,34 @@ fn compiler_known_binder_shadow_keeps_visible_source_declaration_context() {
         }),
         "{shadow:#?}"
     );
+}
+
+#[test]
+fn opaque_compiler_owned_binder_shadow_keeps_builtin_classification_and_source_context() {
+    let (_, diagnostics) = analyze(concat!(
+        "type NetListener\n",
+        "  Listener\n",
+        "end\n",
+        "fn shadow<NetListener>(value: NetListener) -> NetListener\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    let shadow = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "name.type_parameter_shadow")
+        .expect("opaque compiler-owned shadow diagnostic");
+    assert!(
+        shadow
+            .details
+            .to_json()
+            .contains("\"shadowed_kind\":\"builtin_type\""),
+        "{shadow:#?}"
+    );
+    assert!(shadow.related.iter().any(|related| {
+        let json = related.to_json();
+        json.contains("\"kind\":\"shadowed_type_declaration\"") && json.contains("\"line\":1")
+    }));
 }
 
 #[test]

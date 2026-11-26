@@ -94,6 +94,13 @@ public types and gives `N` owner modules a bare import of that provider for
 retained entries. For either counter, the larger adjacent size must not exceed
 twice the smaller value plus 16 operations. These checks use operation counts
 instead of elapsed time, so runner timing noise does not affect the bounds.
+Two lookup workloads jointly increase providers and annotation occurrences for
+the same terminal spelling at `N = 16`, `32`, and `64`. One keeps a single
+owner-visible provider among `N` distinct providers; the other imports `N`
+aliases that converge on one terminal type. The lookup metric counts every
+candidate inspected during owner/provider intersection, including rejected
+candidates, plus the indexed probes. For either workload, the larger adjacent
+size must not exceed twice the smaller value plus eight operations.
 
 ### Explicit import aliases
 
@@ -1085,7 +1092,10 @@ not become fallback targets.
   `annotation_schema_symbol_lookup_work_is_linear_in_symbols_and_occurrences`
   in
   `crates/veln-sema/src/tests/generic_function_semantic_binders.rs` and
-  `imported_descriptor_index_construction_and_retention_are_linear_across_both_axes`
+  `imported_descriptor_index_construction_and_retention_are_linear_across_both_axes`,
+  `unique_imported_descriptor_lookup_work_is_linear_across_providers_and_annotations`,
+  and
+  `consistent_imported_descriptor_lookup_work_is_linear_across_providers_and_annotations`
   in
   `crates/veln-sema/src/tests/generic_function_semantic_diagnostics.rs`.
 - Same-terminal bare-import annotation selection:

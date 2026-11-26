@@ -15,6 +15,9 @@ use super::lookup_validation::{constructor_matches_visible_path, same_descriptor
 type ImportedDescriptorTarget = (Option<String>, String);
 type ImportedDescriptorTargetsByTypeArity =
     HashMap<(String, usize), HashSet<ImportedDescriptorTarget>>;
+type ImportedDescriptorLookupKey = (ResolvedImportOwner, String, Option<usize>);
+type ImportedDescriptorLookupCache =
+    Arc<std::sync::Mutex<HashMap<ImportedDescriptorLookupKey, Option<usize>>>>;
 
 mod aliases;
 mod build;
@@ -69,6 +72,8 @@ pub(crate) struct AdtRegistry {
     qualified_import_recovery_modules:
         HashMap<(ResolvedImportOwner, String), Vec<QualifiedRecoveryModules>>,
     bare_import_targets_by_owner: HashMap<ResolvedImportOwner, HashSet<(Option<String>, String)>>,
+    unique_imported_descriptor_cache: ImportedDescriptorLookupCache,
+    consistent_imported_descriptor_cache: ImportedDescriptorLookupCache,
     source_import_indexes_ready: bool,
     source_import_count: usize,
     import_owner_scope: Arc<[UseDecl]>,

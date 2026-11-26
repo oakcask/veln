@@ -207,6 +207,8 @@ impl AdtRegistry {
             qualified_import_modules: HashMap::new(),
             qualified_import_recovery_modules: HashMap::new(),
             bare_import_targets_by_owner: HashMap::new(),
+            unique_imported_descriptor_cache: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            consistent_imported_descriptor_cache: Arc::new(std::sync::Mutex::new(HashMap::new())),
             source_import_indexes_ready: false,
             source_import_count: 0,
             import_owner_scope: Arc::from([]),
@@ -372,6 +374,8 @@ impl AdtRegistry {
     pub(super) fn rebuild_imported_descriptor_indexes(&mut self) {
         let uses = Arc::clone(&self.import_owner_scope);
         self.bare_import_targets_by_owner = bare_import_targets_by_owner(&uses);
+        self.unique_imported_descriptor_cache = Arc::new(std::sync::Mutex::new(HashMap::new()));
+        self.consistent_imported_descriptor_cache = Arc::new(std::sync::Mutex::new(HashMap::new()));
         record_imported_descriptor_index_retained(self.imported_descriptor_retained_entries());
         self.source_import_indexes_ready = true;
         self.source_import_count = uses.len();

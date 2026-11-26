@@ -9,7 +9,13 @@ contains = [
   "note: alpha.veln:2:1: Visible type `Shared` is declared here.",
   "error[type.generic_signature_missing]: generic parameter `value` has no type annotation",
   "error[type.generic_signature_missing]: generic function has no return type annotation",
+  "error[name.unresolved]: unresolved type `ForeignT`",
+  "error[name.type_parameter_shadow]: function type parameter `NetListener` shadows a visible type",
+  "note: main.veln:35:1: Visible type `NetListener` is declared here.",
+  "error[name.unresolved]: unresolved type `U::Option`",
+  "error[name.unresolved]: unresolved type `missing::Option`",
 ]
+not_contains = ["schema `T` cannot be used as an ordinary type"]
 
 [stderr]
 format = "empty"

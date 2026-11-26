@@ -16,3 +16,34 @@ end
 fn missing_return<T>(value: T)
   value
 end
+
+schema T
+  format binary
+
+  value: UInt8
+end
+
+fn schema_scope<T>(value: T) -> T
+  let local: T = value
+  local
+end
+
+type Leak
+  Foreign(value: ForeignT)
+end
+
+type NetListener
+  Listener
+end
+
+fn opaque_shadow<NetListener>(value: NetListener) -> NetListener
+  value
+end
+
+fn binder_qualifier<U>(value: U::Option) -> ()
+  ()
+end
+
+fn missing_qualifier(value: missing::Option<Int>) -> ()
+  ()
+end

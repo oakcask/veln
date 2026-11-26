@@ -792,6 +792,112 @@ fn visible_schema_body_annotations_are_not_reported_as_unresolved_types() {
 }
 
 #[test]
+fn rigid_binders_resolve_before_same_spelled_schemas_in_all_function_annotations() {
+    let (_, diagnostics) = analyze(concat!(
+        "schema T\n",
+        "  value: UInt8\n",
+        "end\n",
+        "fn retain<T>(value: T) -> T\n",
+        "  let local: T = value\n",
+        "  local\n",
+        "end\n",
+    ));
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.schema_reference"),
+        "declaration-owned binders must win before schema lookup: {diagnostics:#?}"
+    );
+}
+
+#[test]
+fn function_binder_spellings_do_not_escape_into_adt_payloads() {
+    let (_, diagnostics) = analyze(concat!(
+        "fn identity<T>(value: T) -> T\n",
+        "  value\n",
+        "end\n",
+        "type Leak\n",
+        "  Direct(value: T)\n",
+        "  Nested(value: Option<T>)\n",
+        "  Record(value: {item: T})\n",
+        "end\n",
+        "type Owned<T>\n",
+        "  Value(value: T)\n",
+        "  Next(value: Option<Owned<T>>)\n",
+        "end\n",
+    ));
+
+    let unresolved = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved type `T`"
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(unresolved.len(), 3, "{diagnostics:#?}");
+    assert_eq!(
+        unresolved
+            .iter()
+            .filter_map(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.line))
+            .collect::<Vec<_>>(),
+        [5, 6, 7]
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.unresolved"
+                || diagnostic
+                    .span
+                    .as_ref()
+                    .is_none_or(|span| span.start.line < 9)
+        }),
+        "an ADT's own parameters and self type must stay in scope: {diagnostics:#?}"
+    );
+}
+
+#[test]
+fn known_descriptor_leaves_do_not_resolve_unknown_or_binder_qualifiers() {
+    let (_, diagnostics) = analyze(concat!(
+        "fn invalid<T>(left: T::Option, right: missing::Option<Int>) -> ()\n",
+        "  let local: T::Option = left\n",
+        "  ()\n",
+        "end\n",
+        "fn valid(value: prelude::Option<Int>) -> prelude::Option<Int>\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    let unresolved = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.unresolved")
+        .collect::<Vec<_>>();
+    assert_eq!(unresolved.len(), 3, "{diagnostics:#?}");
+    assert_eq!(
+        unresolved
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "unresolved type `T::Option`",
+            "unresolved type `missing::Option`",
+            "unresolved type `T::Option`",
+        ]
+    );
+    assert_eq!(
+        unresolved
+            .iter()
+            .filter_map(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.column))
+            .collect::<Vec<_>>(),
+        [21, 39, 14]
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.unresolved" || !diagnostic.message.contains("prelude::Option")
+        }),
+        "the supported prelude qualifier must remain resolved: {diagnostics:#?}"
+    );
+}
+
+#[test]
 fn qualified_imported_types_and_aliases_that_match_prelude_names_remain_visible() {
     let module = merged_modules_with_identities(vec![
         (
