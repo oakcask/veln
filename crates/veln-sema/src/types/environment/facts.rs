@@ -220,6 +220,7 @@ fn initial_environment(
     let uses = symbols.uses;
     let adts = declarations.adts;
     TypeEnvironment {
+        resolution_use_index: Arc::default(),
         module_values: base
             .map(|base| base.module_values.clone())
             .unwrap_or_default(),

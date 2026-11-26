@@ -14,9 +14,28 @@ type FunctionPublicationKey = (
 
 type BareModuleValueKey = (Option<String>, Option<String>, String);
 type ModuleValueOwner = (Option<String>, Option<String>);
+
 type ModuleValueTarget = (Option<String>, Option<String>);
 type ModuleValueImportKey = (ModuleValueOwner, ModuleValueTarget);
 type QualifiedModuleValueKey = (veln_ast::ResolvedImportOwner, String);
+struct ResolutionUseIndex {
+    by_owner: HashMap<ResolvedImportOwner, Arc<[UseDecl]>>,
+    empty: Arc<[UseDecl]>,
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct ResolutionUseWork {
+    pub(crate) scanned_imports: usize,
+    pub(crate) owner_lookups: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static RESOLUTION_USE_WORK: std::cell::Cell<ResolutionUseWork> = const {
+        std::cell::Cell::new(ResolutionUseWork { scanned_imports: 0, owner_lookups: 0 })
+    };
+}
 
 #[derive(Clone, Debug)]
 enum QualifiedModuleValueImportSelection {
@@ -459,6 +478,7 @@ pub(crate) struct TypeEnvironment {
     schema_symbols: SchemaSymbolTable,
     type_symbols: Vec<NamedSymbol>,
     pub(crate) uses: Arc<[UseDecl]>,
+    resolution_use_index: Arc<std::sync::OnceLock<ResolutionUseIndex>>,
     quarantined_uses: Vec<UseDecl>,
     invalid_names: Vec<InvalidName>,
     pub(crate) adts: Arc<AdtRegistry>,
@@ -478,6 +498,56 @@ pub(crate) struct VariantRefinementBaseFailure {
 }
 
 impl TypeEnvironment {
+    // Import scope is immutable within an environment. Share owner-filtered
+    // views across declaration checks and environment clones.
+    pub(crate) fn resolution_uses_in_owner(
+        &self,
+        module: Option<&str>,
+        package: Option<&str>,
+    ) -> Arc<[UseDecl]> {
+        #[cfg(test)]
+        RESOLUTION_USE_WORK.update(|mut work| {
+            work.owner_lookups += 1;
+            work
+        });
+        let index = self.resolution_use_index.get_or_init(|| {
+            let mut grouped = HashMap::<ResolvedImportOwner, Vec<UseDecl>>::new();
+            for use_decl in self.uses.iter() {
+                #[cfg(test)]
+                RESOLUTION_USE_WORK.update(|mut work| {
+                    work.scanned_imports += 1;
+                    work
+                });
+                grouped
+                    .entry(use_decl.resolved_owner())
+                    .or_default()
+                    .push(use_decl.clone());
+            }
+            ResolutionUseIndex {
+                by_owner: grouped
+                    .into_iter()
+                    .map(|(owner, uses)| (owner, uses.into()))
+                    .collect(),
+                empty: Arc::default(),
+            }
+        });
+        let owner = ResolvedImportOwner {
+            package: package.map(str::to_string),
+            module: module.map(str::to_string),
+        };
+        Arc::clone(index.by_owner.get(&owner).unwrap_or(&index.empty))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn reset_resolution_use_work() {
+        RESOLUTION_USE_WORK.set(ResolutionUseWork::default());
+    }
+
+    #[cfg(test)]
+    pub(crate) fn resolution_use_work() -> ResolutionUseWork {
+        RESOLUTION_USE_WORK.get()
+    }
+
     pub(crate) fn quarantine_module_values(&mut self, invalid: &BTreeSet<ModuleValueIdentity>) {
         crate::analysis::record_module_value_exposure_rebuild(
             self.module_values.len() + self.uses.len(),

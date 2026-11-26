@@ -401,6 +401,7 @@ fn module_value_lowering_import_preparation_is_additive_in_values_and_imports() 
         assert_eq!(module.module_values.len(), value_count);
         assert_eq!(module.uses.len(), import_count);
         crate::pipeline::reset_semantic_analysis_passes();
+        crate::types::TypeEnvironment::reset_resolution_use_work();
         crate::lowering::reset_module_value_import_preparation_work();
         let lowered = lower_checked_surface_module(&module);
         assert!(
@@ -413,6 +414,16 @@ fn module_value_lowering_import_preparation_is_additive_in_values_and_imports() 
         );
         assert_eq!(crate::pipeline::semantic_analysis_passes(), 1);
         let work = crate::lowering::take_module_value_import_preparation_work();
+        let resolution_work = crate::types::TypeEnvironment::resolution_use_work();
+        assert_eq!(
+            resolution_work.scanned_imports, import_count,
+            "reuse owner import views during declaration checks to avoid a whole-project scan per declaration: {resolution_work:?}"
+        );
+        assert_eq!(
+            resolution_work.owner_lookups,
+            value_count * 4,
+            "{resolution_work:?}"
+        );
 
         let core = lowered
             .core

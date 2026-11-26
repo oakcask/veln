@@ -267,7 +267,7 @@ fn literal_or_unit_pattern_is_compatible(
 pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
-    pub(super) resolution_uses: Vec<veln_ast::UseDecl>,
+    pub(super) resolution_uses: std::sync::Arc<[veln_ast::UseDecl]>,
     pub(super) supports_callsite_modifier: bool,
     pub(super) annotation_owner_prevalidated: bool,
     pub(super) declaration_types_are_quarantined: bool,
@@ -575,16 +575,11 @@ fn declaration_types_are_quarantined(
 fn resolution_uses_for_function(
     function: &Function,
     environment: &TypeEnvironment,
-) -> Vec<veln_ast::UseDecl> {
-    environment
-        .uses
-        .iter()
-        .filter(|use_decl| {
-            use_decl.module_name.as_deref() == function.module_name.as_deref()
-                && use_decl.importing_package.as_deref() == function.package_name.as_deref()
-        })
-        .cloned()
-        .collect()
+) -> std::sync::Arc<[veln_ast::UseDecl]> {
+    environment.resolution_uses_in_owner(
+        function.module_name.as_deref(),
+        function.package_name.as_deref(),
+    )
 }
 
 impl<'a> FunctionChecker<'a> {
