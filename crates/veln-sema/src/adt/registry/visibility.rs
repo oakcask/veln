@@ -1,6 +1,39 @@
 use super::*;
 
 impl AdtRegistry {
+    pub(crate) fn companion_descriptor_for_type_path(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        let leaf = segments.last()?;
+        let mut descriptors = self.descriptors_named(leaf).filter(|descriptor| {
+            Self::descriptor_matches_arity(descriptor, Some(args_len))
+                && self.companion_private_access_allowed(
+                    descriptor,
+                    &segments,
+                    current_module,
+                    uses,
+                )
+        });
+        let descriptor = descriptors.next()?;
+        descriptors.next().is_none().then_some(descriptor)
+    }
+
+    pub(crate) fn descriptor_visible_for_type_path(
+        &self,
+        descriptor: &AdtDescriptor,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> bool {
+        !self.descriptor_is_quarantined(descriptor)
+            && self.descriptor_visible(descriptor, segments, current_module, uses, true)
+    }
+
     pub(super) fn descriptor_visible(
         &self,
         descriptor: &AdtDescriptor,
@@ -151,10 +184,14 @@ impl AdtRegistry {
             return false;
         };
         uses.iter().any(|use_decl| {
-            use_decl.package.is_none()
+            let resolved_module = use_decl.resolved_target().module;
+            (use_decl.package.is_none() || use_decl.package == use_decl.importing_package)
                 && use_decl.module_name.as_deref() == Some(current_module)
                 && use_decl.alias == *first
-                && use_decl.resolved_target().module == target_module
+                && resolved_module
+                    .strip_prefix("std::")
+                    .unwrap_or(&resolved_module)
+                    == target_module
         })
     }
 }

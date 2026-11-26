@@ -25,3 +25,15 @@ end
 fn shadows_alias<Alias>(value: Alias) -> Alias
   value
 end
+
+fn accepts_qualified(value: api::Present, alias: api::Alias) -> ()
+  ()
+end
+
+fn missing_qualified(value: api::Missing) -> ()
+  ()
+end
+
+fn private_qualified(value: api::Private) -> ()
+  ()
+end

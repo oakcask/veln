@@ -124,52 +124,81 @@ fn check_unresolved_function_type_names(
     function: &veln_ast::Function,
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
-    if function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME) {
-        return Vec::new();
-    }
     let type_parameters = function
         .type_binders
         .iter()
         .map(|binder| binder.name.as_str())
         .collect::<std::collections::HashSet<_>>();
     let mut paths = Vec::new();
-    let mut refinement_spans = Vec::new();
-    paths.extend(function.return_type_paths.iter());
-    refinement_spans.extend(
-        function
-            .return_type_refinements
-            .iter()
-            .map(|refinement| &refinement.span),
+    collect_non_refinement_annotation_paths(
+        &function.return_type_paths,
+        &function.return_type_refinements,
+        &mut paths,
     );
     for param in &function.params {
-        paths.extend(param.ty_paths.iter());
-        refinement_spans.extend(
-            param
-                .ty_refinements
-                .iter()
-                .map(|refinement| &refinement.span),
-        );
+        collect_non_refinement_annotation_paths(&param.ty_paths, &param.ty_refinements, &mut paths);
     }
-    collect_body_annotation_paths(&function.body, &mut paths, &mut refinement_spans);
+    collect_body_annotation_paths(&function.body, &mut paths);
 
     paths
         .into_iter()
-        .filter(|path| !path_is_within_refinement(path, &refinement_spans))
         .filter_map(|path| {
             unresolved_function_type_diagnostic(path, &type_parameters, function, environment)
         })
         .collect()
 }
 
-fn path_is_within_refinement(
-    path: &veln_ast::TypePathSegments,
-    refinement_spans: &[&veln_source::SourceSpan],
-) -> bool {
-    refinement_spans.iter().any(|span| {
-        span.file == path.application_span.file
-            && span.start.offset <= path.application_span.start.offset
-            && path.application_span.end.offset <= span.end.offset
-    })
+#[cfg(test)]
+thread_local! {
+    static ANNOTATION_PATH_CLASSIFICATION_WORK: std::cell::Cell<(usize, usize)> =
+        const { std::cell::Cell::new((0, 0)) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_annotation_path_classification_work() {
+    ANNOTATION_PATH_CLASSIFICATION_WORK.set((0, 0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_annotation_path_classification_work() -> (usize, usize) {
+    ANNOTATION_PATH_CLASSIFICATION_WORK.replace((0, 0))
+}
+
+fn collect_non_refinement_annotation_paths<'a>(
+    paths: &'a [veln_ast::TypePathSegments],
+    refinements: &'a [veln_ast::VariantRefinementType],
+    output: &mut Vec<&'a veln_ast::TypePathSegments>,
+) {
+    #[cfg(test)]
+    ANNOTATION_PATH_CLASSIFICATION_WORK.update(|(path_work, refinement_work)| {
+        (path_work + paths.len(), refinement_work + refinements.len())
+    });
+
+    // Lowering retains both collections in source order, so one refinement
+    // cursor classifies the annotation without comparing every path and span.
+    debug_assert!(paths.windows(2).all(|pair| {
+        pair[0].application_span.file != pair[1].application_span.file
+            || pair[0].application_span.start.offset <= pair[1].application_span.start.offset
+    }));
+    debug_assert!(refinements.windows(2).all(|pair| {
+        pair[0].span.file != pair[1].span.file
+            || pair[0].span.start.offset <= pair[1].span.start.offset
+    }));
+    let mut refinement_index = 0;
+    let mut furthest_refinement_end = 0;
+    for path in paths {
+        while refinements.get(refinement_index).is_some_and(|refinement| {
+            refinement.span.file == path.application_span.file
+                && refinement.span.start.offset <= path.application_span.start.offset
+        }) {
+            furthest_refinement_end =
+                furthest_refinement_end.max(refinements[refinement_index].span.end.offset);
+            refinement_index += 1;
+        }
+        if path.application_span.end.offset > furthest_refinement_end {
+            output.push(path);
+        }
+    }
 }
 
 fn unresolved_function_type_diagnostic(
@@ -185,16 +214,12 @@ fn unresolved_function_type_diagnostic(
             .next()
             .is_some_and(|initial| initial.is_ascii_lowercase())
     }) || is_function_type_parameter_name(&name, type_parameters)
+        || is_compiler_known_standard_signature_type_parameter(&name, function)
         || environment.annotation_type_path_is_resolved_in_owner(
             &name,
             path.type_argument_count,
             function.module_name.as_deref(),
             function.package_name.as_deref(),
-        )
-        || environment.annotation_type_path_has_visible_import_at_source(
-            &name,
-            function.package_name.as_deref(),
-            &path.application_span.file,
         )
         || environment.annotation_type_path_has_visible_declaration_in_owner(
             &name,
@@ -206,6 +231,25 @@ fn unresolved_function_type_diagnostic(
     }
     let span = path.segment_spans.first()?.clone();
     Some(unresolved_type_diagnostic(name, span))
+}
+
+fn is_compiler_known_standard_signature_type_parameter(
+    name: &str,
+    function: &veln_ast::Function,
+) -> bool {
+    if name.contains("::") || function.package_name.as_deref() != Some(veln_stdlib::PACKAGE_NAME) {
+        return false;
+    }
+    let function_name = function.name.as_deref().unwrap_or_default();
+    match function.module_name.as_deref() {
+        Some("std::prelude") => {
+            matches!(name, "A" | "B" | "C" | "E" | "F" | "Item" | "K" | "V")
+        }
+        Some("std::io_provider") => {
+            matches!(function_name, "state" | "update") && matches!(name, "T" | "C" | "R")
+        }
+        _ => false,
+    }
 }
 
 fn is_function_type_parameter_name(name: &str, type_parameters: &HashSet<&str>) -> bool {
@@ -234,7 +278,6 @@ fn unresolved_type_diagnostic(name: String, span: veln_source::SourceSpan) -> Di
 fn collect_body_annotation_paths<'a>(
     body: &'a [veln_ast::BodyLine],
     paths: &mut Vec<&'a veln_ast::TypePathSegments>,
-    refinement_spans: &mut Vec<&'a veln_source::SourceSpan>,
 ) {
     for line in body {
         match &line.kind {
@@ -243,20 +286,18 @@ fn collect_body_annotation_paths<'a>(
                 expr,
                 ..
             } => {
-                paths.extend(annotation_structure.paths.iter());
-                refinement_spans.extend(
-                    annotation_structure
-                        .variant_refinements
-                        .iter()
-                        .map(|refinement| &refinement.span),
+                collect_non_refinement_annotation_paths(
+                    &annotation_structure.paths,
+                    &annotation_structure.variant_refinements,
+                    paths,
                 );
-                collect_expr_annotation_paths(expr, paths, refinement_spans);
+                collect_expr_annotation_paths(expr, paths);
             }
             veln_ast::BodyLineKind::Expr { expr } => {
-                collect_expr_annotation_paths(expr, paths, refinement_spans);
+                collect_expr_annotation_paths(expr, paths);
             }
             veln_ast::BodyLineKind::Defer { body, .. } => {
-                collect_body_annotation_paths(body, paths, refinement_spans);
+                collect_body_annotation_paths(body, paths);
             }
         }
     }
@@ -265,14 +306,11 @@ fn collect_body_annotation_paths<'a>(
 fn collect_expr_annotation_paths<'a>(
     expr: &'a veln_ast::Expr,
     paths: &mut Vec<&'a veln_ast::TypePathSegments>,
-    refinement_spans: &mut Vec<&'a veln_source::SourceSpan>,
 ) {
     if let veln_ast::ExprKind::Begin { body, .. } = &expr.kind {
-        collect_body_annotation_paths(body, paths, refinement_spans);
+        collect_body_annotation_paths(body, paths);
     } else {
-        expr.for_each_child(&mut |child| {
-            collect_expr_annotation_paths(child, paths, refinement_spans)
-        });
+        expr.for_each_child(&mut |child| collect_expr_annotation_paths(child, paths));
     }
 }
 

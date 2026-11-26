@@ -36,6 +36,10 @@ use declaration_checks::{
     SurfaceAnalysis, check_function_declaration_and_body, check_module_declarations,
     retain_function_state_call_types,
 };
+#[cfg(test)]
+pub(crate) use declaration_checks::{
+    reset_annotation_path_classification_work, take_annotation_path_classification_work,
+};
 use diagnostic_ordering::{
     merge_variant_refinement_base_diagnostics, order_delayed_parse_diagnostics,
     order_variant_refinement_visibility_diagnostics,

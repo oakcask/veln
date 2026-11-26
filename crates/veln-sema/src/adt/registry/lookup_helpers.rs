@@ -100,6 +100,30 @@ impl AdtRegistry {
         imported.next().is_none().then_some(descriptor)
     }
 
+    pub(crate) fn imported_type_path_has_consistent_identity(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> bool {
+        let mut identities = self
+            .descriptors_named(name)
+            .filter(|descriptor| {
+                Self::descriptor_matches_arity(descriptor, Some(args_len))
+                    && Self::descriptor_is_unqualified_import(descriptor, current_module, uses)
+            })
+            .map(|descriptor| {
+                self.terminal_descriptor_for_alias(descriptor)
+                    .unwrap_or_else(|| self.canonical_descriptor_for(descriptor))
+                    .identity()
+            });
+        let Some(first) = identities.next() else {
+            return false;
+        };
+        identities.all(|identity| identity == first)
+    }
+
     pub(super) fn descriptor_is_unqualified_import(
         descriptor: &AdtDescriptor,
         current_module: Option<&str>,

@@ -11,6 +11,8 @@ contains = [
   "Visible type `Item` is declared here.",
   "Visible type `Alias` is declared here.",
   "note: api.veln:5:1: Visible type `Alias` is declared here.",
+  "error[name.unresolved]: unresolved type `api::Missing`",
+  "error[name.unresolved]: unresolved type `api::Private`",
   "error[name.unresolved]: unresolved type `T`",
 ]
 

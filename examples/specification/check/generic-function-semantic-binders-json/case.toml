@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 4
+equals = 6
 
 [[diagnostics]]
 id = "name.type_parameter_shadow"
@@ -48,6 +48,28 @@ message = "function type parameter `Alias` shadows a visible type"
 file = "main.veln"
 line = 25
 column = 18
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved type `api::Missing`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 33
+column = 29
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved type `api::Private`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 37
+column = 29
 
 [[diagnostics]]
 id = "name.unresolved"
@@ -123,3 +145,11 @@ equals = "api.veln"
 [[json_assert]]
 path = "diagnostics.2.related.0.span.start.line"
 equals = 5
+
+[[json_assert]]
+path = "diagnostics.3.details.symbol"
+equals = "api::Missing"
+
+[[json_assert]]
+path = "diagnostics.4.details.symbol"
+equals = "api::Private"

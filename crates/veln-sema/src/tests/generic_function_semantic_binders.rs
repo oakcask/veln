@@ -234,6 +234,207 @@ fn qualified_imported_types_and_aliases_that_match_prelude_names_remain_visible(
 }
 
 #[test]
+fn qualified_annotation_selection_checks_the_imported_leaf() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "api",
+            SourceFile::new(
+                "api.veln",
+                concat!(
+                    "pub type Present<A>\n",
+                    "  pub Present(A)\n",
+                    "end\n",
+                    "pub type PresentAlias = Present\n",
+                    "type Private\n",
+                    "  Private\n",
+                    "end\n",
+                ),
+            ),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use api\n",
+                    "fn accepts(value: api::Present<Int>, alias: api::PresentAlias<Int>) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "fn missing(value: api::Missing) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "fn private(value: api::Private) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+    let environment = TypeEnvironment::from_module(&module);
+    let accepts = environment.function("accepts").expect("accepts signature");
+    let Type::Named {
+        identity: direct_identity,
+        args: direct_args,
+        ..
+    } = &accepts.params[0]
+    else {
+        panic!(
+            "expected imported generic type, found {:?}",
+            accepts.params[0]
+        );
+    };
+    let Type::Named {
+        identity: alias_identity,
+        args: alias_args,
+        ..
+    } = &accepts.params[1]
+    else {
+        panic!(
+            "expected imported generic alias, found {:?}",
+            accepts.params[1]
+        );
+    };
+    assert_eq!(alias_identity, direct_identity);
+    assert_eq!(direct_args, &[Type::int()]);
+    assert_eq!(alias_args, &[Type::int()]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let unresolved = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.unresolved")
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        unresolved,
+        [
+            "unresolved type `api::Missing`",
+            "unresolved type `api::Private`"
+        ],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn standard_package_annotations_use_the_same_resolution_facts() {
+    fn diagnostics(include_unrelated_module: bool) -> Vec<Diagnostic> {
+        let source = SourceFile::new(
+            "standard.veln",
+            concat!(
+                "fn known(value: Int, optional: Option<Int>, bytes: ByteChunk, step: DecodeStep<Int>) -> Int\n",
+                "  value\n",
+                "end\n",
+                "fn unknown(value: T) -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+        let mut module = lower_standard_package_callables(&source);
+        for function in &mut module.functions {
+            function.module_name = Some("std::subject".to_string());
+        }
+        if include_unrelated_module {
+            let unrelated_source = SourceFile::new(
+                "unrelated.veln",
+                "fn owner<T>(value: T) -> T\n  value\nend\n",
+            );
+            let mut unrelated = lower_standard_package_callables(&unrelated_source);
+            for function in &mut unrelated.functions {
+                function.module_name = Some("std::unrelated".to_string());
+            }
+            module.functions.extend(unrelated.functions);
+        }
+        analyze_surface_module(&module)
+    }
+
+    let baseline_diagnostics = diagnostics(false);
+
+    let unresolved = baseline_diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.unresolved")
+        .collect::<Vec<_>>();
+    assert_eq!(unresolved.len(), 1, "{baseline_diagnostics:#?}");
+    assert_eq!(unresolved[0].message, "unresolved type `T`");
+    assert_eq!(
+        unresolved[0].span.as_ref().map(|span| span.file.as_str()),
+        Some("standard.veln")
+    );
+    let with_unrelated = diagnostics(true)
+        .into_iter()
+        .find(|diagnostic| diagnostic.id == "name.unresolved")
+        .expect("unresolved standard-package annotation");
+    assert_eq!(
+        veln_diagnostics::diagnostic_to_json(unresolved[0]).to_json(),
+        veln_diagnostics::diagnostic_to_json(&with_unrelated).to_json(),
+        "an unrelated standard-package module must not change the diagnostic"
+    );
+}
+
+fn annotation_path_classification_source(count: usize, annotation: &str) -> String {
+    let mut source = String::from("fn classify(value: Option<Int>) -> ()\n");
+    for index in 0..count {
+        source.push_str(&format!("  let value{index}: {annotation} = value\n"));
+    }
+    source.push_str("  ()\nend\n");
+    source
+}
+
+#[test]
+fn annotation_path_classification_work_has_a_linear_bound() {
+    fn work(count: usize, annotation: &str) -> ((usize, usize), Vec<Diagnostic>) {
+        let source = SourceFile::new(
+            "main.veln",
+            annotation_path_classification_source(count, annotation),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::pipeline::reset_annotation_path_classification_work();
+        let diagnostics = analyze_surface_module(&module);
+        (
+            crate::pipeline::take_annotation_path_classification_work(),
+            diagnostics,
+        )
+    }
+
+    const SMALL: usize = 32;
+    const LARGE: usize = 64;
+    for (label, annotation) in [
+        ("valid", "Option<Int>"),
+        ("unresolved", "Missing"),
+        ("refinement", "Option<Int>::Some"),
+    ] {
+        let (small, small_diagnostics) = work(SMALL, annotation);
+        let (large, large_diagnostics) = work(LARGE, annotation);
+        let small_total = small.0 + small.1;
+        let large_total = large.0 + large.1;
+        eprintln!(
+            "annotation path classification: workload={label} count={SMALL}/{LARGE} work={small_total}/{large_total} paths={}/{}, refinements={}/{}",
+            small.0, large.0, small.1, large.1
+        );
+        assert!(large_total > small_total, "{label}: {small:?} {large:?}");
+        assert!(
+            large_total <= 2 * small_total + 8,
+            "doubling {label} annotations must add only linear classification work: {small:?} -> {large:?}"
+        );
+
+        let small_unresolved = small_diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.unresolved")
+            .count();
+        let large_unresolved = large_diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.unresolved")
+            .count();
+        if label == "unresolved" {
+            assert_eq!((small_unresolved, large_unresolved), (SMALL, LARGE));
+        } else {
+            assert_eq!((small_unresolved, large_unresolved), (0, 0));
+        }
+    }
+}
+
+#[test]
 fn unimported_binder_spelling_does_not_change_unbound_annotation_diagnostic() {
     fn diagnostics(include_unimported_owner: bool) -> Vec<Diagnostic> {
         let mut sources = vec![(

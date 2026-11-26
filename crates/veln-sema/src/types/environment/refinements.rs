@@ -29,15 +29,22 @@ impl TypeEnvironment {
         crate::type_syntax::compiler_known_type_annotation_arity(name)
             .is_some_and(|arity| arity == args_len)
             || self
-                .annotation_type_descriptor_in_owner(
+                .visible_annotation_type_descriptor_in_owner(
                     name,
                     args_len,
                     current_module,
                     current_package,
                 )
                 .is_some()
+            || !name.contains("::")
+                && self.adts.imported_type_path_has_consistent_identity(
+                    name,
+                    args_len,
+                    current_module,
+                    &self.uses,
+                )
             || name.rsplit_once("::").is_some_and(|(base, variant)| {
-                self.annotation_type_descriptor_in_owner(
+                self.visible_annotation_type_descriptor_in_owner(
                     base,
                     args_len,
                     current_module,
@@ -50,24 +57,38 @@ impl TypeEnvironment {
             })
     }
 
-    pub(crate) fn annotation_type_path_has_visible_import_at_source(
+    fn visible_annotation_type_descriptor_in_owner(
         &self,
         name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
         current_package: Option<&str>,
-        source: &veln_source::SourcePath,
-    ) -> bool {
-        let Some((module_path, type_name)) = name.rsplit_once("::") else {
-            return false;
-        };
-        let mut matching_uses = self.uses.iter().filter(|use_decl| {
-            use_decl.span.file == *source
-                && use_decl.importing_package.as_deref() == current_package
-                && (use_decl.alias == module_path || use_decl.matches_exact_path(module_path))
-        });
-        if matching_uses.next().is_none() {
-            return false;
+    ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
+        if let Some(descriptor) = self.adts.descriptor_for_type_path_in_owner(
+            name,
+            args_len,
+            current_module,
+            current_package,
+            &self.uses,
+        ) {
+            return Some(descriptor);
         }
-        matching_uses.next().is_none() && !type_name.is_empty()
+        if let Some(descriptor) =
+            self.adts
+                .companion_descriptor_for_type_path(name, args_len, current_module, &self.uses)
+        {
+            return Some(descriptor);
+        }
+        let descriptor = self.annotation_type_descriptor_in_owner(
+            name,
+            args_len,
+            current_module,
+            current_package,
+        )?;
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        self.adts
+            .descriptor_visible_for_type_path(descriptor, &segments, current_module, &self.uses)
+            .then_some(descriptor)
     }
 
     pub(crate) fn annotation_type_path_has_visible_declaration_in_owner(
