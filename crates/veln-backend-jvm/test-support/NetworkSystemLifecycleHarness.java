@@ -900,9 +900,17 @@ public final class NetworkSystemLifecycleHarness {
                 }
             });
             popper.start();
-            popper.join(50L);
-            if (!popper.isAlive()) {
-                throw new AssertionError(producer + " scope exit did not wait for its producer");
+            // Observe the timed producer-drain wait in cleanupNetworkSystem
+            // before allowing publication to finish.
+            long waitDeadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5L);
+            while (popper.getState() != Thread.State.TIMED_WAITING) {
+                if (!popper.isAlive()) {
+                    throw new AssertionError(producer + " scope exit did not wait for its producer");
+                }
+                if (System.nanoTime() >= waitDeadline) {
+                    throw new AssertionError(producer + " scope cleanup did not reach its producer wait; inspect cleanupNetworkSystem before changing the publication barrier");
+                }
+                Thread.yield();
             }
             release.countDown();
             child.join(java.util.concurrent.TimeUnit.SECONDS.toMillis(5L));
