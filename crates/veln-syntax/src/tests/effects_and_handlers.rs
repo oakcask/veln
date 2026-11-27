@@ -562,6 +562,41 @@ fn formatter_keeps_other_multiline_short_handler_operands_nested() {
 }
 
 #[test]
+fn formatter_stabilizes_nested_migrations_across_call_boundaries() {
+    assert_nested_call_boundary_format_stable(2);
+}
+
+#[test]
+fn formatter_scales_across_repeated_call_boundary_migrations() {
+    assert_nested_call_boundary_format_stable(16);
+    assert_nested_call_boundary_format_stable(20);
+}
+
+fn assert_nested_call_boundary_format_stable(depth: usize) {
+    let mut expr = "value()".to_string();
+    for _ in 0..depth {
+        expr = format!("handle (handle wrap({expr}) with inner()) with outer()");
+    }
+    let source = SourceFile::new(
+        "main.veln",
+        format!("fn nested_call_boundary() -> Int\n  {expr}\nend\n"),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let formatted = format_tree(&output.tree);
+    assert!(formatted.contains("outer(),\n"), "{formatted}");
+
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
 fn terminated_handler_suppression_stops_at_an_independent_expression_boundary() {
     let source = SourceFile::new(
         "main.veln",
