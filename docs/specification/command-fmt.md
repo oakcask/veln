@@ -112,10 +112,15 @@ left unchanged.
 
 Standalone comments attach to the next parsed source line and receive that
 line's indentation. Comment-only lines do not interrupt declarations. Trailing
-comments stay with their source subject. Expanding a multiline handler
-expression does not consume a trailing comment from a later sibling expression,
-including the next function-body expression or call argument. Slash-prefixed
-comment-like text is not migrated.
+comments stay with their source subject. A call or collection writes the comma
+or closing delimiter needed by a commented child without placing that syntax
+behind the line comment. A closing call delimiter may move to the next line so
+a comment owned by its final argument remains inside that argument. Expanding a
+multiline handler expression does not consume a trailing comment from a later
+sibling expression, including the next function-body expression, call
+argument, list item, record field, or dictionary entry. A comment owned by the
+enclosing call remains outside its argument. Slash-prefixed comment-like text
+is not migrated.
 
 ## Limits and errors
 
@@ -151,4 +156,8 @@ mixed chain nested, while eligible independent chains beyond statement and
 `defer` boundaries still migrate. Each boundary output is idempotent.
 Golden coverage also places commented mixed chains after independently eligible
 mixed chains as adjacent function-body expressions and as sibling call
-arguments. The checks require the later handler header to keep its comment.
+arguments. Exact formatter cases cover comments owned by an inner handler
+closing token, a call delimiter, same-line sibling arguments, and list, record,
+and dictionary siblings. These checks reparse the first output and require
+byte-identical second output. The checked formatter case also covers call and
+list comment ownership through two command passes.

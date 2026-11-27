@@ -628,6 +628,162 @@ fn formatter_preserves_nested_argument_mixed_chain_comment_ownership() {
 }
 
 #[test]
+fn formatter_preserves_delimited_mixed_chain_comment_ownership() {
+    let cases = [
+        (
+            concat!(
+                "fn sample() -> Int\n",
+                "wrap(handle (handle value() with\n",
+                "inner()\n",
+                "end # inner closing\n",
+                ") with outer())\n",
+                "end\n",
+            ),
+            concat!(
+                "fn sample() -> Int\n",
+                "\twrap(handle handle value() with\n",
+                "\t\tinner()\n",
+                "\tend with outer()  # inner closing\n",
+                "\t)\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn call_siblings() -> Int\n",
+                "wrap(handle handle first() with\n",
+                "first_inner()\n",
+                "end with first_outer(), later() # later argument\n",
+                ")\n",
+                "end\n",
+            ),
+            concat!(
+                "fn call_siblings() -> Int\n",
+                "\twrap(handle first() with\n",
+                "\t\tfirst_outer(),\n",
+                "\t\tfirst_inner()\n",
+                "\tend, later()  # later argument\n",
+                "\t)\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn enclosing_call() -> Int\n",
+                "wrap(handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer()) # call\n",
+                "end\n",
+            ),
+            concat!(
+                "fn enclosing_call() -> Int\n",
+                "\twrap(handle value() with\n",
+                "\t\touter(),\n",
+                "\t\tinner()\n",
+                "\tend)  # call\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn same_line_siblings() -> Int\n",
+                "wrap(handle (handle first() with\n",
+                "first_inner()\n",
+                "end # first closing\n",
+                ") with first_outer(), handle (handle second() with # second header\n",
+                "second_inner()\n",
+                "end) with second_outer())\n",
+                "end\n",
+            ),
+            concat!(
+                "fn same_line_siblings() -> Int\n",
+                "\twrap(handle handle first() with\n",
+                "\t\tfirst_inner()\n",
+                "\tend with first_outer(),  # first closing\n",
+                "\t\thandle handle second() with  # second header\n",
+                "\t\tsecond_inner()\n",
+                "\tend with second_outer())\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn list_sibling() -> Int\n",
+                "[handle (handle first() with\n",
+                "first_inner()\n",
+                "end) with first_outer(), later() # later item\n",
+                "]\n",
+                "end\n",
+            ),
+            concat!(
+                "fn list_sibling() -> Int\n",
+                "\t[handle first() with\n",
+                "\t\tfirst_outer(),\n",
+                "\t\tfirst_inner()\n",
+                "\tend, later()]  # later item\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn record_sibling() -> Int\n",
+                "{ first: handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer(), later: later() # later field\n",
+                "}\n",
+                "end\n",
+            ),
+            concat!(
+                "fn record_sibling() -> Int\n",
+                "\t{ first: handle value() with\n",
+                "\t\touter(),\n",
+                "\t\tinner()\n",
+                "\tend, later: later() }  # later field\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn dictionary_sibling() -> Int\n",
+                "{ \"first\": handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer(), \"later\": later() # later entry\n",
+                "}\n",
+                "end\n",
+            ),
+            concat!(
+                "fn dictionary_sibling() -> Int\n",
+                "\t{ \"first\": handle value() with\n",
+                "\t\touter(),\n",
+                "\t\tinner()\n",
+                "\tend, \"later\": later() }  # later entry\n",
+                "end\n",
+            ),
+        ),
+    ];
+
+    for (source_text, expected) in cases {
+        assert_commented_format_round_trip(source_text, expected);
+    }
+}
+
+fn assert_commented_format_round_trip(source_text: &str, expected: &str) {
+    let parsed = parse(&SourceFile::new("main.veln", source_text));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let formatted = format_tree(&parsed.tree);
+    assert_eq!(formatted, expected);
+
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{formatted}\n{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
 fn formatter_keeps_mixed_handler_chains_across_excluded_boundaries() {
     let cases = [
         (

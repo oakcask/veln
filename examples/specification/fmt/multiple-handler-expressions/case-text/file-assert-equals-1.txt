@@ -22,6 +22,10 @@ fn second() -> Int
 	2
 end
 
+fn wrap(value: Int) -> Int
+	value
+end
+
 fn value() -> Int effects [Ask]
 	perform Ask::value()
 end
@@ -89,4 +93,18 @@ fn migrate_list_over_short() -> Int
 		outer(first()),
 		inner(second())
 	end
+end
+
+fn preserve_inner_closing_comment() -> Int
+	wrap(handle handle value() with
+		inner(second())
+	end with outer(first())  # inner closing
+	)
+end
+
+fn preserve_list_sibling_comment() -> Vec<Int>
+	[handle value() with
+		outer(first()),
+		inner(second())
+	end, second()]  # later item
 end
