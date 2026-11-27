@@ -27,3 +27,39 @@ use source_layout::*;
 pub(crate) use structured_type_text::canonical_structured_type_text;
 use structured_type_text::prepare_structured_type_text;
 use type_text::{canonical_predicate_text, canonical_schema_field_type_text};
+
+#[cfg(test)]
+thread_local! {
+    static COMMENT_RANGE_QUERIES: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
+    static COMMENT_RANGE_KEYS_INSPECTED: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_comment_range_queries() {
+    COMMENT_RANGE_QUERIES.set(0);
+    COMMENT_RANGE_KEYS_INSPECTED.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn comment_range_queries() -> usize {
+    COMMENT_RANGE_QUERIES.get()
+}
+
+#[cfg(test)]
+pub(crate) fn comment_range_keys_inspected() -> usize {
+    COMMENT_RANGE_KEYS_INSPECTED.get()
+}
+
+#[cfg(test)]
+fn record_comment_range_query() {
+    COMMENT_RANGE_QUERIES.set(COMMENT_RANGE_QUERIES.get().saturating_add(1));
+}
+
+#[cfg(test)]
+fn record_comment_range_key_inspected() {
+    COMMENT_RANGE_KEYS_INSPECTED.set(COMMENT_RANGE_KEYS_INSPECTED.get().saturating_add(1));
+}

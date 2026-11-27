@@ -173,8 +173,25 @@ fn format_expr_prec(
     indent: usize,
     comments: Option<&LineComments>,
 ) -> String {
+    format_expr_prec_ctx(expr, parent_prec, side, indent, comments, true)
+}
+
+fn format_expr_prec_ctx(
+    expr: &Expr,
+    parent_prec: u8,
+    side: ExprSide,
+    indent: usize,
+    comments: Option<&LineComments>,
+    allow_short_handle_chain_migration: bool,
+) -> String {
     let prec = expr_prec(expr);
-    let mut rendered = format_expr_inner(expr, prec, indent, comments);
+    let mut rendered = format_expr_inner(
+        expr,
+        prec,
+        indent,
+        comments,
+        allow_short_handle_chain_migration,
+    );
 
     let needs_parens = match side {
         ExprSide::Root | ExprSide::Left => prec < parent_prec,
@@ -192,6 +209,7 @@ fn format_expr_inner(
     prec: u8,
     indent: usize,
     comments: Option<&LineComments>,
+    allow_short_handle_chain_migration: bool,
 ) -> String {
     match &expr.kind {
         kind @ (ExprKind::Missing
@@ -210,7 +228,13 @@ fn format_expr_inner(
         | ExprKind::Handle { .. }
         | ExprKind::SchemaDecode { .. }
         | ExprKind::SchemaValidate { .. }
-        | ExprKind::SchemaEncode { .. }) => format_keyword_expr(expr, kind, indent, comments),
+        | ExprKind::SchemaEncode { .. }) => format_keyword_expr(
+            expr,
+            kind,
+            indent,
+            comments,
+            allow_short_handle_chain_migration,
+        ),
         kind @ (ExprKind::Record(_) | ExprKind::Dict(_) | ExprKind::List(_)) => {
             format_collection_expr(kind, indent, comments)
         }
@@ -285,6 +309,7 @@ fn format_keyword_expr(
     kind: &ExprKind,
     indent: usize,
     comments: Option<&LineComments>,
+    allow_short_handle_chain_migration: bool,
 ) -> String {
     match kind {
         ExprKind::Perform {
@@ -301,7 +326,15 @@ fn format_keyword_expr(
             entries,
             terminated,
             ..
-        } => format_handle_expr(expr, body, entries, *terminated, indent, comments),
+        } => format_handle_expr(
+            expr,
+            body,
+            entries,
+            *terminated,
+            indent,
+            comments,
+            allow_short_handle_chain_migration,
+        ),
         ExprKind::SchemaDecode {
             schema,
             input,
@@ -343,9 +376,12 @@ fn format_handle_expr(
     terminated: bool,
     indent: usize,
     comments: Option<&LineComments>,
+    allow_short_handle_chain_migration: bool,
 ) -> String {
     if !terminated {
-        if let Some((body, entries)) = flattenable_short_handle_chain(expr, comments) {
+        if allow_short_handle_chain_migration
+            && let Some((body, entries)) = flattenable_short_handle_chain(expr, comments)
+        {
             return format_flattened_short_handle_chain(body, &entries, indent);
         }
         return format_unterminated_handle(body, entries, indent, comments);
@@ -366,9 +402,7 @@ fn flattenable_short_handle_chain<'a>(
     expr: &'a Expr,
     comments: Option<&LineComments>,
 ) -> Option<(&'a Expr, Vec<&'a HandlerEntry>)> {
-    if expr.span.start.line != expr_end_line(expr)
-        || comments.is_some_and(|comments| comments.has_comment_in_span(&expr.span))
-    {
+    if expr.span.start.line != expr_end_line(expr) {
         return None;
     }
 
@@ -394,7 +428,13 @@ fn flattenable_short_handle_chain<'a>(
         return None;
     }
 
-    (entries.len() >= 2).then_some((current, entries))
+    if entries.len() < 2
+        || comments.is_some_and(|comments| comments.has_comment_in_span(&expr.span))
+    {
+        return None;
+    }
+
+    Some((current, entries))
 }
 
 fn format_flattened_short_handle_chain(
@@ -434,7 +474,7 @@ fn format_unterminated_handle(
     let args = format_expr_args(&entry.args, indent, comments);
     format!(
         "handle {} with {}({args})",
-        format_expr_at_indent_ctx(body, indent, comments),
+        format_expr_prec_ctx(body, 0, ExprSide::Root, indent, comments, false),
         entry.handler.join("::")
     )
 }
@@ -448,7 +488,14 @@ fn format_terminated_handle_body(
     match body {
         HandleBody::Expression(body) => {
             text.push(' ');
-            text.push_str(&format_expr_at_indent_ctx(body, indent, comments));
+            text.push_str(&format_expr_prec_ctx(
+                body,
+                0,
+                ExprSide::Root,
+                indent,
+                comments,
+                false,
+            ));
             text.push_str(" with\n");
         }
         HandleBody::Block { body, block_span } => {

@@ -138,16 +138,31 @@ impl LineComments {
         } else {
             span.end.line
         };
-        self.before
-            .borrow()
-            .keys()
-            .chain(self.after.borrow().keys())
-            .any(|line| *line >= start && *line <= end)
+        map_has_key_in_range(&self.before.borrow(), start, end)
+            || map_has_key_in_range(&self.after.borrow(), start, end)
     }
 
     pub(super) fn all_emitted(&self) -> bool {
         self.before.borrow().is_empty() && self.after.borrow().is_empty()
     }
+}
+
+fn map_has_key_in_range(
+    map: &std::collections::BTreeMap<usize, Vec<String>>,
+    start: usize,
+    end: usize,
+) -> bool {
+    if start > end {
+        return false;
+    }
+    #[cfg(test)]
+    super::record_comment_range_query();
+    let found = map.range(start..=end).next().is_some();
+    #[cfg(test)]
+    if found {
+        super::record_comment_range_key_inspected();
+    }
+    found
 }
 
 pub(super) fn function_body_end_line(function: &FunctionDecl) -> usize {
