@@ -471,7 +471,7 @@ it is not a timeout failure.
 | The token is active and the target is already reached. | `Completed`; the call does not suspend. |
 | The target is reached while waiting. | `Completed`. |
 | Cancellation is observed before completion. | `Cancelled`. |
-| The host wait is interrupted without task cancellation. | `Interrupted`; the host thread remains interrupted and the token remains active. |
+| The host wait is interrupted without task cancellation. | `Interrupted`; the host thread remains interrupted and the runtime leaves the token's cancellation state unchanged. |
 | The containing task is cancelled. | The task unwinds through registered cleanup; the call does not return an ordinary outcome. |
 
 When completion and cancellation race, either event can commit the outcome.

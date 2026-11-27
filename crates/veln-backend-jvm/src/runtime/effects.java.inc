@@ -2022,15 +2022,29 @@
         return token.cancelled;
     }
     public static Object timeWaitUntilCancellable(Object deadline, Object value) {
+        throwTaskCancellationIfRequested();
         CancelToken token = asCancelToken(value);
-        if (waitCancelled(token)) return waitOutcome("Cancelled");
+        if (token.cancelled || waitCancelled(token)) {
+            throwTaskCancellationIfRequested();
+            return waitOutcome("Cancelled");
+        }
         if (findHandler(CLOCK_EFFECT) != null) {
-            long result = clockRequest("wait_cancellable", deadlineRemainingNanos(deadline) / 1000000L);
+            long remaining = deadlineRemainingNanos(deadline);
+            if (remaining == 0L) {
+                throwTaskCancellationIfRequested();
+                return waitOutcome("Completed");
+            }
+            long result = clockRequest("wait_cancellable", remaining / 1000000L);
+            throwTaskCancellationIfRequested();
             return waitOutcome(result == 2L ? "Cancelled" : "Completed");
         }
         long remaining;
         while ((remaining = deadlineRemainingNanos(deadline)) > 0L) {
-            if (waitCancelled(token)) return waitOutcome("Cancelled");
+            throwTaskCancellationIfRequested();
+            if (waitCancelled(token)) {
+                throwTaskCancellationIfRequested();
+                return waitOutcome("Cancelled");
+            }
             try { long slice = Math.min(remaining, 10000000L); Thread.sleep(slice / 1000000L, (int)(slice % 1000000L)); }
             catch (InterruptedException error) {
                 throwTaskCancellationIfRequested();
@@ -2038,6 +2052,7 @@
                 return waitOutcome("Interrupted");
             }
         }
+        throwTaskCancellationIfRequested();
         return waitOutcome(token.cancelled ? "Cancelled" : "Completed");
     }
 

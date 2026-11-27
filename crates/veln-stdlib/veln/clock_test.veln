@@ -11,10 +11,17 @@ pub handler cancellable_clock(now: Int, cancelled: Int, wait_outcome: Int) for h
 end
 
 pub handler ready_cancelled_clock() for host_effects::Clock
+	request(operation, milliseconds) => Err("ready cancellation must not read or wait on the clock")
+	wall_time() => Err("unexpected wall-clock request")
+end
+
+pub handler ready_active_past_clock(now: Int) for host_effects::Clock
 	request(operation, milliseconds) => if operation == "cancelled"
 		Ok(0)
+	else if operation == "now"
+		Ok(now)
 	else
-		Err("ready cancellation must not read or wait on the clock")
+		Err("a reached cancellable wait target must not suspend")
 	end
 	wall_time() => Err("unexpected wall-clock request")
 end

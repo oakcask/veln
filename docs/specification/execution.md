@@ -519,9 +519,9 @@ constructed records that have the same structural fields. A handler result
 whose normalization would exceed the `Int` seconds range is a runtime failure.
 At the JVM time boundary, interrupting a cancellable wait without cancelling
 its containing task returns `CancellableWaitOutcome::Interrupted`. The runtime
-restores the host thread's interrupted status and leaves the `CancelToken`
-active. Task cancellation instead unwinds through registered cleanup and does
-not return an ordinary wait outcome. The
+restores the host thread's interrupted status and does not change the
+`CancelToken` cancellation state. Task cancellation instead unwinds through
+registered cleanup and does not return an ordinary wait outcome. The
 [effect-boundary specification](effects.md#network-and-time-boundary-calls)
 owns the complete outcome and precedence contract.
 The exported `std::net` module exposes opaque `net::Listener` and `net::Stream`

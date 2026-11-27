@@ -53,7 +53,7 @@ test cancellable_wait_applies_ready_state_precedence() -> Result<(), String> eff
 		CancellableWaitOutcome::Cancelled => true
 		_ => false
 	end
-	let completed_past = match handle wait_outcome(0) with clock_test::cancellable_clock(10, 0, 0)
+	let completed_past = match handle wait_outcome(0) with clock_test::ready_active_past_clock(10)
 		CancellableWaitOutcome::Completed => true
 		_ => false
 	end

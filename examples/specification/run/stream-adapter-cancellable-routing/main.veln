@@ -6,7 +6,6 @@ use stdio
 type ResponseAction
 	SendBytes { stream_id: Int, bytes: ByteChunk }
 	EndStream { stream_id: Int }
-	RetryAfterDeadline { stream_id: Int }
 	RetryAfterInterruption { stream_id: Int }
 	CleanupAfterCancel { stream_id: Int }
 end
@@ -39,7 +38,6 @@ fn action_score(actions: List<ResponseAction>) -> Int
 		Cons(action, tail) => match action
 			SendBytes(stream_id, bytes) => stream_id * 100 + byte_count_to_int(byte_chunk_count(bytes)) + action_score(tail)
 			EndStream(stream_id) => stream_id * 10 + action_score(tail)
-			RetryAfterDeadline(stream_id) => 1000 + stream_id + action_score(tail)
 			RetryAfterInterruption(stream_id) => 3000 + stream_id + action_score(tail)
 			CleanupAfterCancel(stream_id) => 2000 + stream_id + action_score(tail)
 		end
