@@ -210,7 +210,7 @@ fn format_expr_inner(
         | ExprKind::Handle { .. }
         | ExprKind::SchemaDecode { .. }
         | ExprKind::SchemaValidate { .. }
-        | ExprKind::SchemaEncode { .. }) => format_keyword_expr(kind, indent, comments),
+        | ExprKind::SchemaEncode { .. }) => format_keyword_expr(expr, kind, indent, comments),
         kind @ (ExprKind::Record(_) | ExprKind::Dict(_) | ExprKind::List(_)) => {
             format_collection_expr(kind, indent, comments)
         }
@@ -280,7 +280,12 @@ fn format_application_expr(
     }
 }
 
-fn format_keyword_expr(kind: &ExprKind, indent: usize, comments: Option<&LineComments>) -> String {
+fn format_keyword_expr(
+    expr: &Expr,
+    kind: &ExprKind,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
     match kind {
         ExprKind::Perform {
             effect,
@@ -296,7 +301,7 @@ fn format_keyword_expr(kind: &ExprKind, indent: usize, comments: Option<&LineCom
             entries,
             terminated,
             ..
-        } => format_handle_expr(body, entries, *terminated, indent, comments),
+        } => format_handle_expr(expr, body, entries, *terminated, indent, comments),
         ExprKind::SchemaDecode {
             schema,
             input,
@@ -332,6 +337,7 @@ fn format_keyword_expr(kind: &ExprKind, indent: usize, comments: Option<&LineCom
 }
 
 fn format_handle_expr(
+    expr: &Expr,
     body: &HandleBody,
     entries: &[HandlerEntry],
     terminated: bool,
@@ -345,6 +351,9 @@ fn format_handle_expr(
     let mut text = String::from("handle");
     format_terminated_handle_body(&mut text, body, indent, comments);
     format_terminated_handler_entries(&mut text, entries, indent, comments);
+    if let Some(comments) = comments {
+        comments.emit_before(expr_end_line(expr), &mut text, indent + 1);
+    }
     push_indent(&mut text, indent);
     text.push_str("end");
     text
@@ -382,7 +391,7 @@ fn format_terminated_handle_body(
             text.push_str(&format_expr_at_indent_ctx(body, indent, comments));
             text.push_str(" with\n");
         }
-        HandleBody::Block { body, .. } => {
+        HandleBody::Block { body, block_span } => {
             text.push('\n');
             for line in body {
                 match comments {
@@ -407,6 +416,9 @@ fn format_terminated_handle_body(
                         text.push('\n');
                     }
                 }
+            }
+            if let Some(comments) = comments {
+                comments.emit_before(block_span.end.line, text, indent + 1);
             }
             push_indent(text, indent);
             text.push_str("with\n");

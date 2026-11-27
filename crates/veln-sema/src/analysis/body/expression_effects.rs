@@ -438,28 +438,50 @@ impl<'a> FunctionChecker<'a> {
         entries: &[veln_ast::HandlerApplication],
         resolved: Vec<ResolvedHandler>,
         argument_effects: Vec<Vec<EffectUse>>,
-        mut retained: Vec<EffectUse>,
+        body_effects: Vec<EffectUse>,
     ) -> Vec<EffectUse> {
-        for ((resolution, mut args), entry) in resolved
-            .into_iter()
-            .zip(argument_effects)
-            .zip(entries)
-            .rev()
-        {
-            if let Some((handled_effect, handler_effects, symbol)) = resolution {
-                retained.retain(|effect_use| effect_use.effect != handled_effect);
-                args.append(&mut retained);
-                args.extend(handler_effects.into_iter().map(|effect| EffectUse {
-                    effect,
-                    node_id: expr.node_id,
-                    span: entry.handler_span.clone(),
-                    kind: "handle_expression",
-                    symbol: symbol.clone(),
-                }));
-                retained = args;
-            } else {
-                args.append(&mut retained);
-                retained = args;
+        let mut first_handler_by_effect = HashMap::new();
+        for (index, resolution) in resolved.iter().enumerate() {
+            if let Some((handled_effect, _, _)) = resolution {
+                first_handler_by_effect
+                    .entry(handled_effect.clone())
+                    .or_insert(index);
+            }
+        }
+
+        let mut retained = Vec::new();
+        let mut retain_at = |effect_use: EffectUse, index: usize| {
+            record_ordered_handler_effect_work();
+            if !first_handler_by_effect
+                .get(effect_use.effect.as_str())
+                .is_some_and(|first_handler| *first_handler < index)
+            {
+                retained.push(effect_use);
+            }
+        };
+
+        for (index, effects) in argument_effects.into_iter().enumerate() {
+            for effect_use in effects {
+                retain_at(effect_use, index);
+            }
+        }
+        for effect_use in body_effects {
+            retain_at(effect_use, resolved.len());
+        }
+        for (index, resolution) in resolved.into_iter().enumerate().rev() {
+            if let Some((_, handler_effects, symbol)) = resolution {
+                for effect in handler_effects {
+                    retain_at(
+                        EffectUse {
+                            effect,
+                            node_id: expr.node_id,
+                            span: entries[index].handler_span.clone(),
+                            kind: "handle_expression",
+                            symbol: symbol.clone(),
+                        },
+                        index,
+                    );
+                }
             }
         }
         retained

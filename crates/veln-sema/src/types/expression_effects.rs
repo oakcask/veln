@@ -304,23 +304,12 @@ impl ExprEffectCollector<'_, '_, '_> {
             argument_effects.push(self.inferred.split_off(before_handle));
         }
         self.collect(body);
-        let mut retained = self.inferred.split_off(before_handle);
-        for (entry, mut args) in entries.iter().zip(argument_effects).rev() {
-            if let Some(handler) = handler_for_path(&entry.handler, self.context) {
-                retained.retain(|effect| effect != &handler.effect);
-                for effect in retained {
-                    push_unique_effect(&mut args, &effect);
-                }
-                for effect in &handler.effects {
-                    push_unique_effect(&mut args, effect);
-                }
-            } else {
-                for effect in retained {
-                    push_unique_effect(&mut args, &effect);
-                }
-            }
-            retained = args;
-        }
+        let body_effects = self.inferred.split_off(before_handle);
+        let handlers = entries
+            .iter()
+            .map(|entry| handler_for_path(&entry.handler, self.context))
+            .collect::<Vec<_>>();
+        let retained = ordered_handler_effects(&argument_effects, &body_effects, &handlers);
         self.push_all(&retained);
     }
 
@@ -329,4 +318,50 @@ impl ExprEffectCollector<'_, '_, '_> {
             push_unique_effect(self.inferred, effect);
         }
     }
+}
+
+fn ordered_handler_effects(
+    argument_effects: &[Vec<String>],
+    body_effects: &[String],
+    handlers: &[Option<&HandlerSignature>],
+) -> Vec<String> {
+    let mut first_handler_by_effect = HashMap::new();
+    for (index, handler) in handlers.iter().enumerate() {
+        if let Some(handler) = handler {
+            first_handler_by_effect
+                .entry(handler.effect.as_str())
+                .or_insert(index);
+        }
+    }
+
+    let mut retained = Vec::new();
+    let mut retained_set = HashSet::new();
+    let mut retain_at = |effect: &str, index: usize| {
+        if first_handler_by_effect
+            .get(effect)
+            .is_some_and(|first_handler| *first_handler < index)
+        {
+            return;
+        }
+        if retained_set.insert(effect.to_string()) {
+            retained.push(effect.to_string());
+        }
+    };
+
+    for (index, effects) in argument_effects.iter().enumerate() {
+        for effect in effects {
+            retain_at(effect, index);
+        }
+    }
+    for effect in body_effects {
+        retain_at(effect, handlers.len());
+    }
+    for (index, handler) in handlers.iter().enumerate().rev() {
+        if let Some(handler) = handler {
+            for effect in &handler.effects {
+                retain_at(effect, index);
+            }
+        }
+    }
+    retained
 }

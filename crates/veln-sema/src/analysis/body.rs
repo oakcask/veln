@@ -1015,6 +1015,29 @@ pub(crate) struct StablePlaceWork {
 }
 
 #[cfg(test)]
+thread_local! {
+    static ORDERED_HANDLER_EFFECT_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_ordered_handler_effect_work() {
+    ORDERED_HANDLER_EFFECT_WORK.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn take_ordered_handler_effect_work() -> usize {
+    ORDERED_HANDLER_EFFECT_WORK.replace(0)
+}
+
+#[cfg(test)]
+fn record_ordered_handler_effect_work() {
+    ORDERED_HANDLER_EFFECT_WORK.set(ORDERED_HANDLER_EFFECT_WORK.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_ordered_handler_effect_work() {}
+
+#[cfg(test)]
 pub(crate) fn reset_stable_place_work() {
     stable_place_work::reset();
 }

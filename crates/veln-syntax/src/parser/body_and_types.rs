@@ -12,6 +12,7 @@ struct ExpressionLineCollector {
     block_delimiter_depths: Vec<usize>,
     handle_candidates: Vec<(bool, usize)>,
     continued_handle_after_with: Option<bool>,
+    previous_handle_started_expression: bool,
     previous_kind: Option<TokenKind>,
     at_line_start: bool,
     preserve_enclosing_end: bool,
@@ -64,6 +65,7 @@ impl ExpressionLineCollector {
             block_delimiter_depths: Vec::new(),
             handle_candidates: Vec::new(),
             continued_handle_after_with: None,
+            previous_handle_started_expression: false,
             previous_kind: None,
             at_line_start: false,
             preserve_enclosing_end,
@@ -95,11 +97,7 @@ impl ExpressionLineCollector {
         self.at_line_start
             && self.block_stack.contains(&TokenKind::Handle)
             && parser.at_top_level_item_start()
-            && !(parser.at(TokenKind::Handler)
-                && matches!(
-                    parser.tokens.get(parser.cursor + 1).map(|token| token.kind),
-                    Some(TokenKind::LParen | TokenKind::DoubleColon | TokenKind::Newline)
-                ))
+            && (!parser.at(TokenKind::Handler) || parser.at_handler_declaration_start())
     }
 
     fn continues_terminated_handle(&self) -> bool {
@@ -144,6 +142,8 @@ impl ExpressionLineCollector {
     fn push(&mut self, token: Token, next_kind: Option<TokenKind>) {
         self.end = token.range;
         let token_kind = token.kind;
+        let handle_started_expression = token_kind == TokenKind::Handle
+            && handle_starts_expression(self.previous_kind, next_kind);
         match token_kind {
             TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
                 self.delimiter_depth += 1;
@@ -152,17 +152,14 @@ impl ExpressionLineCollector {
                 self.delimiter_depth = self.delimiter_depth.saturating_sub(1);
             }
             TokenKind::Match | TokenKind::Begin => self.push_block(token_kind),
-            TokenKind::Handle
-                if self.previous_kind != Some(TokenKind::DoubleColon)
-                    && next_kind != Some(TokenKind::DoubleColon) =>
-            {
+            TokenKind::Handle if handle_starts_expression(self.previous_kind, next_kind) => {
                 self.handle_candidates.push((false, self.block_stack.len()));
             }
             TokenKind::With => {
                 self.continued_handle_after_with =
                     self.handle_candidates.pop().map(|(started, _)| started);
             }
-            TokenKind::Newline if self.previous_kind == Some(TokenKind::Handle) => {
+            TokenKind::Newline if self.previous_handle_started_expression => {
                 if let Some((started, _)) = self.handle_candidates.last_mut() {
                     *started = true;
                     self.push_block(TokenKind::Handle);
@@ -199,11 +196,20 @@ impl ExpressionLineCollector {
         }
         self.at_line_start = token_kind == TokenKind::Newline;
         self.previous_kind = Some(token_kind);
+        self.previous_handle_started_expression = handle_started_expression;
     }
 
     fn range(&self) -> TextRange {
         self.start.cover(self.end)
     }
+}
+
+fn handle_starts_expression(
+    previous_kind: Option<TokenKind>,
+    next_kind: Option<TokenKind>,
+) -> bool {
+    !matches!(previous_kind, Some(TokenKind::Dot | TokenKind::DoubleColon))
+        && next_kind != Some(TokenKind::DoubleColon)
 }
 
 impl<'a> Parser<'a> {

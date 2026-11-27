@@ -593,6 +593,38 @@ fn fmt_formats_comments_inside_handler_cleanup_regions_idempotently() {
 }
 
 #[test]
+fn fmt_preserves_multiple_handler_boundary_comments_idempotently() {
+    let project = TestProject::new("fmt-multiple-handler-boundary-comments");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn example() -> Int\n",
+            "  handle\n",
+            "    1\n",
+            "  # before with\n",
+            "  with\n",
+            "    outer(),\n",
+            "  # before end\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let expected = concat!(
+        "fn example() -> Int\n",
+        "\thandle\n",
+        "\t\t1\n",
+        "\t\t# before with\n",
+        "\twith\n",
+        "\t\touter()\n",
+        "\t\t# before end\n",
+        "\tend\n",
+        "end\n",
+    );
+    project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);
+}
+
+#[test]
 fn fmt_formats_commented_cleanup_regions_embedded_in_expressions() {
     let project = TestProject::new("fmt-embedded-cleanup-comments");
     project.write(

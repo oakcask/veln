@@ -603,6 +603,47 @@ fn nested_handler_effect_membership_work_grows_linearly() {
 }
 
 #[test]
+fn ordered_handler_effect_work_grows_linearly_with_distinct_argument_effects() {
+    fn work_count(effect_count: usize) -> usize {
+        let mut source_text = concat!(
+            "effect Ask\n  value() -> Int\nend\n",
+            "handler ask(offset: Int) for Ask\n  value() => offset\nend\n",
+        )
+        .to_string();
+        for index in 0..effect_count {
+            source_text.push_str(&format!("effect Retained{index}\n  value() -> Int\nend\n"));
+        }
+        source_text.push_str("fn main() -> Int\n  handle 0 with\n");
+        for index in 0..effect_count {
+            let separator = if index + 1 == effect_count { "" } else { "," };
+            source_text.push_str(&format!(
+                "    ask(perform Retained{index}::value()){separator}\n"
+            ));
+        }
+        source_text.push_str("  end\nend\n");
+
+        let source = SourceFile::new("main.veln", source_text);
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+
+        crate::analysis::reset_ordered_handler_effect_work();
+        let diagnostics = analyze_surface_module(&module);
+        let work = crate::analysis::take_ordered_handler_effect_work();
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        work
+    }
+
+    const N: usize = 32;
+    let work_n = work_count(N);
+    let work_2n = work_count(2 * N);
+
+    assert_eq!(work_n, N);
+    assert_eq!(work_2n, 2 * N);
+}
+
+#[test]
 fn effect_provenance_reports_omitted_equivalent_paths() {
     let source = SourceFile::new(
         "main.veln",

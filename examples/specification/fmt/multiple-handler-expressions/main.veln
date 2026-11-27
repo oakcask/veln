@@ -37,9 +37,11 @@ fn block_body() -> Int
   handle
     let value = first()
     value
+  # retain before with
   with
     outer(),
     inner(),
+  # retain before end
   end
 end
 

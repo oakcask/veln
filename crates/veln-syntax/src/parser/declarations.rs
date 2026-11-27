@@ -382,6 +382,12 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub(super) fn at_handler_declaration_start(&self) -> bool {
+        self.at(TokenKind::Handler)
+            && self.peek_kind(1) == Some(TokenKind::Ident)
+            && self.peek_kind(2) == Some(TokenKind::LParen)
+    }
+
     pub(super) fn end_closes_enclosing_declaration(&self) -> bool {
         if self.end_is_followed_by_top_level_item() {
             return true;

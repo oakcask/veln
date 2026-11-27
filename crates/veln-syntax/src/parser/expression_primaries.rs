@@ -158,7 +158,14 @@ impl<'a> ExprParser<'a> {
             body.push(self.parse_cleanup_body_line());
             self.eat_newlines();
         }
-        let block_end = self.current().range.start.max(header_end.end);
+        let block_end = self
+            .tokens
+            .get(self.cursor)
+            .map_or_else(
+                || self.recovery_end.unwrap_or_else(|| self.source.len()),
+                |token| token.range.start,
+            )
+            .max(header_end.end);
         self.expect_expr_token(
             TokenKind::With,
             "parse.handle_expression",

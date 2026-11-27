@@ -475,6 +475,42 @@ fn terminated_handlers_accept_multiline_bodies_arguments_and_contextual_names() 
 }
 
 #[test]
+fn handled_block_body_accepts_contextual_handler_and_handle_expressions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn contextual(handler: Int, record: Record) -> Int\n",
+            "  handle\n",
+            "    handler + record.handle\n",
+            "  with\n",
+            "    identity()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(function) = &output.tree.items[0] else {
+        panic!("expected function");
+    };
+    assert!(matches!(
+        &function.body[0],
+        BodyLine::Expr {
+            expr: Expr {
+                kind: ExprKind::Handle {
+                    body: HandleBody::Block { body, .. },
+                    ..
+                },
+                ..
+            },
+            ..
+        } if body.len() == 1
+    ));
+}
+
+#[test]
 fn formats_terminated_handler_entries_with_comments_canonically() {
     let source = SourceFile::new(
         "main.veln",
@@ -605,6 +641,60 @@ fn missing_handler_application_at_eof_reports_a_diagnostic_without_panicking() {
 }
 
 #[test]
+fn handled_block_missing_with_recovers_at_synthetic_boundaries_without_panicking() {
+    for (source_text, expected_items) in [
+        (
+            concat!(
+                "fn broken() -> Int\n",
+                "  handle\n",
+                "    1\n",
+                "end\n\n",
+                "fn survivor() -> Int\n",
+                "  1\n",
+                "end\n",
+            ),
+            2,
+        ),
+        ("fn broken() -> Int\n  handle\n    1", 1),
+        (
+            concat!(
+                "fn broken() -> Int\n",
+                "  handle\n",
+                "    1\n",
+                "fn survivor() -> Int\n",
+                "  1\n",
+                "end\n",
+            ),
+            2,
+        ),
+    ] {
+        let output = parse(&SourceFile::new("main.veln", source_text));
+
+        assert!(
+            output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.handle_expression"),
+            "{:#?}",
+            output.diagnostics
+        );
+        assert_eq!(
+            output.tree.items.len(),
+            expected_items,
+            "{:#?}",
+            output.diagnostics
+        );
+        if expected_items == 2 {
+            assert!(matches!(
+                &output.tree.items[1],
+                SyntaxItem::Function(function)
+                    if function.name.as_deref() == Some("survivor")
+            ));
+        }
+    }
+}
+
+#[test]
 fn missing_handler_end_preserves_enclosing_control_flow_boundaries() {
     for (control, unexpected_diagnostic) in [
         (
@@ -708,6 +798,44 @@ fn unterminated_handler_recovery_stops_before_the_next_top_level_item() {
         panic!("expected following function");
     };
     assert_eq!(survivor.name.as_deref(), Some("survivor"));
+}
+
+#[test]
+fn unterminated_handler_preserves_following_module_value_and_function_items() {
+    let source_text = concat!(
+        "fn broken() -> Int\n",
+        "  handle 1 with\n",
+        "    outer()\n",
+        "let survivor: Int = handle 1 with\n",
+        "  outer()\n",
+        "end\n\n",
+        "fn after() -> Int\n",
+        "  survivor\n",
+        "end\n",
+    );
+    let survivor_start = source_text.find("let survivor").expect("survivor offset");
+
+    let output = parse(&SourceFile::new("main.veln", source_text));
+
+    assert!(!output.diagnostics.is_empty());
+    assert!(matches!(
+        output.tree.items.as_slice(),
+        [
+            SyntaxItem::Function(broken),
+            SyntaxItem::ModuleValue(survivor),
+            SyntaxItem::Function(after),
+        ] if broken.name.as_deref() == Some("broken")
+            && survivor.name.as_deref() == Some("survivor")
+            && after.name.as_deref() == Some("after")
+    ));
+    assert!(
+        output.diagnostics.iter().all(|diagnostic| diagnostic
+            .span
+            .as_ref()
+            .is_none_or(|span| span.start.offset <= survivor_start)),
+        "{:#?}",
+        output.diagnostics
+    );
 }
 
 #[test]
