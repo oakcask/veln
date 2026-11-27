@@ -1,35 +1,35 @@
 # CSV order analyzer
 
 A local order desk with a Veln HTTP/2 backend and a small TypeScript browser UI.
-Upload or paste CSV, then inspect accepted-row totals and all row errors. No
-service account, database, or Node package installation is needed.
+Upload or paste CSV, then inspect accepted-row totals and all row errors.
+No service account or database is needed. The launcher uses Node built-in modules.
 
 ## Run
 
-Requirements: Rust, JDK 25 or newer, and Node 26 or newer. From the repository
-root, build the current CLI:
+Requirements: Rust, JDK 25 or newer, Node 26 or newer, and pnpm (the version
+pinned in the repository's `packageManager` field). From the repository root:
 
 ```sh
-cargo build --locked -p veln-cli
+pnpm example:csv
 ```
 
-Start the backend from its source directory in one terminal:
+This builds the current Veln CLI, starts the backend, waits for its listening
+log, and starts the browser-facing server. Open <http://127.0.0.1:8080> when
+the launcher prints its URL. JSON logs stream to the same terminal.
+Ctrl-C stops both servers, including the backend JVM, and removes the run's
+temporary log and compiler cache. The launcher adds no Node dependencies;
+pnpm may prepare the repository's existing workspace dependencies on first use.
+If either server cannot start, the launcher exits and cleans up the other.
+
+Choose other ports when the defaults are occupied:
 
 ```sh
-cd examples/csv_analyzer/backend
-../../../target/debug/veln run main_with_log_file . -- 8082 server.jsonl
+pnpm example:csv --web-port 8090 --backend-port 8092
 ```
 
-The backend appends structured logs to `backend/server.jsonl`. In another
-terminal, from the repository root:
-
-```sh
-node examples/csv_analyzer/server.mjs
-```
-
-Open <http://127.0.0.1:8080>. The optional Node arguments are the web port and
-backend port, for example `node examples/csv_analyzer/server.mjs 8090 8092`.
-Pass the corresponding port to the Veln entry. Stop both processes with Ctrl-C.
+After building the CLI, `pnpm example:csv --skip-build` reuses it without
+running Cargo. The default command always builds so compiler changes are
+included. The launcher currently uses POSIX process groups for cleanup.
 
 ## Try it
 
@@ -77,7 +77,18 @@ HTTP 200 can still contain row validation errors; inspect the JSON response
 for those details. Request bodies, SKU values, and raw request paths are not
 logged. Attribute values are bounded by the exporter's configured limits.
 
-With the file entry shown above, follow logs from the repository root:
+The pnpm launcher streams the backend's file export to standard error and
+removes that temporary file when it stops. To retain logs across runs, start
+the backend manually from its source directory:
+
+```sh
+cd examples/csv_analyzer/backend
+../../../target/debug/veln run main_with_log_file . -- 8082 server.jsonl
+```
+
+Start the frontend separately with `node examples/csv_analyzer/server.mjs`
+from the repository root. Its optional positional arguments select the web
+port and backend port. Follow the retained logs from the repository root:
 
 ```sh
 tail -f examples/csv_analyzer/backend/server.jsonl
@@ -114,6 +125,7 @@ requests, so this example supplies a small body-aware loop rather than changing
 the standard API. It handles one request per connection and accepts connections
 sequentially. A failed connection is closed before the next is accepted.
 
+`dev.mjs` owns building, startup, log streaming, and process cleanup.
 `server.mjs` serves a fixed asset list and proxies each analysis through a fresh
 HTTP/2 session. It does not parse CSV or compute totals. Node's built-in
 TypeScript stripping serves `web/app.ts` as JavaScript; it does not perform
@@ -131,10 +143,13 @@ backends as HTTP 502. This is a local example, not a deployment template.
 From the repository root after building the CLI:
 
 ```sh
-bash scripts/agent-run node --test examples/csv_analyzer/test.mjs
+pnpm test:example:csv
 ```
 
-The tests launch the actual Veln backend on an ephemeral port, send HTTP/2
+The launcher tests exercise the actual pnpm command, CLI build, startup, log
+streaming, HTTP requests, Ctrl-C and SIGTERM cleanup, occupied ports, and missing
+build tools. They check that both ports close after shutdown or startup failure.
+The application tests launch the actual Veln backend on an ephemeral port, send HTTP/2
 requests using Node's independent protocol implementation, and assert JSON
 results, row failures, bounds, fragmented and padded DATA, CRLF, repeated
 connections, idle deadlines, malformed input recovery, proxy cancellation, and
