@@ -12,12 +12,14 @@ per subject.
 
 ## Authority
 
-The normative policy is
+The shared normative policy is
 [documentation-authoring.md](../../../docs/reference/documentation-authoring.md).
 Read the relevant section when a change affects document classification,
 metadata, placement, presentation, routing boundaries, or specification-writing
 rules. A local prose correction that does not affect those concerns does not
-require reading the policy or loading this skill.
+require reading the policy or loading this skill. For proposal-specific
+authoring and review rules, use
+[proposal-authoring.md](../../../docs/reference/proposal-authoring.md).
 
 ## Workflow
 
@@ -54,5 +56,5 @@ require reading the policy or loading this skill.
 - Confirm that the change leaves no updated same-scope short/full pair, that
   merged or split content has one authority per subject, and that no internal
   link requires a deleted compatibility path.
-- Confirm that the authoring policy, rather than a routing page or skill, owns
-  any new or changed documentation rule.
+- Confirm that the matching shared or proposal authoring policy, rather than
+  a routing page or skill, owns any new or changed documentation rule.

@@ -69,7 +69,7 @@ executable evidence.
 ## Review Checklist
 
 When authoring or reviewing readiness gates, apply
-[Proposal Readiness and Completion](../../../docs/reference/documentation-authoring.md#proposal-readiness-and-completion).
+[Readiness and Completion](../../../docs/reference/proposal-authoring.md#readiness-and-completion).
 Check whether each pre-Ready evidence requirement resolves a named design
 choice; move implementation acceptance to completion conditions. Route needed
 code or measurement to the policy's independently selectable investigation
