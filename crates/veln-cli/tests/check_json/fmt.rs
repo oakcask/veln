@@ -104,7 +104,9 @@ fn fmt_migrates_nested_short_handlers_before_jvm_execution() {
             "end\n",
             "\n",
             "pub fn main() -> () effects [stdio]\n",
-            "  let result = handle (handle body() with ask(inner_context(\"inner context\", 1))) with ask(context(\"outer context\", 1))\n",
+            "  let result = handle (\n",
+            "    handle body() with ask(inner_context(\"inner context\", 1))\n",
+            "  ) with ask(context(\"outer context\", 1))\n",
             "  stdio::println(int_to_string(result))\n",
             "end\n",
         ),
@@ -142,13 +144,30 @@ fn fmt_migrates_nested_short_handlers_before_jvm_execution() {
         "\tstdio::println(int_to_string(result))\n",
         "end\n",
     );
+
+    let nested_output = project.run(&["main", "main.veln"]);
+
+    assert!(nested_output.status.success(), "{}", stderr(&nested_output));
+    assert_eq!(
+        stdout(&nested_output),
+        "outer context\ninner context\nbody\n2\n"
+    );
+    assert_eq!(stderr(&nested_output), "");
+
     project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);
 
-    let output = project.run(&["main", "main.veln"]);
+    let migrated_output = project.run(&["main", "main.veln"]);
 
-    assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(stdout(&output), "outer context\ninner context\nbody\n2\n");
-    assert_eq!(stderr(&output), "");
+    assert!(
+        migrated_output.status.success(),
+        "{}",
+        stderr(&migrated_output)
+    );
+    assert_eq!(
+        stdout(&migrated_output),
+        "outer context\ninner context\nbody\n2\n"
+    );
+    assert_eq!(stderr(&migrated_output), "");
 }
 
 #[test]

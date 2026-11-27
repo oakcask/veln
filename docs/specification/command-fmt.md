@@ -64,18 +64,17 @@ comments attached to entries. A standalone comment before a block form's
 identical bytes.
 
 The formatter migrates a comment-free chain of two or more directly nested
-short handler expressions when the complete chain is on one source line. The
-chain may use grouping parentheses. The result is one terminated
-expression-body list whose entries run from the outermost handler to the
-innermost handler. The migration preserves the handled body and each handler
-context expression. Reformatting the migrated result produces identical
-bytes. During one formatting pass, the formatter leaves the chain nested if
-it contains comments, mixes short and terminated forms, uses a handled block
-or `begin`, spans multiple source lines, or reaches another handler only
-through a statement, `defer`, call, branch, or postfix operator. The formatter
-keeps a comment-free multiline chain that otherwise meets the direct
-short-chain conditions in a canonical multiline nested form. That chain
-remains ineligible and is byte-identical on a second pass.
+short handler expressions. The complete chain may span source lines and may
+use grouping parentheses, but its handled body must format on one line. The
+result is one terminated expression-body list whose entries run from the
+outermost handler to the innermost handler. The migration preserves the
+handled body and each handler context expression. Reformatting the migrated
+result produces identical bytes. During one formatting pass, the formatter
+leaves the chain nested if it contains comments, mixes short and terminated
+forms, uses a handled block or `begin`, has a body that formats across multiple
+lines, or reaches another handler only through a statement, `defer`, call,
+branch, or postfix operator. An ineligible comment-free multiline chain keeps
+a canonical multiline nested form that is byte-identical on a second pass.
 Eligibility applies to the complete directly nested chain: when an outer form
 is ineligible, no directly nested suffix of that chain migrates on its own. A
 statement, `defer`, call, branch, or postfix operator ends that direct chain,
@@ -137,5 +136,6 @@ case covers ordinary and effect declaration binders, trailing-comma removal,
 and idempotence. The checked
 [`multiple-handler-expressions`](../../examples/specification/fmt/multiple-handler-expressions/)
 case covers both terminated body forms, short-chain migration with and without
-grouping parentheses, outermost-first entry order, final-comma removal,
-boundary-comment retention, and idempotence.
+grouping parentheses, single-line and multiline chain layouts,
+outermost-first entry order, final-comma removal, boundary-comment retention,
+and idempotence.

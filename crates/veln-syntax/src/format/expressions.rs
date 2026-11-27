@@ -409,11 +409,11 @@ fn flattenable_short_handle_chain<'a>(
     expr: &'a Expr,
     comments: Option<&LineComments>,
 ) -> Option<(&'a Expr, Vec<&'a HandlerEntry>)> {
-    if expr.span.start.line != expr_end_line(expr) {
+    let (body, entries) = direct_short_handle_chain(expr)?;
+
+    if format_expr_at_indent_ctx(body, 0, None).contains('\n') {
         return None;
     }
-
-    let (body, entries) = direct_short_handle_chain(expr)?;
 
     if comments.is_some_and(|comments| comments.has_comment_in_span(&expr.span)) {
         return None;
