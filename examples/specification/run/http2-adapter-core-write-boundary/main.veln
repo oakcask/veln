@@ -267,23 +267,26 @@ fn count_rejected(tail: List<ResponseAction>, context: Http2SendContext) -> Resu
 	end
 end
 
-fn write_projected_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
+fn write_projected_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> Result<(), String> effects [net::IO]
 	match chunks
-		Nil => ()
-		Cons(_, _) => ignore_projected_write(transport::net::write_stream_chunks(stream, chunks))
+		Nil => Ok(())
+		Cons(_, _) => project_transport_write(transport::net::write_stream_chunks(stream, chunks))
 	end
 end
 
-fn ignore_projected_write(result: Result<(), net::NetError>) -> ()
-	()
+fn project_transport_write(result: Result<(), net::NetError>) -> Result<(), String>
+	match result
+		Ok(()) => Ok(())
+		Err(net::NetError(_, _, _, _, message)) => Err(message)
+	end
 end
 
 fn run_adapter(stream: net::Stream, actions: List<ResponseAction>) -> Result<AdapterProjection, String> effects [net::IO]
 	let initial_context = SendContext(2, OpenSendStream(1, 4, 4))
 	let projection = project_actions(actions, initial_context)?
-	let ignored_write = match projection
+	let _: () = match projection
 		Projection(chunks, _, _, _) => write_projected_chunks(stream, chunks)
-	end
+	end?
 	Ok(projection)
 end
 

@@ -200,6 +200,16 @@ fn scripted_write(stream: net::Stream, expected: net::Stream, mode: String, byte
 			let _ = trace_push(trace, "write:other")
 			net::WriteFailed(net::ByteCount(0), failure("wrong-stream", "write used a stream other than the captured stream"))
 		end
+	else if mode == "http2-write-failure"
+		begin
+			let _ = trace_push(trace, "write:http2-frame")
+			net::WriteFailed(net::ByteCount(1), failure("scripted-write", "HTTP/2 frame write failed"))
+		end
+	else if mode == "http2-malformed-write"
+		begin
+			let _ = trace_push(trace, "write:http2-frame")
+			net::Written(net::ByteCount(byte_count_to_int(byte_chunk_count(bytes)) + 1))
+		end
 	else
 		match byte_chunk_to_visible_ascii_string(bytes)
 			Err(message) => net::WriteFailed(net::ByteCount(0), failure("fixture", message))
