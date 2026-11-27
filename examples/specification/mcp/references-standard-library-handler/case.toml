@@ -13,7 +13,7 @@ contains = "veln-pkg:///std/snapshot/"
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/definition/range"
-equals = {"start":{"line":251,"column":13},"end":{"line":251,"column":17}}
+source_range = {"id":101,"path":"/result/contents/0/text","declaration":"pub handler noop(","symbol":"noop"}
 
 [[mcp_assert]]
 id = 3
@@ -129,3 +129,8 @@ equals = null
 id = 13
 path = "/result/structuredContent/references"
 length = 0
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/definition/uri"
+contains = "/observe.veln"

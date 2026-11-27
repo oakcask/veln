@@ -8,22 +8,22 @@ format = "empty"
 
 [[mcp_assert]]
 id = 2
-path = "/result/tools/4/name"
+path = "/result/tools/$name=completion/name"
 equals = "completion"
 
 [[mcp_assert]]
 id = 2
-path = "/result/tools/5/name"
+path = "/result/tools/$name=signature_help/name"
 equals = "signature_help"
 
 [[mcp_assert]]
 id = 2
-path = "/result/tools/4/outputSchema/$defs/failure/properties/code/enum/3"
+path = "/result/tools/$name=completion/outputSchema/$defs/failure/properties/code/enum/$value=resource_capacity"
 equals = "resource_capacity"
 
 [[mcp_assert]]
 id = 2
-path = "/result/tools/5/outputSchema/$defs/failure/properties/code/enum/3"
+path = "/result/tools/$name=signature_help/outputSchema/$defs/failure/properties/code/enum/$value=resource_capacity"
 equals = "resource_capacity"
 
 [[mcp_assert]]

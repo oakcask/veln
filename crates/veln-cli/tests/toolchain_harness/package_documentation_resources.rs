@@ -397,3 +397,73 @@ fn declaration_reads() -> &'static [(&'static str, &'static str, &'static str)] 
         ("prelude", "alias byte_view_len", "# Alias byte_view_len"),
     ]
 }
+
+// Dependency documentation must reject another documentation revision even
+// when the package snapshot and resource kind still identify an admitted source.
+#[test]
+fn dependency_package_documentation_rejects_a_changed_documentation_digest() {
+    let project = TestProject::new(
+        "dependency-documentation-digest".into(),
+        &ToolSetup::default(),
+    );
+    project.copy_fixtures(&toolchain_case_path(
+        "../../examples/specification/mcp/dependency-package-documentation-resources",
+    ));
+    let mut session = Session::new(&project.root);
+    session.request("initialize", r#"{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}"#);
+    session.request(
+        "tools/call",
+        r#"{"name":"check_project","arguments":{"project":"."}}"#,
+    );
+    let list = session.request("resources/list", "{}");
+    let resources = field(field(&list, "result"), "resources")
+        .as_array()
+        .unwrap();
+    let indices: Vec<_> = resources
+        .iter()
+        .filter(|resource| {
+            resource.object_field("name").and_then(JsonValue::as_str)
+                == Some("example-dep-documentation-index")
+        })
+        .collect();
+    assert_eq!(indices.len(), 1);
+    let uri = string(indices[0], "uri");
+    let (snapshot, documentation) = uri.split_once("/documentation/").unwrap();
+    let (digest, kind) = documentation.split_once('/').unwrap();
+    assert_eq!(kind, "index");
+    let wrong = if digest == "0".repeat(64) { "1" } else { "0" }.repeat(64);
+    let rejected = format!("{snapshot}/documentation/{wrong}/{kind}");
+    for method in ["resources/read", "read_doc"] {
+        let params = if method == "resources/read" {
+            format!(r#"{{"uri":{}}}"#, json_string(&rejected))
+        } else {
+            format!(
+                r#"{{"name":"read_doc","arguments":{{"uri":{}}}}}"#,
+                json_string(&rejected)
+            )
+        };
+        let response = session.request(
+            if method == "read_doc" {
+                "tools/call"
+            } else {
+                method
+            },
+            &params,
+        );
+        if method == "resources/read" {
+            assert_eq!(
+                string(field(field(&response, "error"), "data"), "code"),
+                "resource_not_found"
+            );
+            assert!(response.object_field("result").is_none());
+        } else {
+            let result = field(&response, "result");
+            assert_eq!(field(result, "isError"), &JsonValue::Bool(true));
+            assert_eq!(
+                string(field(result, "structuredContent"), "code"),
+                "resource_not_found"
+            );
+        }
+    }
+    session.finish();
+}

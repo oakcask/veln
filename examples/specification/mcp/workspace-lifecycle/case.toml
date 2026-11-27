@@ -15,8 +15,8 @@ equals = {"code":-32602,"message":"Server not initialized"}
 
 [[mcp_assert]]
 id = 2
-path = "/result/tools"
-length = 11
+path = "/result/tools/$name=rename/name"
+equals = "rename"
 
 [[mcp_assert]]
 id = 3

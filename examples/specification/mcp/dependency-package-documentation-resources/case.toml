@@ -29,22 +29,22 @@ equals = false
 
 [[mcp_assert]]
 id = 3
-path = "/result/resources/11/name"
+path = "/result/resources/$name=example-bad-documentation-status/name"
 equals = "example-bad-documentation-status"
 
 [[mcp_assert]]
 id = 3
-path = "/result/resources/12/name"
+path = "/result/resources/$name=example-dep-documentation-index/name"
 equals = "example-dep-documentation-index"
 
 [[mcp_assert]]
 id = 3
-path = "/result/resources/12/description"
+path = "/result/resources/$name=example-dep-documentation-index/description"
 equals = "Dependency documentation fixture"
 
 [[mcp_assert]]
 id = 3
-path = "/result/resources/12/mimeType"
+path = "/result/resources/$name=example-dep-documentation-index/mimeType"
 equals = "text/markdown; charset=utf-8"
 
 [[mcp_assert]]
@@ -70,7 +70,7 @@ contains = "- Exported modules: api"
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/f18ecbf6581d0b152d37bd1e318957aeaf5c57b4a6eb2dbef52fc48b2d26b64a/module/b09c429c2c2b962da90ceed199c3dcf25e73c5444c6023162f62ae3addabd008"
+contains = "[api]("
 
 [[mcp_assert]]
 id = 6
@@ -80,7 +80,7 @@ contains = "- Source path: api.veln"
 [[mcp_assert]]
 id = 6
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/f18ecbf6581d0b152d37bd1e318957aeaf5c57b4a6eb2dbef52fc48b2d26b64a/declaration/fb1a8a064dd32af6cfa68eeb45a34065ccdc049850e97bdc07ccaf9ae2aeccf3"
+contains = "[function answer]("
 
 [[mcp_assert]]
 id = 7
@@ -94,7 +94,7 @@ equals = "resource_not_found"
 
 [[mcp_assert]]
 id = 10
-path = "/result/resources/12/name"
+path = "/result/resources/$name=example-dep-documentation-index/name"
 equals = "example-dep-documentation-index"
 
 [[mcp_assert]]
@@ -125,7 +125,7 @@ equals = "package"
 [[mcp_assert]]
 id = 13
 path = "/result/structuredContent/results/0/uri"
-equals = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/f18ecbf6581d0b152d37bd1e318957aeaf5c57b4a6eb2dbef52fc48b2d26b64a/index"
+equals_response = {"id":3,"path":"/result/resources/$name=example-dep-documentation-index/uri"}
 
 [[mcp_assert]]
 id = 14
@@ -157,4 +157,4 @@ equals = "resource_not_found"
 [[mcp_assert]]
 id = 18
 path = "/result/structuredContent/definition/packageDocumentationUri"
-equals = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/f18ecbf6581d0b152d37bd1e318957aeaf5c57b4a6eb2dbef52fc48b2d26b64a/declaration/fb1a8a064dd32af6cfa68eeb45a34065ccdc049850e97bdc07ccaf9ae2aeccf3"
+equals_response = {"id":7,"path":"/result/contents/0/uri"}

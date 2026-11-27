@@ -216,6 +216,24 @@ impl<'a> ManifestParser<'a> {
                 "root invocation needs at most one of `stdin`, `stdin_file`, or `stdin_jsonrpc_file`",
             );
         }
+        if self
+            .command
+            .as_ref()
+            .and_then(|command| command.first())
+            .map(String::as_str)
+            == Some("mcp")
+            && let Some(input) = self.stdin.as_deref()
+            && input_contains_response_directive(input)
+        {
+            for (index, line) in input.lines().enumerate() {
+                let value = parse_json(line).unwrap_or_else(|error| {
+                    manifest_error(path, 0, format!("MCP request {index}: {error}"))
+                });
+                validate_response_directives(&value).unwrap_or_else(|error| {
+                    manifest_error(path, 0, format!("MCP request {index}: {error}"))
+                });
+            }
+        }
         let mut manifest = CaseManifest {
             invocation: CaseInvocation {
                 command: self

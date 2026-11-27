@@ -37,6 +37,7 @@ pub(super) enum RpcAssertionOperation {
     EqualsJsonFile(JsonValue),
     EqualsJsonFileRef(CaseTextReference),
     EqualsResponse(McpResponseReference),
+    SourceRange(JsonValue),
     Contains(String),
     Length(usize),
     Missing(bool),
@@ -97,7 +98,7 @@ impl LspAssertion {
                 path,
                 0,
                 format!(
-                    "lsp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
+                    "lsp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `equals_response`, `source_range`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
                 ),
             );
         }
@@ -144,7 +145,7 @@ impl McpAssertion {
                 path,
                 0,
                 format!(
-                    "mcp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `equals_response`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
+                    "mcp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `equals_response`, `source_range`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
                 ),
             );
         }

@@ -129,9 +129,9 @@ length = 10
 [[mcp_assert]]
 id = 8
 path = "/result/structuredContent/references/9/uri"
-equals = "veln-pkg:///std/snapshot/780cfe9e020f816c453ebbfea73e7837669ccdd3cbb4a7347b76e5291fb71c07/prelude.veln"
+equals_response = {"id":101,"path":"/result/contents/0/uri"}
 
 [[mcp_assert]]
 id = 8
 path = "/result/structuredContent/references/9/range"
-equals = {"start":{"line":7,"column":10},"end":{"line":7,"column":19}}
+source_range = {"id":101,"path":"/result/contents/0/text","declaration":"pub type ByteCount =","symbol":"ByteCount"}

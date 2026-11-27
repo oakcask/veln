@@ -111,6 +111,9 @@ pub(super) fn load_jsonrpc_stdin(
             workspace_file_uri_directives,
         };
         expand_case_text_directives(&mut context, &position, &mut Vec::new(), &mut message);
+        validate_response_directives(&message).unwrap_or_else(|error| {
+            jsonrpc_fixture_error(manifest_path, line_number, index, &position, &error)
+        });
         validate_jsonrpc_input_message(manifest_path, line_number, index, &message);
         let body = message.to_compact_string();
         let length = body.len();

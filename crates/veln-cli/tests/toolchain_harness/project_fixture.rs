@@ -1,5 +1,5 @@
 use super::*;
-use std::io::{BufRead, BufReader, Read};
+use std::io::Read;
 
 const FIXTURE_PROCESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -141,9 +141,11 @@ impl TestProject {
     ) -> Output {
         let mut command = self.veln_command(args, cwd, env, artifact_path);
         command.stdin(Stdio::piped());
-        let mut child = command.spawn().expect("veln should spawn");
-        let stdout = exchange_mcp_requests(&mut child, stdin);
-        finish_interactive_child(child, stdout)
+        protocol_exchange::exchange(
+            command,
+            stdin,
+            args.first().map(String::as_str) == Some("lsp"),
+        )
     }
 
     fn veln_command(
@@ -242,7 +244,7 @@ fn isolate_fixture_process_tree(command: &mut Command) {
 fn isolate_fixture_process_tree(_command: &mut Command) {}
 
 #[cfg(unix)]
-fn terminate_fixture_process_tree(child: &mut std::process::Child) {
+pub(super) fn terminate_fixture_process_tree(child: &mut std::process::Child) {
     let process_group = format!("-{}", child.id());
     let killed = Command::new("kill")
         .arg("-KILL")
@@ -258,7 +260,7 @@ fn terminate_fixture_process_tree(child: &mut std::process::Child) {
 }
 
 #[cfg(not(unix))]
-fn terminate_fixture_process_tree(child: &mut std::process::Child) {
+pub(super) fn terminate_fixture_process_tree(child: &mut std::process::Child) {
     let _ = child.kill();
 }
 
@@ -292,50 +294,7 @@ fn fixture_timeout_kills_descendant_pipe_holders_and_reports_the_case() {
     assert!(message.contains("exceeded"), "{message}");
 }
 
-fn exchange_mcp_requests(child: &mut std::process::Child, stdin: &str) -> Vec<u8> {
-    let mut input = child.stdin.take().expect("veln stdin should be piped");
-    let mut output = BufReader::new(child.stdout.take().expect("stdout should be piped"));
-    let mut stdout = Vec::new();
-    let mut responses = Vec::new();
-    for line in stdin.lines() {
-        let line = substitute_mcp_cursor(line, &responses);
-        writeln!(input, "{line}").expect("interactive MCP input should be written");
-        input
-            .flush()
-            .expect("interactive MCP input should be flushed");
-
-        let mut response = String::new();
-        output
-            .read_line(&mut response)
-            .expect("interactive MCP response should be readable");
-        assert!(
-            !response.is_empty(),
-            "interactive MCP response should be present"
-        );
-        responses.push(parse_json(&response).expect("interactive MCP response should be JSON"));
-        stdout.extend_from_slice(response.as_bytes());
-    }
-    drop(input);
-    stdout
-}
-
-fn finish_interactive_child(mut child: std::process::Child, stdout: Vec<u8>) -> Output {
-    let mut stderr = Vec::new();
-    child
-        .stderr
-        .take()
-        .expect("stderr should be piped")
-        .read_to_end(&mut stderr)
-        .expect("interactive MCP stderr should be readable");
-    let status = child.wait().expect("veln should run");
-    Output {
-        status,
-        stdout,
-        stderr,
-    }
-}
-
-fn substitute_mcp_cursor(input: &str, responses: &[JsonValue]) -> String {
+pub(super) fn substitute_mcp_cursor(input: &str, responses: &[JsonValue]) -> String {
     let Some(start) = input.find("$mcp_cursor:") else {
         return input.to_owned();
     };

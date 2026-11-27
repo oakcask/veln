@@ -10,17 +10,17 @@ format = "empty"
 
 [[mcp_assert]]
 id = 2
-path = "/result/tools/7/name"
+path = "/result/tools/$name=rename/name"
 equals = "rename"
 
 [[mcp_assert]]
 id = 2
-path = "/result/tools/7/inputSchema"
+path = "/result/tools/$name=rename/inputSchema"
 equals_json_file = "case-text/rename-input-schema.json"
 
 [[mcp_assert]]
 id = 2
-path = "/result/tools/7/outputSchema"
+path = "/result/tools/$name=rename/outputSchema"
 equals_json_file = "case-text/rename-result-schema.json"
 
 [[mcp_assert]]

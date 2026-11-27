@@ -306,11 +306,7 @@ equals_file = "case-text/missing-sidecar.txt"
         "missing-sidecar",
     );
     for (command, section) in [("lsp", "lsp_assert"), ("mcp", "mcp_assert")] {
-        let response_equality = if command == "mcp" {
-            ", `equals_response`"
-        } else {
-            ""
-        };
+        let response_equality = ", `equals_response`, `source_range`";
         assert_manifest_parse_error_without(
             &format!(
                 r#"
