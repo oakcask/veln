@@ -1,9 +1,13 @@
 ---
 role: routing
-update-when: The executable specification case contract or its subject routes change.
+update-when: The user-facing application examples, executable specification case contract, or their subject routes change.
 ---
 
 # Executable Examples
+
+For a runnable application, start with the
+CSV order analyzer at `examples/csv_analyzer/README.md`: a Veln HTTP/2
+backend and a TypeScript browser UI with integration checks in CI.
 
 Checked cases under `examples/specification/`
 are executable evidence for source behavior, command output, runtime

@@ -3,7 +3,9 @@
   "packageManager": "pnpm@12.8.0",
   "scripts": {
     "test:vscode": "pnpm --filter veln-language test",
-    "vsix": "pnpm --filter veln-language vsix"
+    "vsix": "pnpm --filter veln-language vsix",
+    "example:csv": "node examples/csv_analyzer/dev.mjs",
+    "test:example:csv": "node --test examples/csv_analyzer/test.mjs examples/csv_analyzer/dev.test.mjs"
   },
   "devDependencies": {
     "jscpd": "5.3.3"

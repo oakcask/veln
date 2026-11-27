@@ -44,7 +44,9 @@ hello from veln
 ```
 
 The `main` function declares its public signature and its `stdio` effect.
-More executable examples are in [examples/specification/](examples/specification/).
+Try the [CSV order analyzer](examples/csv_analyzer/README.md) for a Veln HTTP/2
+backend with a TypeScript browser UI. More executable examples are in
+[examples/specification/](examples/specification/).
 
 ## Language and tooling
 

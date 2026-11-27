@@ -1,0 +1,76 @@
+name: test / csv example
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/test--csv-example.yaml
+      - .github/actions/setup-jdk/action.yaml
+      - .github/actions/cargo-dependencies/action.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - rust-toolchain.toml
+      - crates/**
+      - tools/**
+      - scripts/agent-run
+      - scripts/ci-run
+      - examples/csv_analyzer/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+  pull_request:
+    paths:
+      - .github/workflows/test--csv-example.yaml
+      - .github/actions/setup-jdk/action.yaml
+      - .github/actions/cargo-dependencies/action.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - rust-toolchain.toml
+      - crates/**
+      - tools/**
+      - scripts/agent-run
+      - scripts/ci-run
+      - examples/csv_analyzer/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+
+permissions:
+  contents: read
+
+env:
+  # renovate: datasource=npm depName=pnpm
+  PNPM_VERSION: "12.8.0"
+  PNPM_MAX_WORKERS: "1"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "26"
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - name: Set up supported JDK
+        uses: ./.github/actions/setup-jdk
+      - name: Prepare Cargo dependencies
+        uses: ./.github/actions/cargo-dependencies
+      - name: Install Node workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build current Veln toolchain
+        run: bash scripts/ci-run cargo build --locked -p veln-cli
+      - name: Format CSV example source
+        working-directory: examples/csv_analyzer/backend
+        run: ../../../target/debug/veln fmt .
+      - name: Verify CSV example formatting is committed
+        run: git diff --exit-code -- examples/csv_analyzer/backend
+      - name: Check CSV example against the current standard library
+        working-directory: examples/csv_analyzer/backend
+        run: ../../../target/debug/veln check .
+      - name: Verify CSV application and pnpm launcher lifecycle
+        run: bash scripts/ci-run pnpm test:example:csv
