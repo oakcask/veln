@@ -939,7 +939,7 @@ fn format_record_expr(
     if fields.is_empty() {
         return "{}".to_string();
     }
-    let fields = format_delimited_subjects(
+    format_delimited_subjects(
         fields.iter().map(|field| {
             (
                 format!(
@@ -955,8 +955,7 @@ fn format_record_expr(
         "{ ",
         " }",
         false,
-    );
-    fields
+    )
 }
 
 fn format_dict_expr(
@@ -964,7 +963,7 @@ fn format_dict_expr(
     indent: usize,
     comments: Option<&LineComments>,
 ) -> String {
-    let entries = format_delimited_subjects(
+    format_delimited_subjects(
         entries.iter().map(|entry| {
             (
                 format!(
@@ -980,12 +979,11 @@ fn format_dict_expr(
         "{ ",
         " }",
         false,
-    );
-    entries
+    )
 }
 
 fn format_list_expr(items: &[Expr], indent: usize, comments: Option<&LineComments>) -> String {
-    let items = format_delimited_subjects(
+    format_delimited_subjects(
         items.iter().map(|item| {
             (
                 format_expr_at_indent_ctx(item, indent, comments),
@@ -997,8 +995,7 @@ fn format_list_expr(items: &[Expr], indent: usize, comments: Option<&LineComment
         "[",
         "]",
         false,
-    );
-    items
+    )
 }
 
 fn format_if_expr(
