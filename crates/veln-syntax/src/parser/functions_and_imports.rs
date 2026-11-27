@@ -635,55 +635,15 @@ impl<'a> Parser<'a> {
             RecoveryStrategy::CloseBlock,
             Some("end"),
         );
-        let end = self.skip_overdeep_cleanup_region(header_end);
+        let end = self.skip_cleanup_region(header_end);
+        if self.at(TokenKind::Newline) {
+            self.bump();
+        }
         BodyLine::Defer {
             body: Vec::new(),
             keyword_span: self.source.span(start),
             block_span: self.source.span(TextRange::new(header_end.end, end.start)),
             span: self.source.span(start.cover(end)),
         }
-    }
-
-    fn skip_overdeep_cleanup_region(&mut self, fallback: TextRange) -> TextRange {
-        let mut depth = 1usize;
-        let mut end = fallback;
-        let mut previous_kind = None;
-        let mut at_line_start = true;
-        let mut delimiter_depth = 0usize;
-        while !self.at(TokenKind::Eof) {
-            let token = self.bump();
-            let kind = token.kind;
-            match kind {
-                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
-                    delimiter_depth += 1;
-                }
-                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
-                    delimiter_depth = delimiter_depth.saturating_sub(1);
-                }
-                TokenKind::Match | TokenKind::Begin => depth += 1,
-                TokenKind::Handle
-                    if at_line_start && delimiter_depth == 0 && self.at(TokenKind::Newline) =>
-                {
-                    depth += 1;
-                }
-                TokenKind::Defer if at_line_start && delimiter_depth == 0 => depth += 1,
-                TokenKind::If if previous_kind != Some(TokenKind::Else) => depth += 1,
-                TokenKind::End => {
-                    depth -= 1;
-                    if depth == 0 {
-                        end = token.range;
-                        if self.at(TokenKind::Newline) {
-                            self.bump();
-                        }
-                        return end;
-                    }
-                }
-                _ => {}
-            }
-            at_line_start = kind == TokenKind::Newline;
-            previous_kind = Some(kind);
-            end = token.range;
-        }
-        end
     }
 }

@@ -1460,6 +1460,52 @@ fn rejects_excessive_alternating_cleanup_nesting_without_aborting() {
 }
 
 #[test]
+fn overdeep_cleanup_recovery_preserves_the_following_declaration() {
+    for form in ["begin", "defer"] {
+        let total_forms = 129;
+        let mut text = String::from("fn recovered() -> ()\n");
+        for _ in 0..total_forms {
+            text.push(' ');
+            text.push_str(form);
+            text.push('\n');
+        }
+        text.push_str(" ()\n");
+        for _ in 0..total_forms {
+            text.push_str(" end\n");
+        }
+        text.push_str("end\nfn following() -> Int\n  1\nend\n");
+
+        let source = SourceFile::new("overdeep-recovery.veln", text);
+        let expected_token_count = lex(&source).tokens.len();
+        let output = parse(&source);
+        let function_names = output
+            .tree
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                SyntaxItem::Function(function) => function.name.as_deref(),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.cleanup_nesting_limit"),
+            "{form}: {:#?}",
+            output.diagnostics
+        );
+        assert_eq!(function_names, ["recovered", "following"], "{form}");
+        assert_eq!(
+            output.tree.lossless_tokens().count(),
+            expected_token_count,
+            "{form}"
+        );
+    }
+}
+
+#[test]
 fn lossless_tree_handles_large_flat_binary_expression_without_input_depth_recursion() {
     let term_count = 10_000;
     let mut text = String::from("fn flat() -> Int\n  0");
