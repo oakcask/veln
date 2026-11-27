@@ -34,6 +34,7 @@ pub(super) fn push_indent(out: &mut String, level: usize) {
 pub(super) struct LineComments {
     before: std::cell::RefCell<std::collections::BTreeMap<usize, Vec<String>>>,
     after: std::cell::RefCell<std::collections::BTreeMap<usize, Vec<String>>>,
+    original_lines: std::collections::BTreeSet<usize>,
     pub(super) requires_lossless_preservation: bool,
 }
 
@@ -77,9 +78,12 @@ impl LineComments {
             requires_lossless_preservation = true;
         }
 
+        let original_lines = before.keys().chain(after.keys()).copied().collect();
+
         Self {
             before: std::cell::RefCell::new(before),
             after: std::cell::RefCell::new(after),
+            original_lines,
             requires_lossless_preservation,
         }
     }
@@ -138,8 +142,7 @@ impl LineComments {
         } else {
             span.end.line
         };
-        map_has_key_in_range(&self.before.borrow(), start, end)
-            || map_has_key_in_range(&self.after.borrow(), start, end)
+        set_has_key_in_range(&self.original_lines, start, end)
     }
 
     pub(super) fn all_emitted(&self) -> bool {
@@ -147,17 +150,13 @@ impl LineComments {
     }
 }
 
-fn map_has_key_in_range(
-    map: &std::collections::BTreeMap<usize, Vec<String>>,
-    start: usize,
-    end: usize,
-) -> bool {
+fn set_has_key_in_range(set: &std::collections::BTreeSet<usize>, start: usize, end: usize) -> bool {
     if start > end {
         return false;
     }
     #[cfg(test)]
     super::record_comment_range_query();
-    let found = map.range(start..=end).next().is_some();
+    let found = set.range(start..=end).next().is_some();
     #[cfg(test)]
     if found {
         super::record_comment_range_key_inspected();

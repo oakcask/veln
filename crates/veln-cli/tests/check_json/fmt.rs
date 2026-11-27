@@ -105,7 +105,10 @@ fn fmt_migrates_nested_short_handlers_before_jvm_execution() {
             "\n",
             "pub fn main() -> () effects [stdio]\n",
             "  let result = handle (\n",
-            "    handle body() with ask(inner_context(\"inner context\", 1))\n",
+            "    handle body() with\n",
+            "      ask(inner_context(\"middle context\", 1)),\n",
+            "      ask(inner_context(\"inner context\", 1))\n",
+            "    end\n",
             "  ) with ask(context(\"outer context\", 1))\n",
             "  stdio::println(int_to_string(result))\n",
             "end\n",
@@ -139,6 +142,7 @@ fn fmt_migrates_nested_short_handlers_before_jvm_execution() {
         "pub fn main() -> () effects [stdio]\n",
         "\tlet result = handle body() with\n",
         "\t\task(context(\"outer context\", 1)),\n",
+        "\t\task(inner_context(\"middle context\", 1)),\n",
         "\t\task(inner_context(\"inner context\", 1))\n",
         "\tend\n",
         "\tstdio::println(int_to_string(result))\n",
@@ -150,7 +154,7 @@ fn fmt_migrates_nested_short_handlers_before_jvm_execution() {
     assert!(nested_output.status.success(), "{}", stderr(&nested_output));
     assert_eq!(
         stdout(&nested_output),
-        "outer context\ninner context\nbody\n2\n"
+        "outer context\nmiddle context\ninner context\nbody\n3\n"
     );
     assert_eq!(stderr(&nested_output), "");
 
@@ -165,7 +169,7 @@ fn fmt_migrates_nested_short_handlers_before_jvm_execution() {
     );
     assert_eq!(
         stdout(&migrated_output),
-        "outer context\ninner context\nbody\n2\n"
+        "outer context\nmiddle context\ninner context\nbody\n3\n"
     );
     assert_eq!(stderr(&migrated_output), "");
 }

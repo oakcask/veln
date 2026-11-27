@@ -74,3 +74,19 @@ fn migrate_multiline_short_chain() -> Int
 		inner(second())
 	end
 end
+
+fn migrate_short_over_list() -> Int
+	handle value() with
+		handler(),
+		outer(first()),
+		inner(second())
+	end
+end
+
+fn migrate_list_over_short() -> Int
+	handle value() with
+		handler(),
+		outer(first()),
+		inner(second())
+	end
+end

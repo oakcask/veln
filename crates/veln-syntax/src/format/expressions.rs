@@ -182,16 +182,11 @@ fn format_expr_prec_ctx(
     side: ExprSide,
     indent: usize,
     comments: Option<&LineComments>,
-    allow_short_handle_chain_migration: bool,
+    allow_handle_chain_migration: bool,
 ) -> String {
     let prec = expr_prec(expr);
-    let mut rendered = format_expr_inner(
-        expr,
-        prec,
-        indent,
-        comments,
-        allow_short_handle_chain_migration,
-    );
+    let mut rendered =
+        format_expr_inner(expr, prec, indent, comments, allow_handle_chain_migration);
 
     let needs_parens = match side {
         ExprSide::Root | ExprSide::Left => prec < parent_prec,
@@ -209,7 +204,7 @@ fn format_expr_inner(
     prec: u8,
     indent: usize,
     comments: Option<&LineComments>,
-    allow_short_handle_chain_migration: bool,
+    allow_handle_chain_migration: bool,
 ) -> String {
     match &expr.kind {
         kind @ (ExprKind::Missing
@@ -228,13 +223,9 @@ fn format_expr_inner(
         | ExprKind::Handle { .. }
         | ExprKind::SchemaDecode { .. }
         | ExprKind::SchemaValidate { .. }
-        | ExprKind::SchemaEncode { .. }) => format_keyword_expr(
-            expr,
-            kind,
-            indent,
-            comments,
-            allow_short_handle_chain_migration,
-        ),
+        | ExprKind::SchemaEncode { .. }) => {
+            format_keyword_expr(expr, kind, indent, comments, allow_handle_chain_migration)
+        }
         kind @ (ExprKind::Record(_) | ExprKind::Dict(_) | ExprKind::List(_)) => {
             format_collection_expr(kind, indent, comments)
         }
@@ -309,7 +300,7 @@ fn format_keyword_expr(
     kind: &ExprKind,
     indent: usize,
     comments: Option<&LineComments>,
-    allow_short_handle_chain_migration: bool,
+    allow_handle_chain_migration: bool,
 ) -> String {
     match kind {
         ExprKind::Perform {
@@ -333,7 +324,7 @@ fn format_keyword_expr(
             *terminated,
             indent,
             comments,
-            allow_short_handle_chain_migration,
+            allow_handle_chain_migration,
         ),
         ExprKind::SchemaDecode {
             schema,
@@ -376,10 +367,16 @@ fn format_handle_expr(
     terminated: bool,
     indent: usize,
     comments: Option<&LineComments>,
-    allow_short_handle_chain_migration: bool,
+    allow_handle_chain_migration: bool,
 ) -> String {
+    if allow_handle_chain_migration
+        && let Some(formatted) = format_mixed_handle_chain(expr, indent, comments)
+    {
+        return formatted;
+    }
+
     if !terminated {
-        if allow_short_handle_chain_migration
+        if allow_handle_chain_migration
             && let Some(formatted) = format_short_handle_chain(expr, indent, comments)
         {
             return formatted;
@@ -396,6 +393,63 @@ fn format_handle_expr(
     push_indent(&mut text, indent);
     text.push_str("end");
     text
+}
+
+fn format_mixed_handle_chain(
+    expr: &Expr,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> Option<String> {
+    let (body, entries) = direct_mixed_handle_chain(expr)?;
+
+    if comments.is_some_and(|comments| comments.has_comment_in_span(&expr.span)) {
+        return None;
+    }
+
+    let formatted_body = format_expr_at_indent_ctx(body, indent + 1, None);
+    if formatted_body.contains('\n') {
+        return None;
+    }
+
+    Some(format_flattened_short_handle_chain(
+        &formatted_body,
+        &entries,
+        indent,
+    ))
+}
+
+fn direct_mixed_handle_chain(expr: &Expr) -> Option<(&Expr, Vec<&HandlerEntry>)> {
+    let mut current = expr;
+    let mut entries = Vec::new();
+    let mut saw_short = false;
+    let mut saw_terminated = false;
+
+    while let ExprKind::Handle {
+        body: HandleBody::Expression(body),
+        entries: current_entries,
+        terminated,
+    } = &current.kind
+    {
+        if !terminated && current_entries.len() != 1 {
+            return None;
+        }
+        saw_short |= !terminated;
+        saw_terminated |= *terminated;
+        entries.extend(current_entries);
+        current = body;
+    }
+
+    if !saw_short || !saw_terminated {
+        return None;
+    }
+    if matches!(
+        current.kind,
+        ExprKind::Handle { .. } | ExprKind::Begin { .. }
+    ) {
+        return None;
+    }
+
+    Some((current, entries))
 }
 
 fn format_short_handle_chain(

@@ -457,31 +457,11 @@ fn formatter_keeps_ineligible_nested_short_handler_chains_nested() {
         ),
         (
             concat!(
-                "fn mixed() -> Int\n",
-                "  handle (handle (handle value() with\n",
-                "    listed()\n",
-                "  end) with middle()) with outer()\n",
-                "end\n",
-            ),
-            "end with middle() with outer()",
-        ),
-        (
-            concat!(
                 "fn call_boundary() -> Int\n",
                 "  handle wrap(handle value() with inner()) with outer()\n",
                 "end\n",
             ),
             "handle wrap(handle value() with inner()) with outer()",
-        ),
-        (
-            concat!(
-                "fn mixed_other_direction() -> Int\n",
-                "  handle (handle (handle value() with inner()) with middle()) with\n",
-                "    listed()\n",
-                "  end\n",
-                "end\n",
-            ),
-            "handle handle handle value() with inner() with middle() with",
         ),
     ];
 
@@ -492,6 +472,126 @@ fn formatter_keeps_ineligible_nested_short_handler_chains_nested() {
 
         let formatted = format_tree(&output.tree);
         assert!(formatted.contains(retained), "{formatted}");
+    }
+}
+
+#[test]
+fn formatter_migrates_mixed_handler_chains_in_both_directions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn short_over_list() -> Int\n",
+            "  handle (handle value() with\n",
+            "    middle(),\n",
+            "    inner()\n",
+            "  end) with outer()\n",
+            "end\n\n",
+            "fn list_over_short() -> Int\n",
+            "  handle (handle value() with inner()) with\n",
+            "    outer(),\n",
+            "    middle()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn short_over_list() -> Int\n",
+            "\thandle value() with\n",
+            "\t\touter(),\n",
+            "\t\tmiddle(),\n",
+            "\t\tinner()\n",
+            "\tend\n",
+            "end\n\n",
+            "fn list_over_short() -> Int\n",
+            "\thandle value() with\n",
+            "\t\touter(),\n",
+            "\t\tmiddle(),\n",
+            "\t\tinner()\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
+fn formatter_keeps_mixed_handler_chains_across_excluded_boundaries() {
+    let cases = [
+        concat!(
+            "fn postfix_boundary() -> Int\n",
+            "  handle (handle value() with inner())? with\n",
+            "    outer()\n",
+            "  end\n",
+            "end\n",
+        ),
+        concat!(
+            "fn branch_boundary() -> Int\n",
+            "  handle if condition()\n",
+            "    handle value() with inner()\n",
+            "  else\n",
+            "    value()\n",
+            "  end with\n",
+            "    outer()\n",
+            "  end\n",
+            "end\n",
+        ),
+        concat!(
+            "fn begin_boundary() -> Int\n",
+            "  handle (handle begin\n",
+            "    value()\n",
+            "  end with\n",
+            "    inner()\n",
+            "  end) with outer()\n",
+            "end\n",
+        ),
+        concat!(
+            "fn handled_block_boundary() -> Int\n",
+            "  handle (handle\n",
+            "    value()\n",
+            "  with\n",
+            "    inner()\n",
+            "  end) with outer()\n",
+            "end\n",
+        ),
+        concat!(
+            "fn commented_context_boundary() -> Int\n",
+            "  handle (handle value() with\n",
+            "    inner()\n",
+            "  end) with outer(begin\n",
+            "    value()\n",
+            "  end # retain context\n",
+            "  )\n",
+            "end\n",
+        ),
+    ];
+
+    for source_text in cases {
+        let source = SourceFile::new("main.veln", source_text);
+        let output = parse(&source);
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+        let formatted = format_tree(&output.tree);
+        assert!(!formatted.contains("outer(),\n\t\tinner()"), "{formatted}");
+        let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+        assert!(
+            reparsed.diagnostics.is_empty(),
+            "{:#?}",
+            reparsed.diagnostics
+        );
+        assert_eq!(format_tree(&reparsed.tree), formatted);
     }
 }
 
