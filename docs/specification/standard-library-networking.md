@@ -145,14 +145,15 @@ establish that a peer received, processed, or durably stored those bytes. A
 caller must not treat either an exact committed prefix or a known lower bound
 as proof that replaying the remaining application operation is safe.
 
-A negative count or a count larger than the submitted suffix is an invalid
-provider reply. `write_all` does not slice with that count and does not retry.
-It returns `InvalidReply(known_prefix, error)`, where `known_prefix` contains
-only progress validated before the malformed reply. This count is a lower
-bound, not an exact total, because the provider might have produced side
-effects that its invalid reply cannot establish. The synthesized error has
-operation `write_all` and kind `Other`. Count accumulation is bounded by the
-original input length and cannot wrap.
+A negative `Written` count, a negative `WriteFailed` committed count, or either
+count larger than the submitted suffix is an invalid provider reply.
+`write_all` does not slice with that count and does not retry. It returns
+`InvalidReply(known_prefix, error)`, where `known_prefix` contains only
+progress validated before the malformed reply. This count is a lower bound,
+not an exact total, because the provider might have produced side effects that
+its invalid reply cannot establish. The synthesized error has operation
+`write_all` and kind `Other`. Count accumulation is bounded by the original
+input length and cannot wrap.
 
 `ReadOutcome` has the `Chunk(ByteChunk)` and `End` shapes. The direct
 `read` and `read_with` functions return the handler's outcome unchanged,
@@ -385,9 +386,9 @@ path creates opaque streams through the exported `net` module,
 retains the host effects of `net::system()`, and observes provider-owned setup,
 I/O, and cleanup. Its separately traced `net::IO` fake establishes the adapter
 conversion for an empty successful read, unchanged typed read and write
-failures, complete ordered writes, empty-list behavior, captured-resource
-identity, and the absence of address, connection, shutdown, or lifecycle
-operations during adapter I/O.
+failures, unchanged invalid-reply errors, complete ordered writes, empty-list
+behavior, captured-resource identity, and the absence of address, connection,
+shutdown, or lifecycle operations during adapter I/O.
 The
 [`standard-library-transport-network-removed`](../../examples/specification/check/standard-library-transport-network-removed/case.toml)
 checked example verifies that the retired adapter path is not externally
