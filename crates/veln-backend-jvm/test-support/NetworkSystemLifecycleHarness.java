@@ -1140,13 +1140,54 @@ public final class NetworkSystemLifecycleHarness {
             if (resetFailure.get() != null) {
                 throw new AssertionError("resetting peer failed", resetFailure.get());
             }
-            String rendered = outcome.toString();
-            java.util.regex.Matcher committed = java.util.regex.Pattern.compile(
-                "WriteFailed\\(ByteCount\\(([1-9][0-9]*)\\), NetError\\(write,"
-            ).matcher(rendered);
-            if (!committed.find()) {
+            if (!VelnRuntime.isAdt(outcome, "WriteOutcome::WriteFailed")) {
                 throw new AssertionError(
-                    "real write failure did not retain its committed prefix: " + rendered
+                    "real write did not return WriteFailed: " + outcome
+                );
+            }
+            Object committedValue = VelnRuntime.adtPayload(outcome, 0);
+            if (!VelnRuntime.isAdt(committedValue, "ByteCount")) {
+                throw new AssertionError(
+                    "real write failure returned a malformed committed prefix: " + outcome
+                );
+            }
+            long committed = ((Long) VelnRuntime.adtPayload(committedValue, 0)).longValue();
+            if (committed <= 0L || committed >= values.size()) {
+                throw new AssertionError(
+                    "real write failure did not retain a bounded nonzero prefix: " + outcome
+                );
+            }
+            Object originalError = VelnRuntime.adtPayload(outcome, 1);
+            if (!VelnRuntime.isAdt(originalError, "NetError::NetError")
+                || !"write".equals(VelnRuntime.adtPayload(originalError, 0))) {
+                throw new AssertionError(
+                    "real write failure did not retain the host write error: " + outcome
+                );
+            }
+
+            Object systemOwner = SYSTEM_OWNER.get(stream);
+            Object projected;
+            SYSTEM_OWNER.set(stream, null);
+            try {
+                projected = VelnProgram.fn_write_all_selected(stream, chunk, outcome);
+            } finally {
+                SYSTEM_OWNER.set(stream, systemOwner);
+            }
+            if (!VelnRuntime.isAdt(projected, "WriteAllOutcome::Failed")) {
+                throw new AssertionError(
+                    "write_all did not project the real WriteFailed outcome: " + projected
+                );
+            }
+            Object projectedCount = VelnRuntime.adtPayload(projected, 0);
+            if (!VelnRuntime.isAdt(projectedCount, "ByteCount")
+                || ((Long) VelnRuntime.adtPayload(projectedCount, 0)).longValue() != committed) {
+                throw new AssertionError(
+                    "write_all changed the real committed prefix: " + projected
+                );
+            }
+            if (VelnRuntime.adtPayload(projected, 1) != originalError) {
+                throw new AssertionError(
+                    "write_all changed the real host error: " + projected
                 );
             }
         } finally {
