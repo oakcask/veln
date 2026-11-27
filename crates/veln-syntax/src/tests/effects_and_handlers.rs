@@ -528,6 +528,51 @@ fn formatter_migrates_mixed_handler_chains_in_both_directions() {
 }
 
 #[test]
+fn formatter_preserves_alternating_multiline_handler_chain_layers() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn alternating_layers() -> Int\n",
+            "  handle (handle (handle (handle (match value()\n",
+            "    0 => 1\n",
+            "    _ => 2\n",
+            "  end) with inner()) with\n",
+            "    inner_listed()\n",
+            "  end) with middle()) with\n",
+            "    outer_listed()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn alternating_layers() -> Int\n",
+            "\thandle handle handle handle match value()\n",
+            "\t\t0 => 1\n",
+            "\t\t_ => 2\n",
+            "\tend with inner() with\n",
+            "\t\tinner_listed()\n",
+            "\tend with middle() with\n",
+            "\t\touter_listed()\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
 fn formatter_preserves_following_mixed_chain_comment_ownership() {
     let source = SourceFile::new(
         "main.veln",
