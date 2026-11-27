@@ -172,32 +172,14 @@ fn module_initializer_retains_operator_while_function_body_folds() {
     let root = temp_dir("constant-folding-module-boundary-javap");
     write_jvm_program(&root, &program);
 
-    let module_output = Command::new("javap")
-        .arg("-c")
-        .arg("-p")
-        .arg("-classpath")
-        .arg(&root)
-        .arg(module_part_name)
-        .output()
-        .expect("javap should inspect the module initializer part");
-    let function_output = Command::new("javap")
-        .arg("-c")
-        .arg("-p")
-        .arg("-classpath")
-        .arg(&root)
-        .arg("VelnProgram")
-        .output()
-        .expect("javap should inspect function methods");
+    let module_instructions = javap_instructions(&root, module_part_name);
+    let function_instructions = javap_instructions(&root, "VelnProgram");
     let _ = fs::remove_dir_all(&root);
 
-    assert!(module_output.status.success());
-    assert!(function_output.status.success());
-    let module_instructions = String::from_utf8_lossy(&module_output.stdout);
     assert!(
         module_instructions.contains("VelnRuntime.moduleValueNegate"),
         "{module_instructions}"
     );
-    let function_instructions = String::from_utf8_lossy(&function_output.stdout);
     assert!(
         function_instructions.contains("long -3l"),
         "{function_instructions}"
@@ -206,6 +188,23 @@ fn module_initializer_retains_operator_while_function_body_folds() {
         !function_instructions.contains("VelnRuntime.negate"),
         "{function_instructions}"
     );
+}
+
+fn javap_instructions(root: &std::path::Path, class_name: &str) -> String {
+    let output = Command::new("javap")
+        .arg("-c")
+        .arg("-p")
+        .arg("-classpath")
+        .arg(root)
+        .arg(class_name)
+        .output()
+        .expect("javap should inspect generated instructions");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).expect("javap output should be UTF-8")
 }
 
 #[test]
