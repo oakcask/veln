@@ -58,9 +58,11 @@ own multiline delimiters before `with`. A block body begins on the next line.
 Body lines and handler entries use one additional tab; `with` for a block and
 the closing `end` align with `handle`. The formatter writes one entry per line,
 writes commas only between entries, removes an input final comma, and preserves
-comments attached to entries. Formatting the result again produces identical
-bytes. Legacy nested short handler expressions are not flattened or converted
-by the current formatter.
+comments attached to entries. A standalone comment before a block form's
+`with` remains with the body, and a standalone comment before the terminating
+`end` remains after the final entry. Formatting the result again produces
+identical bytes. Legacy nested short handler expressions are not flattened or
+converted by the current formatter.
 
 In structurally recognized variant-refinement type text, the formatter writes
 one space on each side of `|`. It preserves the written alternative order,
@@ -116,5 +118,5 @@ inferred parameter classifications. The checked
 case covers ordinary and effect declaration binders, trailing-comma removal,
 and idempotence. The checked
 [`multiple-handler-expressions`](../../examples/specification/fmt/multiple-handler-expressions/)
-case covers both terminated body forms, entry layout, final-comma removal, and
-idempotence.
+case covers both terminated body forms, entry layout, final-comma removal,
+boundary-comment retention, and idempotence.
