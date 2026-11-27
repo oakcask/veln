@@ -16,9 +16,9 @@ migration.
 This proposal now covers only the remaining migration forms and
 ordered-contract cases that are not yet accepted by focused executable
 evidence. The accepted source forms, direct list formatting, narrow
-comment-free single-line short-chain migration, successful ordered context
-evaluation, inner shadowing, and body-result preservation are current behavior
-rather than future work.
+comment-free single-line short-chain migration and its complete-chain boundary,
+successful ordered context evaluation, inner shadowing, and body-result
+preservation are current behavior rather than future work.
 
 ## Automatic migration
 
@@ -50,8 +50,8 @@ not discard or guess comment ownership.
 A migrated chain must preserve entry order, context evaluation count and
 scope, result value, effect inference, dispatch, cleanup timing, and provider
 identity. Formatting the result again must produce identical bytes. The
-formatter should leave an ineligible chain nested while continuing to format
-eligible regions elsewhere.
+formatter must preserve comment ownership while extending migration to the
+remaining eligible forms.
 
 ## Remaining ordered-contract acceptance
 

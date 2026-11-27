@@ -75,6 +75,11 @@ or `begin`, spans multiple source lines, or reaches another handler only
 through a statement, `defer`, call, branch, or postfix operator. Ordinary
 argument formatting can collapse a multiline short chain onto one line. In
 that case the first pass leaves the chain nested and a second pass migrates it.
+Eligibility applies to the complete directly nested chain: when an outer form
+is ineligible, no directly nested suffix of that chain migrates on its own. A
+statement, `defer`, call, branch, or postfix operator ends that direct chain,
+so an eligible chain inside the independent expression may migrate without
+changing the ineligible outer form.
 
 In structurally recognized variant-refinement type text, the formatter writes
 one space on each side of `|`. It preserves the written alternative order,
