@@ -7,6 +7,7 @@ on:
     paths:
       - .agents/skills/veln-language/**
       - .github/actions/cargo-dependencies/action.yaml
+      - .github/workflows/test--vscode-extension.yaml
       - .github/workflows/workflow--test-scripts.yaml
       - crates/veln-mcp/schemas/mcp/v1/*.json
       - crates/veln-project/testdata/case_folding_17_c_f.txt
@@ -27,6 +28,7 @@ on:
     paths:
       - .agents/skills/veln-language/**
       - .github/actions/cargo-dependencies/action.yaml
+      - .github/workflows/test--vscode-extension.yaml
       - .github/workflows/workflow--test-scripts.yaml
       - crates/veln-mcp/schemas/mcp/v1/*.json
       - crates/veln-project/testdata/case_folding_17_c_f.txt
