@@ -2501,11 +2501,14 @@ The operator-specific source diagnostics described above run before execution.
 
 ### Closed scalar expression folding
 
-After the original source passes semantic checking, executable bodies fold
-closed `Int` expressions formed from literals, unary `-` or `~`, and the
-arithmetic, remainder, bitwise, shift, equality, and ordering operators listed
-above. They also fold closed `Bool` expressions formed from literals, `not`,
-`and`, `or`, and same-type equality. Parentheses do not change eligibility.
+Folding is automatic after the original source passes semantic checking; it
+does not require a command flag or a `const` declaration. It applies to local
+initializers, arguments, returned values, control-flow expressions, and cleanup
+regions in function and test bodies. These executable bodies fold closed `Int`
+expressions formed from literals, unary `-` or `~`, and the arithmetic,
+remainder, bitwise, shift, equality, and ordering operators listed above. They
+also fold closed `Bool` expressions formed from literals, `not`, `and`, `or`,
+and same-type equality. Parentheses do not change eligibility.
 The result uses the [executable integer evaluation](#executable-integer-evaluation)
 rules. Every signed result, including minimum `Int`, remains exact.
 
