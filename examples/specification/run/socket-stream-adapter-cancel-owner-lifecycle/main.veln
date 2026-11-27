@@ -103,7 +103,7 @@ end
 fn wait_result_text(outcome: CancellableWaitOutcome) -> String
 	match outcome
 		CancellableWaitOutcome::Completed => "completed"
-		CancellableWaitOutcome::DeadlineExpired => "deadline-expired"
+		CancellableWaitOutcome::Interrupted => "interrupted"
 		CancellableWaitOutcome::Cancelled => "cancelled"
 	end
 end
@@ -142,7 +142,7 @@ fn cancel_owner_lifecycle(listener: net::Listener, stream: net::Stream, deadline
 	let token = time::cancel_token_from(owner)
 	let handled = read_routed_chunk(stream, deadline, token, { chunks: 0 })
 	let cleanup_actions = cleanup_owned(owner)
-	let wait_text = wait_result_text(time::wait_until_cancellable_outcome(deadline, token))
+	let wait_text = wait_result_text(time::wait_until_cancellable(deadline, token))
 	let cancelled_read = fixture_read_with(stream, deadline, token)
 	let all_actions = append_actions(handled.actions, cleanup_actions)
 	apply_response_actions(stream, all_actions)

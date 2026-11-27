@@ -40,7 +40,7 @@ fn cancel_owner_lifecycle(listener: net::Listener, stream: net::Stream, deadline
 	let token: CancelToken = time::cancel_token_from(owner)
 	let handled = read_routed_chunk(stream, deadline, token, { chunks: 0 })
 	let cleanup_actions = cleanup_owned(owner)
-	let _ = time::wait_until_cancellable_outcome(deadline, token)
+	let _ = time::wait_until_cancellable(deadline, token)
 	let _ = net::read_with(stream, Some(deadline), Some(token))
 	close_owned_stream(stream)
 	close_owned_listener(listener)

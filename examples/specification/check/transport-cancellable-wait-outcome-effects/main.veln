@@ -2,5 +2,5 @@
 pub fn wait_for_cancellable_deadline_value() -> CancellableWaitOutcome
 	let deadline: Deadline = time::deadline_after_ms(0)
 	let token: CancelToken = time::cancel_token()
-	time::wait_until_cancellable_outcome(deadline, token)
+	time::wait_until_cancellable(deadline, token)
 end

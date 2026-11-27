@@ -18,15 +18,6 @@ handler failing_clock(failed_operation: String, message: String) for host_effect
 	end
 end
 
-handler outcome_clock(outcome: Int) for host_effects::Clock
-	request(operation, milliseconds) => if operation == "wait_cancellable"
-		Ok(outcome)
-	else
-		Ok(0)
-	end
-	wall_time() => Ok({ unix_seconds: 0, nanosecond: 0 })
-end
-
 handler wall_clock(seconds: Int, nanosecond: Int) for host_effects::Clock
 	request(operation, milliseconds) => Ok(0)
 	wall_time() => Ok({ unix_seconds: seconds, nanosecond: nanosecond })

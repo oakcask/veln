@@ -3,6 +3,7 @@ type ResponseAction
 	SendBytes {stream_id: Int, bytes: ByteChunk}
 	EndStream {stream_id: Int}
 	RetryAfterDeadline {stream_id: Int}
+	RetryAfterInterruption {stream_id: Int}
 	CleanupAfterCancel {stream_id: Int}
 end
 
@@ -21,9 +22,9 @@ fn route_with_cancellable_wait(stream_id: Int, input: StreamInput, state: { chun
 		None => StreamInput::End
 	end
 	let handled = handle_stream_input(stream_id, selected, state)
-	match time::wait_until_cancellable_outcome(deadline, token)
+	match time::wait_until_cancellable(deadline, token)
 		CancellableWaitOutcome::Completed => handled
-		CancellableWaitOutcome::DeadlineExpired => { actions: list_cons(RetryAfterDeadline(stream_id), handled.actions), next_state: handled.next_state }
+		CancellableWaitOutcome::Interrupted => { actions: list_cons(RetryAfterInterruption(stream_id), handled.actions), next_state: handled.next_state }
 		CancellableWaitOutcome::Cancelled => { actions: list_cons(CleanupAfterCancel(stream_id), handled.actions), next_state: handled.next_state }
 	end
 end

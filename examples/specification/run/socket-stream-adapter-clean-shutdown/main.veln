@@ -41,6 +41,7 @@ type ResponseAction
 	SendBytes(bytes: ByteChunk)
 	EndStream
 	RetryAfterDeadline
+	RetryAfterInterruption
 	CleanupAfterCancel
 end
 
@@ -54,7 +55,7 @@ end
 fn wait_response(outcome: CancellableWaitOutcome, state: { chunks : Int, ended : Bool }) -> { decision : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match outcome
 		CancellableWaitOutcome::Completed => { decision: "completed", actions: list_nil(), next_state: state }
-		CancellableWaitOutcome::DeadlineExpired => { decision: "deadline-expired", actions: list_cons(RetryAfterDeadline, list_nil()), next_state: state }
+		CancellableWaitOutcome::Interrupted => { decision: "interrupted", actions: list_cons(RetryAfterInterruption, list_nil()), next_state: state }
 		CancellableWaitOutcome::Cancelled => { decision: "cancelled", actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
 	end
 end
@@ -80,6 +81,7 @@ fn write_count(actions: List<ResponseAction>) -> Int
 			SendBytes(_) => 1 + write_count(tail)
 			EndStream => write_count(tail)
 			RetryAfterDeadline => write_count(tail)
+			RetryAfterInterruption => write_count(tail)
 			CleanupAfterCancel => write_count(tail)
 		end
 	end
@@ -92,6 +94,7 @@ fn retry_count(actions: List<ResponseAction>) -> Int
 			SendBytes(_) => retry_count(tail)
 			EndStream => retry_count(tail)
 			RetryAfterDeadline => 1 + retry_count(tail)
+			RetryAfterInterruption => 1 + retry_count(tail)
 			CleanupAfterCancel => retry_count(tail)
 		end
 	end
@@ -104,6 +107,7 @@ fn cleanup_count(actions: List<ResponseAction>) -> Int
 			SendBytes(_) => cleanup_count(tail)
 			EndStream => cleanup_count(tail)
 			RetryAfterDeadline => cleanup_count(tail)
+			RetryAfterInterruption => cleanup_count(tail)
 			CleanupAfterCancel => 1 + cleanup_count(tail)
 		end
 	end
@@ -129,8 +133,8 @@ end
 fn collect_shutdown_actions(stream: net::Stream, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { first_decision : String, second_decision : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, time, concurrency]
 	let route = channel::bounded<StreamInput>(1)
 	let handled = read_response(route, fixture_read_with(stream, deadline, token), state)
-	let cancelled = wait_response(time::wait_until_cancellable_outcome(deadline, token), handled.next_state)
-	let expired = wait_response(time::wait_until_cancellable_outcome(deadline, token), cancelled.next_state)
+	let cancelled = wait_response(time::wait_until_cancellable(deadline, token), handled.next_state)
+	let expired = wait_response(time::wait_until_cancellable(deadline, token), cancelled.next_state)
 	{ first_decision: cancelled.decision, second_decision: expired.decision, actions: append_actions(handled.actions, append_actions(cancelled.actions, expired.actions)), next_state: expired.next_state }
 end
 
@@ -141,6 +145,7 @@ fn apply_response_actions(stream: net::Stream, actions: List<ResponseAction>) ->
 			SendBytes(bytes) => write_then_apply(stream, bytes, tail)
 			EndStream => apply_response_actions(stream, tail)
 			RetryAfterDeadline => apply_response_actions(stream, tail)
+			RetryAfterInterruption => apply_response_actions(stream, tail)
 			CleanupAfterCancel => apply_response_actions(stream, tail)
 		end
 	end

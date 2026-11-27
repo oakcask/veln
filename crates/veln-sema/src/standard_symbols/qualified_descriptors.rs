@@ -353,16 +353,6 @@ pub(crate) const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.time.wait_until_cancellable",
         StandardSignature {
             params: PARAM_DEADLINE_CANCEL_TOKEN,
-            return_type: StandardType::Unit,
-        },
-    ),
-    runtime_symbol_with_signature(
-        "time",
-        "wait_until_cancellable_outcome",
-        TIME_EFFECTS,
-        "runtime.time.wait_until_cancellable_outcome",
-        StandardSignature {
-            params: PARAM_DEADLINE_CANCEL_TOKEN,
             return_type: StandardType::Named("CancellableWaitOutcome"),
         },
     ),

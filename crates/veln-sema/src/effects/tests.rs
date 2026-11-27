@@ -120,13 +120,15 @@ fn time_cancellation_signatures_come_from_standard_descriptors() {
         "time",
         "wait_until_cancellable",
         vec![Type::named("Deadline", Vec::new()), cancel_token_type()],
-        Type::unit(),
-    );
-    assert_standard_signature(
-        "time",
-        "wait_until_cancellable_outcome",
-        vec![Type::named("Deadline", Vec::new()), cancel_token_type()],
         Type::named("CancellableWaitOutcome", Vec::new()),
+    );
+    assert_eq!(
+        standard_library_signature(&path("time", "wait_until_cancellable_outcome")),
+        None
+    );
+    assert_eq!(
+        standard_library_effects(&path("time", "wait_until_cancellable_outcome")),
+        None
     );
 }
 

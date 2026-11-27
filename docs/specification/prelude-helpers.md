@@ -209,6 +209,12 @@ type StreamWriteOutcome
 	Cancelled
 end
 
+type CancellableWaitOutcome
+	Completed
+	Cancelled
+	Interrupted
+end
+
 type DecodeError
 	WithoutReason(id: String, offset: ByteOffset, field_path: String)
 	WithReason(id: String, offset: ByteOffset, field_path: String, reason: String)

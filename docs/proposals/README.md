@@ -21,8 +21,6 @@ also states it.
   callback values, typed errors, effects, and cleanup behavior.
 - [Separate Cancellation Authority From Observation](cancellation-capabilities.md):
   use `CancelOwner` for cancellation and observation-only `CancelToken` for waits.
-- [Return Cancellable Wait Outcomes Directly](cancellable-wait-outcomes.md):
-  consolidate timer wait reporting and distinguish interruption from cancellation.
 - [Multiple-handler Migration and Acceptance](multiple-handler-syntax.md):
   expand migration to block, other multiline-body, and comment-preserving
   cases, and complete the remaining failure, cleanup, task, provider-capture,

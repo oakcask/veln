@@ -1453,6 +1453,30 @@ fn jvm_runtime_does_not_classify_runtime_failure_text_as_cancellation_when_java_
 }
 
 #[test]
+fn jvm_runtime_cancellable_wait_preserves_host_interruption_when_java_is_available() {
+    if jdk_is_unavailable() {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-cancellable-wait-interruption",
+        "CancellableWaitInterruptionHarness.java",
+        include_str!("../../test-support/CancellableWaitInterruptionHarness.java"),
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "cancellable wait preserved host interruption state\n"
+    );
+}
+
+#[test]
 fn jvm_runtime_preserves_network_system_commit_and_ownership_invariants_when_java_is_available() {
     if jdk_is_unavailable() {
         return;

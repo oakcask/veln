@@ -314,7 +314,6 @@ runtime_method_table!(standard_library_method, reject_unknown "standard library 
     "time::is_cancelled" => "timeIsCancelled",
     "time::is_cancelled_owner" => "timeIsCancelledOwner",
     "time::wait_until_cancellable" => "timeWaitUntilCancellable",
-    "time::wait_until_cancellable_outcome" => "timeWaitUntilCancellableOutcome",
 });
 
 pub(crate) fn binary_method(op: BinaryOp) -> &'static str {
