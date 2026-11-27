@@ -1262,7 +1262,8 @@ same eligible migration of nested short-handler chains and chains that mix
 short and terminated expression-body forms. The shared formatter also
 preserves whether a trailing comment belongs to an inner handler's closing
 `end`, a handler argument, or the enclosing call when a handler expands across
-lines.
+lines. It also preserves a field access or postfix operator after a collection
+whose closing delimiter moves past a trailing child comment.
 
 ## References
 

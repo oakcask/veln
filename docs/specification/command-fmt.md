@@ -115,9 +115,11 @@ line's indentation. Comment-only lines do not interrupt declarations. Trailing
 comments stay with their source subject. A comment after an `if` or `else if`
 condition remains on that condition line before the branch body. A call or
 collection writes the comma or closing delimiter needed by a commented child
-without placing that syntax behind the line comment. A closing call delimiter
-may move to the next line so a comment owned by its final argument remains
-inside that argument. Expanding a multiline handler expression does not
+without placing that syntax behind the line comment. A closing call or
+collection delimiter may move to the next line so a comment owned by its final
+child remains inside that child. A field access or postfix operator that
+continues from the collection remains after the moved closing delimiter.
+Expanding a multiline handler expression does not
 consume a trailing comment from a later sibling expression, including the next
 function-body expression, call argument, list item, record field, or dictionary
 entry. A comment owned by the enclosing call remains outside its argument.
