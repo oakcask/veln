@@ -517,6 +517,13 @@ time can move backwards and is not used for deadline ordering. The
 normalization guarantee belongs to the boundary result, not to independently
 constructed records that have the same structural fields. A handler result
 whose normalization would exceed the `Int` seconds range is a runtime failure.
+At the JVM time boundary, interrupting a cancellable wait without cancelling
+its containing task returns `CancellableWaitOutcome::Interrupted`. The runtime
+restores the host thread's interrupted status and leaves the `CancelToken`
+active. Task cancellation instead unwinds through registered cleanup and does
+not return an ordinary wait outcome. The
+[effect-boundary specification](effects.md#network-and-time-boundary-calls)
+owns the complete outcome and precedence contract.
 The exported `std::net` module exposes opaque `net::Listener` and `net::Stream`
 aliases for the host resources. `net::listener_address` returns a typed
 `net::Endpoint` for a listener. `net::local_address` and `net::peer_address`
