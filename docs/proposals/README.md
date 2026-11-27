@@ -119,6 +119,9 @@ sequence. Such work needs a concrete new capability.
 
 ## Proposal Shape
 
+For Ready promotion, completion conditions, and bounded feasibility work, follow
+[Proposal Readiness and Completion](../reference/documentation-authoring.md#proposal-readiness-and-completion).
+
 For authoring and review, follow
 [Proposal Related Work](../reference/documentation-authoring.md#proposal-related-work)
 to connect source evidence with design choices and alternatives.

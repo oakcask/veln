@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The repository documentation classification, metadata, presentation, proposal source support, specification-writing, or verification policy changes.
+update-when: The repository documentation classification, metadata, presentation, proposal source support or readiness, specification-writing, or verification policy changes.
 ---
 
 # Documentation Authoring Policy
@@ -213,6 +213,44 @@ Do not present planned evidence as implemented or passing. Do not invent exact
 versions, digests, compatibility values, or expected outputs when no
 independent authority can establish them. Specify the evidence that must
 produce the value or keep the work explicitly incomplete.
+
+### Proposal Readiness and Completion
+
+Ready means that a proposal can be selected for implementation. Its scope,
+observable behavior, material design choices, acceptance conditions, and
+intended verification must be sufficiently resolved to implement and review
+the target without inventing its contract. Design In Progress identifies
+unresolved design choices or dependencies that prevent that selection.
+
+Keep implementation completion separate from readiness. Implementing the
+feature, passing its acceptance tests, and updating current specifications and
+executable examples are completion conditions. Defining acceptance cases and
+verification routes does not require those checks to pass before Ready.
+Do not add prototype, measurement, or passing-test prerequisites merely to
+increase confidence or satisfy the requirement for verifiable behavior.
+
+Pre-Ready feasibility evidence is justified only when an unresolved question
+prevents choosing the public API, semantics, or scope. Name that question and
+explain which design choice changes with the possible findings. Bound the
+investigation to answering it; do not require the feature's implementation or
+full acceptance suite as evidence that implementation may begin. For example,
+whether an existing representation can preserve a required scalar value can
+change the construction API; eventual execution of every numeric API case is
+implementation acceptance.
+
+When resolving that question needs code or measurement, define a separate,
+independently complete investigation proposal under Ready with a bounded
+question, expected observations, and a completion condition. It must be
+selectable without implementing the parent feature. The parent remains Design
+In Progress until the findings resolve its blocked choice. Investigation
+completion does not automatically promote the parent or establish production
+behavior; review the findings against the parent's contract first.
+
+When authoring or reviewing readiness conditions, move implementation-only
+checks to completion conditions and retain only decision-relevant feasibility
+gates. An existing gate's presence is not its justification. Review these
+boundaries semantically; headings, keywords, or a prescribed document layout
+cannot establish compliance.
 
 ### Proposal Canonical Form
 
