@@ -451,8 +451,7 @@ time::cancel_owned(owner: CancelOwner) -> () effects [time]
 time::cancel(token: CancelToken) -> () effects [time]
 time::is_cancelled(token: CancelToken) -> Bool effects [time]
 time::is_cancelled_owner(owner: CancelOwner) -> Bool effects [time]
-time::wait_until_cancellable(deadline: Deadline, token: CancelToken) -> () effects [time]
-time::wait_until_cancellable_outcome(deadline: Deadline, token: CancelToken) -> CancellableWaitOutcome effects [time]
+time::wait_until_cancellable(deadline: Deadline, token: CancelToken) -> CancellableWaitOutcome effects [time]
 ```
 
 These calls infer `time`. `time::wall_time` returns a normalized structural
@@ -462,8 +461,22 @@ clock correction remain observable. `Deadline` and `time::monotonic_ms` own
 duration and ordering behavior. Cancellation owners can create observer tokens
 with `time::cancel_token_from`; only the owner can cancel such a token through
 `time::cancel_owned`. Direct tokens remain cancellable through `time::cancel`.
-The cancellable wait outcome reports `Completed`, `DeadlineExpired`,
-or `Cancelled` as an ordinary value.
+The cancellable wait outcome reports `Completed`, `Cancelled`, or
+`Interrupted` as an ordinary value. Reaching the timer target is completion;
+it is not a timeout failure.
+
+| State or event | Outcome and preserved state |
+| --- | --- |
+| The token is already cancelled, including when the target is already reached. | `Cancelled`; the call does not suspend. |
+| The token is active and the target is already reached. | `Completed`; the call does not suspend. |
+| The target is reached while waiting. | `Completed`. |
+| Cancellation is observed before completion. | `Cancelled`. |
+| The host wait is interrupted without task cancellation. | `Interrupted`; the host thread remains interrupted and the token remains active. |
+| The containing task is cancelled. | The task unwinds through registered cleanup; the call does not return an ordinary outcome. |
+
+When completion and cancellation race, either event can commit the outcome.
+One call returns at most one outcome. A scoped clock failure remains an abrupt
+runtime failure rather than a cancellation outcome.
 
 ## Scoped host adapters
 
@@ -526,7 +539,7 @@ The bridge uses these requests:
 | `sleep` | Requested timeout milliseconds. | The wait completed; the integer is ignored. |
 | `wait` | Remaining deadline milliseconds. | The wait completed; the integer is ignored. |
 | `cancelled` | `0` | Nonzero requests token cancellation. |
-| `wait_cancellable` | Remaining deadline milliseconds. | `0` completes, `1` reports deadline expiry, and `2` reports cancellation. |
+| `wait_cancellable` | Remaining deadline milliseconds. | `0` reports ordinary completion, `1` reports injected clock expiry and also maps to timer `Completed`, and `2` reports cancellation. |
 
 An `Err(message)` becomes a runtime failure. Clock handlers must keep their
 readings and deadline calculations in the same clock domain.

@@ -460,16 +460,16 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("time::is_cancelled", "timeIsCancelled"),
         ("time::is_cancelled_owner", "timeIsCancelledOwner"),
         ("time::wait_until_cancellable", "timeWaitUntilCancellable"),
-        (
-            "time::wait_until_cancellable_outcome",
-            "timeWaitUntilCancellableOutcome",
-        ),
     ] {
         assert_eq!(standard_library_method(surface), method);
     }
 
     let panic = std::panic::catch_unwind(|| standard_library_method("fs::unknown"));
     assert!(panic.is_err());
+    let removed = std::panic::catch_unwind(|| {
+        standard_library_method("time::wait_until_cancellable_outcome")
+    });
+    assert!(removed.is_err());
 }
 
 #[test]

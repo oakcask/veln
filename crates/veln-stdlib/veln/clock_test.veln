@@ -5,6 +5,32 @@ pub handler clock(now: Int, wait_outcome: Int, expected_wait: Int, seconds: Int,
 	wall_time() => Ok({ unix_seconds: seconds, nanosecond: nanosecond })
 end
 
+pub handler cancellable_clock(now: Int, cancelled: Int, wait_outcome: Int) for host_effects::Clock
+	request(operation, milliseconds) => cancellable_clock_request(operation, now, cancelled, wait_outcome)
+	wall_time() => Err("unexpected wall-clock request")
+end
+
+pub handler ready_cancelled_clock() for host_effects::Clock
+	request(operation, milliseconds) => if operation == "cancelled"
+		Ok(0)
+	else
+		Err("ready cancellation must not read or wait on the clock")
+	end
+	wall_time() => Err("unexpected wall-clock request")
+end
+
+fn cancellable_clock_request(operation: String, now: Int, cancelled: Int, wait_outcome: Int) -> Result<Int, String>
+	if operation == "now"
+		Ok(now)
+	else if operation == "cancelled"
+		Ok(cancelled)
+	else if operation == "wait_cancellable"
+		Ok(wait_outcome)
+	else
+		Err("unexpected cancellable clock operation")
+	end
+end
+
 fn clock_request(operation: String, milliseconds: Int, now: Int, wait_outcome: Int, expected_wait: Int) -> Result<Int, String>
 	if operation == "now"
 		Ok(now)

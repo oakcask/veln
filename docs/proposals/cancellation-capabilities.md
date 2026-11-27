@@ -80,7 +80,8 @@ it is not a substitute for static authority separation.
 
 No grammar changes are proposed. Formatting does not synthesize owners or
 change call arguments; migration is explicit. Coordinate consumer migration
-with [cancellable wait outcomes](cancellable-wait-outcomes.md) and
+with the implemented
+[cancellable wait outcome](../specification/effects.md#network-and-time-boundary-calls) and
 [channel waits](channel-wait-api.md), but neither requires a different token
 type for each wait operation. Use the effect-handler maintenance workflow.
 Update the time boundary specification and executable evidence on landing,

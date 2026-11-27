@@ -8,6 +8,7 @@ type ResponseAction
 	SendBytes(bytes: ByteChunk)
 	EndStream
 	RetryAfterDeadline
+	RetryAfterInterruption
 	CleanupAfterCancel
 end
 
@@ -21,7 +22,7 @@ end
 fn prepend_wait_action(outcome: CancellableWaitOutcome, handled: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }) -> { outcome : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match outcome
 		CancellableWaitOutcome::Completed => { outcome: "completed", actions: handled.actions, next_state: handled.next_state }
-		CancellableWaitOutcome::DeadlineExpired => { outcome: "deadline-expired", actions: list_cons(RetryAfterDeadline, handled.actions), next_state: handled.next_state }
+		CancellableWaitOutcome::Interrupted => { outcome: "interrupted", actions: list_cons(RetryAfterInterruption, handled.actions), next_state: handled.next_state }
 		CancellableWaitOutcome::Cancelled => { outcome: "cancelled", actions: list_cons(CleanupAfterCancel, handled.actions), next_state: handled.next_state }
 	end
 end
@@ -40,6 +41,7 @@ fn write_count(actions: List<ResponseAction>) -> Int
 			SendBytes(_) => 1 + write_count(tail)
 			EndStream => write_count(tail)
 			RetryAfterDeadline => write_count(tail)
+			RetryAfterInterruption => write_count(tail)
 			CleanupAfterCancel => write_count(tail)
 		end
 	end
@@ -52,6 +54,7 @@ fn cleanup_count(actions: List<ResponseAction>) -> Int
 			SendBytes(_) => cleanup_count(tail)
 			EndStream => cleanup_count(tail)
 			RetryAfterDeadline => cleanup_count(tail)
+			RetryAfterInterruption => cleanup_count(tail)
 			CleanupAfterCancel => 1 + cleanup_count(tail)
 		end
 	end
@@ -69,7 +72,7 @@ fn collect_cancellable_actions(stream: net::Stream, state: { chunks : Int, ended
 	let route = channel::bounded<StreamInput>(1)
 	let input = route_input(route, StreamInput::Chunk(read_chunk_value(stream)))
 	let handled = handle_stream_input(input, state)
-	prepend_wait_action(time::wait_until_cancellable_outcome(deadline, token), handled)
+	prepend_wait_action(time::wait_until_cancellable(deadline, token), handled)
 end
 
 fn apply_response_actions(stream: net::Stream, actions: List<ResponseAction>) -> () effects [net::IO]
@@ -79,6 +82,7 @@ fn apply_response_actions(stream: net::Stream, actions: List<ResponseAction>) ->
 			SendBytes(bytes) => write_then_apply(stream, bytes, tail)
 			EndStream => apply_response_actions(stream, tail)
 			RetryAfterDeadline => apply_response_actions(stream, tail)
+			RetryAfterInterruption => apply_response_actions(stream, tail)
 			CleanupAfterCancel => apply_response_actions(stream, tail)
 		end
 	end

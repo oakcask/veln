@@ -7,6 +7,7 @@ type ResponseAction
 	SendBytes { stream_id: Int, bytes: ByteChunk }
 	EndStream { stream_id: Int }
 	RetryAfterDeadline { stream_id: Int }
+	RetryAfterInterruption { stream_id: Int }
 	CleanupAfterCancel { stream_id: Int }
 end
 
@@ -25,9 +26,9 @@ fn route_with_cancellable_wait(stream_id: Int, input: StreamInput, state: { chun
 		None => StreamInput::End
 	end
 	let handled = handle_stream_input(stream_id, selected, state)
-	match time::wait_until_cancellable_outcome(deadline, token)
+	match time::wait_until_cancellable(deadline, token)
 		CancellableWaitOutcome::Completed => { outcome: "completed", actions: handled.actions, next_state: handled.next_state }
-		CancellableWaitOutcome::DeadlineExpired => { outcome: "deadline-expired", actions: list_cons(RetryAfterDeadline(stream_id), handled.actions), next_state: handled.next_state }
+		CancellableWaitOutcome::Interrupted => { outcome: "interrupted", actions: list_cons(RetryAfterInterruption(stream_id), handled.actions), next_state: handled.next_state }
 		CancellableWaitOutcome::Cancelled => { outcome: "cancelled", actions: list_cons(CleanupAfterCancel(stream_id), handled.actions), next_state: handled.next_state }
 	end
 end
@@ -39,6 +40,7 @@ fn action_score(actions: List<ResponseAction>) -> Int
 			SendBytes(stream_id, bytes) => stream_id * 100 + byte_count_to_int(byte_chunk_count(bytes)) + action_score(tail)
 			EndStream(stream_id) => stream_id * 10 + action_score(tail)
 			RetryAfterDeadline(stream_id) => 1000 + stream_id + action_score(tail)
+			RetryAfterInterruption(stream_id) => 3000 + stream_id + action_score(tail)
 			CleanupAfterCancel(stream_id) => 2000 + stream_id + action_score(tail)
 		end
 	end
@@ -62,18 +64,18 @@ fn fixture_body() -> Result<(), String> effects [time, concurrency, stdio]
 	stdio::print(int_to_string(action_score(ready.actions)))
 	stdio::print(" chunks ")
 	stdio::println(int_to_string(ready.next_state.chunks))
-	let deadline_expired_deadline = time::deadline_after_ms(0)
-	let deadline_expired_token = time::cancel_token()
-	let deadline_expired = route_with_cancellable_wait(6, StreamInput::Chunk(payload), ready.next_state, deadline_expired_deadline, deadline_expired_token)
-	stdio::print(deadline_expired.outcome)
+	let reached_deadline = time::deadline_after_ms(0)
+	let reached_token = time::cancel_token()
+	let reached = route_with_cancellable_wait(6, StreamInput::Chunk(payload), ready.next_state, reached_deadline, reached_token)
+	stdio::print(reached.outcome)
 	stdio::print(" score ")
-	stdio::print(int_to_string(action_score(deadline_expired.actions)))
+	stdio::print(int_to_string(action_score(reached.actions)))
 	stdio::print(" chunks ")
-	stdio::println(int_to_string(deadline_expired.next_state.chunks))
+	stdio::println(int_to_string(reached.next_state.chunks))
 	let cancel_deadline = time::deadline_after_ms(0)
 	let cancel_token = time::cancel_token()
 	time::cancel(cancel_token)
-	let cancelled = route_with_cancellable_wait(7, StreamInput::End, deadline_expired.next_state, cancel_deadline, cancel_token)
+	let cancelled = route_with_cancellable_wait(7, StreamInput::End, reached.next_state, cancel_deadline, cancel_token)
 	stdio::print(cancelled.outcome)
 	stdio::print(" score ")
 	stdio::print(int_to_string(action_score(cancelled.actions)))

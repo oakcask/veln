@@ -43,8 +43,9 @@ types. Source implementations may depend on generic functions when introduced.
 Coordinate token creation and cancellation with
 [capability separation](cancellation-capabilities.md); wait entry points consume
 only observation tokens. Timer-only outcome consolidation is a separate
-[proposal](cancellable-wait-outcomes.md), because reaching a timer target is not
-the same event as a channel receive timing out.
+[implemented time-boundary rule](../specification/effects.md#network-and-time-boundary-calls),
+because reaching a timer target is not the same event as a channel receive
+timing out.
 
 ## Recommended API
 

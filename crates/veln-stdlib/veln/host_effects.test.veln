@@ -35,22 +35,41 @@ test wall_time_can_move_backwards_without_affecting_deadlines() -> Result<(), St
 	handle wall_and_deadline() with clock_test::clock(700, 0, 5, 1234, 567)
 end
 
-fn wait_outcome() -> CancellableWaitOutcome effects [time]
-	let deadline = time::deadline_after_ms(5)
+fn wait_outcome(target_ms: Int) -> CancellableWaitOutcome effects [time]
+	let deadline = time::deadline_at_ms(target_ms)
 	let token = time::cancel_token()
-	time::wait_until_cancellable_outcome(deadline, token)
+	time::wait_until_cancellable(deadline, token)
 end
 
-test cancellable_wait_distinguishes_completion_deadline_and_cancellation() -> Result<(), String> effects [time]
-	let completed = match handle wait_outcome() with clock_test::clock(0, 0, 0, 0, 0)
+fn wait_outcome_with_ready_cancellation(target_ms: Int) -> CancellableWaitOutcome effects [time]
+	let deadline = time::deadline_at_ms(target_ms)
+	let token = time::cancel_token()
+	time::cancel(token)
+	time::wait_until_cancellable(deadline, token)
+end
+
+test cancellable_wait_applies_ready_state_precedence() -> Result<(), String> effects [time]
+	let cancelled_past = match handle wait_outcome_with_ready_cancellation(0) with clock_test::ready_cancelled_clock()
+		CancellableWaitOutcome::Cancelled => true
+		_ => false
+	end
+	let completed_past = match handle wait_outcome(0) with clock_test::cancellable_clock(10, 0, 0)
 		CancellableWaitOutcome::Completed => true
 		_ => false
 	end
-	let expired = match handle wait_outcome() with clock_test::clock(0, 1, 0, 0, 0)
-		CancellableWaitOutcome::DeadlineExpired => true
+	expect_clock(cancelled_past and completed_past)
+end
+
+test cancellable_wait_maps_clock_completion_and_expiry_to_completed() -> Result<(), String> effects [time]
+	let completed = match handle wait_outcome(5) with clock_test::cancellable_clock(0, 0, 0)
+		CancellableWaitOutcome::Completed => true
 		_ => false
 	end
-	let cancelled = match handle wait_outcome() with clock_test::clock(0, 2, 0, 0, 0)
+	let expired = match handle wait_outcome(5) with clock_test::cancellable_clock(0, 0, 1)
+		CancellableWaitOutcome::Completed => true
+		_ => false
+	end
+	let cancelled = match handle wait_outcome(5) with clock_test::cancellable_clock(0, 0, 2)
 		CancellableWaitOutcome::Cancelled => true
 		_ => false
 	end

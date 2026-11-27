@@ -63,8 +63,8 @@ end
 
 pub type CancellableWaitOutcome
 	Completed
-	DeadlineExpired
 	Cancelled
+	Interrupted
 end
 
 pub type DecodeError

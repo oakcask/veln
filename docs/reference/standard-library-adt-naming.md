@@ -23,9 +23,10 @@ boundary. Suffixes such as `Outcome`, `Decision`, `Lifecycle`, and `Failure`
 are useful when they explain that role; they are not a required vocabulary.
 
 Keep distinct concepts in distinct types even when they have similar cases.
-`StreamWriteOutcome` and `CancellableWaitOutcome`, for example, can both have
-`Completed`, `DeadlineExpired`, and `Cancelled` variants without becoming one
-shared outcome type.
+`StreamWriteOutcome` and `CancellableWaitOutcome`, for example, both have
+`Completed` and `Cancelled` variants without becoming one shared outcome type.
+The stream outcome also has `DeadlineExpired`; the timer outcome instead has
+`Interrupted` because target arrival completes a timer wait.
 
 ## Variant Names Identify Cases
 
