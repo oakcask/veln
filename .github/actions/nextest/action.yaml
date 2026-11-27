@@ -9,7 +9,7 @@ inputs:
     description: Version of cargo-llvm-cov to install.
     required: true
   report-coverage:
-    description: Generate and upload coverage reports after the instrumented tests.
+    description: Instrument tests, then generate and upload coverage reports.
     required: false
     default: "false"
   shard:
@@ -37,11 +37,13 @@ runs:
         tool: cargo-nextest
         version: ${{ inputs.nextest-version }}
     - name: Install cargo-llvm-cov
+      if: inputs.report-coverage == 'true'
       uses: ./.github/actions/cached-cargo-tool
       with:
         tool: cargo-llvm-cov
         version: ${{ inputs.llvm-cov-version }}
     - name: Install LLVM coverage tools
+      if: inputs.report-coverage == 'true'
       shell: bash
       run: rustup component add llvm-tools-preview
     - name: Run Rust tests
@@ -49,7 +51,8 @@ runs:
       env:
         NEXTEST_SUITE: ${{ inputs.suite }}
         NEXTEST_FILTERSET: ${{ inputs.filterset }}
-      run: bash workflow-scripts/run-nextest.sh "${NEXTEST_SUITE}" --profile ci --filterset "${NEXTEST_FILTERSET}" --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
+        NEXTEST_COVERAGE: ${{ inputs.report-coverage }}
+      run: bash workflow-scripts/run-nextest.sh "${NEXTEST_SUITE}" "${NEXTEST_COVERAGE}" --profile ci --filterset "${NEXTEST_FILTERSET}" --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
     - name: Generate Rust shard coverage report
       if: inputs.report-coverage == 'true'
       shell: bash
