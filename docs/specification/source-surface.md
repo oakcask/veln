@@ -684,7 +684,9 @@ expression-body forms, is rewritten as one terminated expression-body list
 and when the formatter preserves a nested form. It also owns comment
 attachment across sibling expressions: expanding an earlier multiline handler
 expression does not consume a trailing comment from a later function-body
-expression or call argument.
+expression, call argument, list item, record field, or dictionary entry.
+Comments owned by an inner handler delimiter remain with that handler, while a
+comment owned by an enclosing call remains outside its arguments.
 
 The syntax tree distinguishes an expression body from a block body, retains
 whether the form is terminated, and preserves the ordered entries, each
