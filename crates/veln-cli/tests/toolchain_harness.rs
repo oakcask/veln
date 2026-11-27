@@ -100,6 +100,10 @@ mod policy_guards;
 mod project_fixture;
 #[path = "toolchain_harness/protocol_assertions.rs"]
 mod protocol_assertions;
+#[path = "toolchain_harness/protocol_contracts.rs"]
+mod protocol_contracts;
+#[path = "toolchain_harness/protocol_exchange.rs"]
+mod protocol_exchange;
 #[path = "toolchain_harness/protocol_file_equality.rs"]
 mod protocol_file_equality;
 #[path = "toolchain_harness/runtime_inventory.rs"]
@@ -127,6 +131,7 @@ use manifest_parser::*;
 use output_assertions::*;
 use project_fixture::*;
 use protocol_assertions::*;
+use protocol_contracts::*;
 use runtime_inventory::*;
 use sidecar_resources::*;
 use source_error_guards::*;

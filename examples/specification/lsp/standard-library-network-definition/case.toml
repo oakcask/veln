@@ -1,10 +1,25 @@
 command = ["lsp"]
-stdin_file = "case-text/root-stdin-1.raw"
+stdin_jsonrpc_file = "requests.json"
 exit = 0
 
 [stdout]
-contains = ["\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/c763bbde0327149621074dcdf46a3370a18b0f4722e3cf558eca7c80b0c4b641/net.veln\"", "\"range\":{\"start\":{\"line\":127,\"character\":7},\"end\":{\"line\":127,\"character\":14}"]
+contains = ["\"definitionProvider\":true"]
 not_contains = ["crates/veln-stdlib", "target/debug"]
 
 [stderr]
 format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result/uri"
+contains = "veln-pkg:///std/snapshot/"
+
+[[lsp_assert]]
+id = 2
+path = "/result/uri"
+contains = "/net.veln"
+
+[[lsp_assert]]
+id = 2
+path = "/result/range"
+source_range = {"id":100,"path":"/result","declaration":"pub fn connect(","symbol":"connect"}

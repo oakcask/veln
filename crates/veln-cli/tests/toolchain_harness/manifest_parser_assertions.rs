@@ -229,9 +229,18 @@ fn parse_rpc_assertion_operation(
         "equals_json_file" => RpcAssertionOperation::EqualsJsonFileRef(parse_case_text_reference(
             path, value, section, key,
         )),
-        "equals_response" if section == "mcp_assert" => RpcAssertionOperation::EqualsResponse(
-            parse_mcp_response_reference(path, line_number, index, value),
-        ),
+        "equals_response" => RpcAssertionOperation::EqualsResponse(parse_mcp_response_reference(
+            path,
+            line_number,
+            index,
+            value,
+        )),
+        "source_range" => {
+            let operand = parse_manifest_json_value_allow_decimal(path, value);
+            validate_source_range(&operand)
+                .unwrap_or_else(|error| manifest_error(path, line_number, error));
+            RpcAssertionOperation::SourceRange(operand)
+        }
         "contains" => RpcAssertionOperation::Contains(parse_string(path, value)),
         "length" => {
             let context = unresolved_assertion_operation_context(section, index, key);

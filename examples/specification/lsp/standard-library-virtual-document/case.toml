@@ -1,13 +1,70 @@
 command = ["lsp"]
 source_errors = "expected"
-stdin_file = "case-text/root-stdin-1.raw"
+stdin_jsonrpc_file = "requests.json"
 exit = 0
 
 [stdout]
-contains = ["\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/c763bbde0327149621074dcdf46a3370a18b0f4722e3cf558eca7c80b0c4b641/prelude.veln\",\"range\":{\"start\":{\"line\":108,\"character\":7},\"end\":{\"line\":108,\"character\":11}}"]
-contains_files = ["case-text/stdout-contains-1.txt", "case-text/stdout-contains-2.txt"]
-contains = ["\"id\":4,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/c763bbde0327149621074dcdf46a3370a18b0f4722e3cf558eca7c80b0c4b641/prelude.veln\"", "\"id\":5,\"result\":{\"uri\":\"file://", "\"range\":{\"start\":{\"line\":10,\"character\":24}", "\"id\":6,\"result\":{\"uri\":\"file://", "\"range\":{\"start\":{\"line\":15,\"character\":6}", "\"id\":7,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/c763bbde0327149621074dcdf46a3370a18b0f4722e3cf558eca7c80b0c4b641/http2/diagnostic.veln\"", "\"id\":8,\"result\":null", "\"id\":9,\"error\":{\"code\":-32602", "\"id\":10,\"result\":null"]
 not_contains = ["crates/veln-stdlib", "target/debug"]
 
 [stderr]
 format = "empty"
+
+[[lsp_assert]]
+id = 5
+path = "/result/range/start"
+equals = {"line":10,"character":24}
+
+[[lsp_assert]]
+id = 5
+path = "/result/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 6
+path = "/result/range/start"
+equals = {"line":15,"character":6}
+
+[[lsp_assert]]
+id = 6
+path = "/result/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 4
+path = "/result"
+equals_response = {"id":2,"path":"/result"}
+
+[[lsp_assert]]
+id = 7
+path = "/result/uri"
+contains = "/http2/diagnostic.veln"
+
+[[lsp_assert]]
+id = 8
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 10
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 9
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 2
+path = "/result/uri"
+contains = "veln-pkg:///std/snapshot/"
+
+[[lsp_assert]]
+id = 2
+path = "/result/uri"
+contains = "/prelude.veln"
+
+[[lsp_assert]]
+id = 2
+path = "/result/range"
+source_range = {"id":3,"path":"/result","declaration":"pub fn byte(","symbol":"byte"}

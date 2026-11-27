@@ -108,7 +108,10 @@ impl<'a> ManifestAssignmentPreflight<'a> {
             Section::ResultValueAssert(index) => {
                 self.result_value_operations[index].record(self.path, key, value);
             }
-            Section::LspAssert(index) if AssertionOperationPreflight::accepts_key(key) => {
+            Section::LspAssert(index)
+                if AssertionOperationPreflight::accepts_key(key)
+                    || matches!(key, "equals_response" | "source_range") =>
+            {
                 self.lsp_operations[index]
                     .operation
                     .record(self.path, key, value);
@@ -118,7 +121,7 @@ impl<'a> ManifestAssignmentPreflight<'a> {
                     .operation
                     .record(self.path, key, value);
             }
-            Section::McpAssert(index) if key == "equals_response" => {
+            Section::McpAssert(index) if matches!(key, "equals_response" | "source_range") => {
                 self.mcp_operations[index]
                     .operation
                     .record(self.path, key, value);
@@ -299,7 +302,7 @@ impl AssertionOperationPreflight {
         }
         if self.count != 1 {
             let response_equality = if allows_response_equality {
-                ", `equals_response`"
+                ", `equals_response`, `source_range`"
             } else {
                 ""
             };
@@ -378,7 +381,7 @@ impl LspAssertionPreflight {
                 &self.selector(),
                 self.path.as_deref().unwrap_or(""),
             ),
-            false,
+            true,
         );
     }
 

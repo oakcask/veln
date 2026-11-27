@@ -46,13 +46,18 @@ fn assert_standard_prelude_navigation(server: &mut Server, main_uri: &str) -> St
         extract_string_field(&qualified[0], "uri"),
         Some(prelude_uri.clone())
     );
-    assert!(
-        implicit[0].contains(
-            r#""range":{"start":{"line":108,"character":7},"end":{"line":108,"character":11}}"#
-        ),
-        "{}",
-        implicit[0]
+    let prelude = standard_source_text("prelude.veln");
+    let declaration = "pub fn byte(";
+    assert_eq!(prelude.matches(declaration).count(), 1);
+    let offset = prelude.find(declaration).unwrap() + "pub fn ".len();
+    let before = &prelude[..offset];
+    let line = before.bytes().filter(|byte| *byte == b'\n').count();
+    let column = before.rsplit('\n').next().unwrap().encode_utf16().count();
+    let expected_range = format!(
+        r#""range":{{"start":{{"line":{line},"character":{column}}},"end":{{"line":{line},"character":{}}}}}"#,
+        column + "byte".len(),
     );
+    assert!(implicit[0].contains(&expected_range), "{}", implicit[0]);
     assert!(
         shadowed_parameter[0].contains(main_uri)
             && shadowed_parameter[0].contains(

@@ -1,0 +1,135 @@
+[
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "rootUri": "file://."
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "textDocument/definition",
+    "params": {
+      "textDocument": {
+        "uri": "file://./main.veln"
+      },
+      "position": {
+        "line": 3,
+        "character": 4
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "veln/virtualDocument",
+    "params": {
+      "uri": {
+        "$response": {
+          "id": 2,
+          "path": "/result/uri"
+        }
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 4,
+    "method": "textDocument/definition",
+    "params": {
+      "textDocument": {
+        "uri": "file://./main.veln"
+      },
+      "position": {
+        "line": 7,
+        "character": 12
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 5,
+    "method": "textDocument/definition",
+    "params": {
+      "textDocument": {
+        "uri": "file://./main.veln"
+      },
+      "position": {
+        "line": 11,
+        "character": 2
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 6,
+    "method": "textDocument/definition",
+    "params": {
+      "textDocument": {
+        "uri": "file://./main.veln"
+      },
+      "position": {
+        "line": 16,
+        "character": 2
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 7,
+    "method": "textDocument/definition",
+    "params": {
+      "textDocument": {
+        "uri": "file://./main.veln"
+      },
+      "position": {
+        "line": 20,
+        "character": 31
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 8,
+    "method": "textDocument/definition",
+    "params": {
+      "textDocument": {
+        "uri": "file://./main.veln"
+      },
+      "position": {
+        "line": 24,
+        "character": 12
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 9,
+    "method": "veln/virtualDocument",
+    "params": {
+      "uri": {
+        "$response": {
+          "id": 2,
+          "path": "/result/uri",
+          "replace": [
+            "veln-pkg",
+            "VELN-pkg"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 10,
+    "method": "shutdown",
+    "params": null
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "exit",
+    "params": null
+  }
+]

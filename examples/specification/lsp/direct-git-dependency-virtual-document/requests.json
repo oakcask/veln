@@ -1,0 +1,48 @@
+[
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "rootUri": "file://."
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "textDocument/definition",
+    "params": {
+      "textDocument": {
+        "uri": "file://./main.veln"
+      },
+      "position": {
+        "line": 3,
+        "character": 10
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "veln/virtualDocument",
+    "params": {
+      "uri": {
+        "$response": {
+          "id": 2,
+          "path": "/result/uri"
+        }
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 4,
+    "method": "shutdown",
+    "params": null
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "exit",
+    "params": null
+  }
+]

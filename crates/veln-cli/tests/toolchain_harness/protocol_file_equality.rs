@@ -365,11 +365,6 @@ pub(super) fn manifest_mcp_response_equality_rejects_invalid_references() {
         );
         assert_manifest_parse_error(&manifest, expected);
     }
-
-    assert_manifest_parse_error(
-        "command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\nid = 2\npath = \"/result\"\nequals_response = {\"id\":1,\"path\":\"/result\"}\n",
-        "lsp_assert 0 needs exactly one",
-    );
 }
 
 #[test]
@@ -716,4 +711,31 @@ pub(super) fn common_length_and_workspace_uri_operand_errors_report_assertion_co
     }
 
     fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn lsp_response_equality_checks_the_selected_response() {
+    let assertions = parsed_lsp_assertions(
+        r#"command = ["lsp"]
+exit = 0
+[[lsp_assert]]
+id = 2
+path = "/result"
+equals_response = {"id":1,"path":"/result"}
+"#,
+    );
+    for (second, equal) in [("original", true), ("changed", false)] {
+        let stdout = format!(
+            "{}{}",
+            lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":"original"}"#),
+            lsp_frame(&format!(
+                r#"{{"jsonrpc":"2.0","id":2,"result":"{second}"}}"#
+            ))
+        );
+        let messages = decode_lsp_stdout(&stdout).unwrap();
+        assert_eq!(
+            evaluate_lsp_assertion(&messages, &assertions[0]).is_ok(),
+            equal
+        );
+    }
 }

@@ -1,6 +1,6 @@
 command = ["lsp"]
 source_errors = "expected"
-stdin_file = "case-text/root-stdin-1.raw"
+stdin_jsonrpc_file = "requests.json"
 exit = 0
 
 [stdout]

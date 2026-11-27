@@ -52,7 +52,7 @@ equals_file = "vendor/dep/dep.veln"
 [[mcp_assert]]
 id = 35
 path = "/result/contents/0/text"
-contains = "declaration/3b55ad2ca7325ce6d0a47a6c3716dd78f89c637c9c1761b9639adf5382bf2eff"
+contains = "[type Remote]("
 
 [[mcp_assert]]
 id = 36

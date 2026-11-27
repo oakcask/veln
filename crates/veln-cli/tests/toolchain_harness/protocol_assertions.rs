@@ -240,13 +240,12 @@ pub(super) fn evaluate_lsp_assertion_in_workspace(
 
     let pointer_tokens =
         materialize_workspace_file_uri_pointer_tokens(&assertion.pointer_tokens, project_root)?;
-    evaluate_protocol_pointer_result(
-        json_pointer(selected, &pointer_tokens),
-        assertion
-            .operation
-            .as_ref()
-            .expect("validated LSP assertion operation"),
+    evaluate_response_operation(
+        messages,
+        protocol_pointer(selected, &pointer_tokens),
+        assertion.operation.as_ref().expect("validated operation"),
         project_root,
+        true,
     )
 }
 
@@ -276,8 +275,8 @@ pub(super) fn evaluate_protocol_pointer_result(
             RpcAssertionOperation::EqualsJsonFileRef(_) => {
                 unreachable!("manifest finish resolves protocol equals_json_file operands")
             }
-            RpcAssertionOperation::EqualsResponse(_) => {
-                unreachable!("MCP response equality is evaluated with the complete stream")
+            RpcAssertionOperation::SourceRange(_) | RpcAssertionOperation::EqualsResponse(_) => {
+                unreachable!("response-derived operations are evaluated with the complete stream")
             }
             RpcAssertionOperation::Contains(expected) => expect_string_contains(actual, expected),
             RpcAssertionOperation::Length(expected) => expect_array_length(actual, *expected),
@@ -307,35 +306,43 @@ pub(super) fn evaluate_mcp_assertion(
         .operation
         .as_ref()
         .expect("validated MCP assertion operation");
-    let actual = json_pointer(selected, &pointer_tokens);
-    if let RpcAssertionOperation::EqualsResponse(reference) = operation {
-        let expected_response = select_mcp_response(messages, &reference.id)?;
-        let expected_tokens =
-            materialize_workspace_file_uri_pointer_tokens(&reference.pointer_tokens, project_root)?;
-        let expected = match json_pointer(expected_response, &expected_tokens) {
-            JsonPointerResult::Found(value) => value,
-            JsonPointerResult::Missing => {
-                return Err(format!(
-                    "equals_response id {} path {:?} was not found",
-                    reference.id.to_compact_string(),
-                    reference.path
-                ));
-            }
-            JsonPointerResult::Invalid(reason) => {
-                return Err(format!(
-                    "equals_response id {} path {:?} has invalid traversal: {reason}",
-                    reference.id.to_compact_string(),
-                    reference.path
-                ));
-            }
-        };
-        return match actual {
-            JsonPointerResult::Found(actual) => expect_json_value(actual, expected),
-            JsonPointerResult::Missing => Err("selected JSON path was not found".to_string()),
-            JsonPointerResult::Invalid(reason) => Err(format!("invalid traversal: {reason}")),
-        };
-    }
-    evaluate_protocol_pointer_result(actual, operation, project_root)
+    evaluate_response_operation(
+        messages,
+        protocol_pointer(selected, &pointer_tokens),
+        operation,
+        project_root,
+        false,
+    )
+}
+
+fn evaluate_response_operation(
+    messages: &[JsonValue],
+    actual: JsonPointerResult<'_>,
+    operation: &RpcAssertionOperation,
+    project_root: &Path,
+    lsp: bool,
+) -> Result<(), String> {
+    let expected = match operation {
+        RpcAssertionOperation::EqualsResponse(reference) => {
+            let response = select_mcp_response(messages, &reference.id)?;
+            let tokens = materialize_workspace_file_uri_pointer_tokens(
+                &reference.pointer_tokens,
+                project_root,
+            )?;
+            selected_value(protocol_pointer(response, &tokens))
+                .map_err(|error| {
+                    format!(
+                        "equals_response id {} path {:?}: {error}",
+                        reference.id.to_compact_string(),
+                        reference.path
+                    )
+                })?
+                .clone()
+        }
+        RpcAssertionOperation::SourceRange(reference) => source_range(messages, reference, lsp)?,
+        _ => return evaluate_protocol_pointer_result(actual, operation, project_root),
+    };
+    expect_json_value(selected_value(actual)?, &expected)
 }
 
 pub(super) const WORKSPACE_FILE_URI_POINTER_TOKEN_PREFIX: &str = "$workspace_file_uri:";

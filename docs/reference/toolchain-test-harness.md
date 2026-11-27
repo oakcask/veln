@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The standard-library test placement or helper naming policy, CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, binary-fixture schema-reference resolution, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture command timeout or process-tree termination behavior, fixture diagnostics, semantic case baseline, saved-navigation cross-adapter conformance contract or executable evidence, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
+update-when: The standard-library test placement or helper naming policy, CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, binary-fixture schema-reference resolution, structured JSON-RPC input directives, interactive protocol response references, identity selectors, source-derived ranges, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture command timeout or process-tree termination behavior, fixture diagnostics, semantic case baseline, saved-navigation cross-adapter conformance contract or executable evidence, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -297,7 +297,7 @@ decoded assertion select object members keyed by workspace file URI without
 storing the copied workspace path.
 
 Each MCP assertion declares exactly one of `equals`, `equals_file`,
-`equals_json_file`, `equals_response`, `contains`, `length`,
+`equals_json_file`, `equals_response`, `source_range`, `contains`, `length`,
 `workspace_file_uri`, or `missing = true`. `equals` and `equals_json_file` use
 the common JSON equality rules below. `equals_file` requires the selected value
 to be a JSON string and compares it with the exact sidecar contents.
@@ -374,9 +374,18 @@ workspace-relative file named after the prefix before selection. This lets a
 decoded assertion select workspace-edit arrays keyed by URI while keeping the
 manifest independent of the copied workspace path.
 
+On protocol arrays, a pointer token `$field=value` selects the unique object
+whose named string field equals `value`. `$value=text` selects a unique string
+array element. Standard pointer escaping applies inside each token, including
+`~1` for slashes in package names. No match is a missing path; multiple matches
+are an invalid traversal even for `missing = true`. Object-member traversal
+and ordinary JSON assertions retain their existing pointer semantics. Use
+identity selectors for tool and resource metadata. Assert ordering separately
+when ordering is the contract, rather than fixing an unrelated entry's index.
+
 Each LSP assertion declares exactly one of `equals`, `equals_file`,
-`equals_json_file`, `contains`, `length`, `workspace_file_uri`, or
-`missing = true`. `equals` and
+`equals_json_file`, `equals_response`, `source_range`, `contains`, `length`,
+`workspace_file_uri`, or `missing = true`. `equals` and
 `equals_json_file` use the common JSON equality rules below. `equals_file`
 requires the selected value to be a JSON string. `equals_json_file` parses the
 sidecar while the manifest loads. Invalid JSON reports the manifest line plus
@@ -384,6 +393,41 @@ the `lsp_assert` index, response or notification selector, JSON Pointer path,
 and operation. The remaining operations use the common contracts below. A
 missing path can satisfy `missing = true` only after its response or
 notification exists.
+
+Both protocol assertion kinds support `equals_response = {"id":1,"path":"/result"}`.
+It compares the selected value with the selected subtree of exactly one response
+in the same invocation. Missing or duplicate reference responses fail.
+`source_range = {"id":3,"path":"/result","declaration":"pub fn byte(","symbol":"byte"}`
+compares a range with the symbol's position in returned source text. The
+referenced text must contain exactly one declaration fragment. The fragment
+must contain the nonempty symbol exactly once. LSP ranges use zero-based lines
+and UTF-16 columns; MCP ranges use one-based lines and Unicode-scalar columns.
+Both ranges are half-open. Added preceding source lines change the expected
+range without changing the fixture. Wrong symbol locations still fail.
+
+An object containing only `$response` in a protocol request resolves a prior
+response at execution time. Its operand requires `id` and `path`, for example
+`{"$response":{"id":2,"path":"/result/uri"}}`. The selected JSON value replaces
+the entire directive, preserving its type and JSON escaping. An optional
+`link` string selects the unique Markdown link with that exact label from
+selected text. An optional `replace` pair `["from","to"]` replaces exactly one
+occurrence in the selected string, after link selection. This supports rejected
+URI variants while preserving the discovered snapshot identity. Missing or
+duplicate responses, ambiguous links, missing replacement text, and invalid
+traversals fail the fixture instead of sending an unresolved directive.
+Unknown or duplicate fields and malformed operands fail before skip evaluation
+or process startup. References can only consume responses already received.
+
+Conversations containing response directives exchange requests interactively.
+The harness preserves notifications while waiting for the matching response,
+and sends request notifications without waiting for a reply. Each complete
+conversation, including writes and EOF shutdown, has a 30-second deadline.
+Both output pipes are drained during the conversation. Failure kills and reaps
+the fixture process tree on Unix, or the direct child on other platforms.
+Use structured LSP input so transport lengths are computed after substitutions.
+The `protocol_contracts::tests::*`, `protocol_exchange::tests::*`, and
+`lsp_response_equality_checks_the_selected_response` tests cover these contracts.
+The resource and navigation specification cases exercise them through the CLI.
 
 The harness requires stdout to be a complete ordered sequence of
 `Content-Length` frames before it evaluates LSP assertions. Malformed or
@@ -435,9 +479,9 @@ ambiguous, incompatible-role, shadowed, qualified, and out-of-scope recovery
 rejection rows, valid bare
 nullary constructor precedence over recovery navigation, workspace schema-alias
 declaration inclusion, rename invalid-case
-and conflict errors, edit-free rename failures, and shutdown responses. Raw
-LSP cases remain only where protocol framing or an as-yet-unmigrated
-representation is still part of the fixture.
+and conflict errors, edit-free rename failures, and shutdown responses. The remaining legacy LSP request streams have also
+migrated to structured JSON arrays. Dedicated transport tests retain raw
+framing checks, including malformed and truncated frames.
 
 The `references-workspace-effect` LSP specification case uses decoded
 assertions for exact effect and effect-operation reference locations,

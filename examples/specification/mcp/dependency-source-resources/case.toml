@@ -28,7 +28,7 @@ missing = true
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/uri"
-equals = "veln-pkg:///example%2Fdep/snapshot/303c9aada53b94e9ffd414a223710fe75ed2aeba62e23c4c6f92c97185998f78/dep.veln"
+equals_response = {"id":3,"path":"/result/resources/$title=Veln package source: example~1dep: dep.veln/uri"}
 
 [[mcp_assert]]
 id = 4
@@ -43,7 +43,7 @@ equals_file = "case-text/dep-source.txt"
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/uri"
-equals = "veln-pkg:///example%2Fdep/snapshot/303c9aada53b94e9ffd414a223710fe75ed2aeba62e23c4c6f92c97185998f78/private.veln"
+equals_response = {"id":3,"path":"/result/resources/$title=Veln package source: example~1dep: private.veln/uri"}
 
 [[mcp_assert]]
 id = 5

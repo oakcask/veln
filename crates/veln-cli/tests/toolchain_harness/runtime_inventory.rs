@@ -119,9 +119,12 @@ fn run_invocation(
     stdin: Option<&str>,
     artifact_path: Option<&Path>,
 ) -> Output {
-    if manifest.invocation.command.first().map(String::as_str) == Some("mcp")
-        && stdin.is_some_and(|input| input.contains("$mcp_cursor:"))
-    {
+    if matches!(
+        manifest.invocation.command.first().map(String::as_str),
+        Some("mcp" | "lsp")
+    ) && stdin.is_some_and(|input| {
+        input.contains("$mcp_cursor:") || input_contains_response_directive(input)
+    }) {
         return project.veln_with_interactive_mcp(
             &manifest.invocation.command,
             manifest.invocation.cwd.as_deref(),
