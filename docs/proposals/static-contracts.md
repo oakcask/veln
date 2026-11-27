@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Static contract syntax, predicate-fact or callable-type prerequisite state, body and summary verification, boundary validation, generated API documentation, extension requirements, or acceptance gates change.
+update-when: Static contract syntax, predicate-fact or callable-type prerequisite state, body and summary verification, boundary validation, generated API documentation, extension requirements, acceptance gates, or readiness classification changes.
 ---
 
 # Static Contracts for Composable Calls
@@ -50,42 +50,31 @@ failure, and publication define this feature itself. Internal AST/core changes
 and tool projections are implementation obligations, not additional language
 proposals.
 
-All three proposals remain Design In Progress. A prerequisite prototype may
-supply feasibility evidence, but must not expose unchecked callable promises
-or claim the complete feature. No new backend, general dependent types,
-ownership system, arithmetic model, or SMT dependency is required for this
-comparison-based slice.
+All three proposals remain Design In Progress because the mandatory proof
+work policy and callable grammar are unresolved. This consumer also needs the
+P4 dependency-validation contract and P5 diagnostic/publication schemas below.
+No new backend, general dependent types, ownership system, arithmetic model,
+or SMT dependency is required for this comparison-based slice.
 
-| Gate | Required design change | Evidence before implementation selection |
+| Gate | Contract needed for Ready selection | Implementation completion evidence |
 | --- | --- | --- |
-| P1: typed logic | Integrate the typed logic from [Typed Predicate Logic and Flow Facts](typed-predicate-facts.md). | Reviewed independent model and consumer obligations with resolved identities and runtime integer meaning. |
-| P2: flow facts | Integrate the transfer and reachability rules from the predicate-fact prerequisite. | Consumer call/return cases using branch, record, alias, eager-operand, and unreachable-path facts. |
-| P3: callable contracts | Integrate [Contract-bearing Callable Types](contract-bearing-callable-types.md). | Reviewed callable syntax/type evidence and direct, imported, nested, and indirect static-call cases. |
-| P4: proof trust | Verify source implementations, define recursive summary use, and quarantine invalid declarations. Define which generated or host-backed declarations can supply facts. | Positive/negative body and recursive-component cases; no external summary accepted solely because its signature declares it. |
-| P5: executable boundary | Define static failure outcomes, JSON/human projections, and checked-to-core handoff. Preserve the meaning of existing runtime clauses, check executable entry adapters, and retain contract modes in generated API documentation. | Call-site, return, entry-boundary, human/JSON, lowering, and generated-documentation cases. |
+| P1: typed logic | The predicate prerequisite's typed grammar, exact mandatory cases, and deterministic work policy. Its bounded budget investigation supplies decision-relevant evidence. | Independent truth/order model and consumer call/return cases with resolved identities and runtime integer meaning. |
+| P2: flow facts | The prerequisite's transfer, join, and reachability rules, including result binding, scope exit, records, eager operands, and loop boundaries. | Positive/negative consumer cases with branch, alias, record, and unreachable-path facts. |
+| P3: callable contracts | The callable prerequisite's clause order, nesting, binders, effect rows, canonical form, assignment, contextual, and join rules, plus static-clause declaration grammar. | Grammar and formatter fixtures, type-model checks, and direct, imported, nested, and indirect calls that cannot bypass retained interfaces. |
+| P4: proof trust | A dependency-validation and recursive-component publication model identifying the source snapshot and checked contracts behind a summary, invalidation and recovery transitions, and quarantine of failed declarations. The first slice grants hosts, generated functions, and binary-only packages no new trusted summaries. | Positive/negative body and recursive-component cases, including failure and recovery after a body-only change; no caller reuses an invalidated proof. |
+| P5: executable boundary | Diagnostic identifiers, closed JSON detail schemas and related-note kinds, adapter projections, generated-documentation mode fields and version changes, and the checked-to-core readiness invariant. | Call/return and entry-adapter rejection, human/JSON agreement, atomic publication failure, once-only evaluation, and preservation of existing runtime clauses through lowering and documentation. |
 
-P1 and P2 precede proof implementation. P3 and P4 precede exposing contract
-facts through general function values. P5 precedes publishing the feature.
-These gates can be implemented in focused follow-up targets after their design
-questions are resolved; none is currently cataloged as Ready.
+P1–P3 refer to the two prerequisite authorities; they do not duplicate ownership
+of their language rules. P4–P5 remain owned here. The existing trust and failure
+sections constrain those decisions, but the concrete dependency transitions
+and diagnostic/documentation schemas are still design deliverables.
 
-Each gate must supply a reviewable contract before an implementation target is
-selected. A prototype alone does not settle its observable behavior:
-
-| Gate | Required deliverable and acceptance boundary |
-| --- | --- |
-| P1 | The prerequisite's typed grammar, mandatory truth/order cases, and measured deterministic work policy, exercised through static call/return obligations. |
-| P2 | The prerequisite's transfer/join model, exercised through result binding, scope exit, records, unreachable calls/returns, and loop boundaries in consumer programs. |
-| P3 | The callable prerequisite's grammar, binder, assignment, contextual, and join evidence, plus static-clause declaration grammar and consumer calls that cannot bypass the retained interface. |
-| P4 | A dependency-validation and recursive-component publication model. State which source snapshot and checked contracts a summary depends on. Exercise failure and recovery after a body-only change, not only a signature change; no caller may reuse an invalidated proof. |
-| P5 | Diagnostic identifiers, closed JSON detail schemas and related-note kinds, adapter projections, generated-documentation mode fields and version changes, and a checked-to-core readiness invariant. Exercise atomic rejection, once-only evaluation, and preservation of existing runtime clauses. |
-
-The P1–P3 rows are integration gates referencing the two prerequisite
-proposals; they are not second authorities for their language rules. P4–P5
-remain owned here. The gate deliverables are still required evidence, not
-completed implementation or permission to select a partial feature that
-erases contracts. Extensions
-outside these gates follow the [extension requirements](#extension-requirements).
+Passing the full integration, recursive-body, lowering, or documentation suite
+is not required to select implementation. Those cases establish completion of
+the declared contract. A prototype alone cannot settle an unspecified schema
+or authorize an incomplete user-visible feature. Resolve the design first,
+then select a complete externally observable target and its acceptance cases.
+Extensions outside these gates follow the [extension requirements](#extension-requirements).
 
 ## Proposed source surface and guarantee
 
@@ -411,23 +400,27 @@ Planned verification ownership:
   static contract or its implementation body and compare saved diagnostics with
   a fresh check, including invalidation and recovery of documentation views.
 
-Before Ready selection, apply the predicate prerequisite's
+During implementation, apply the predicate prerequisite's
 [bounded-work acceptance model](typed-predicate-facts.md#planned-acceptance-and-verification)
 to repeated call summaries and consumer programs as well as isolated queries.
+The pre-Ready [budget investigation](predicate-work-budget-feasibility.md)
+uses synthetic summary/obligation sequences to choose accounting scope; it
+does not require this consumer's production implementation.
 Wall-clock samples are supporting evidence on a controlled runner, not a
 portable acceptance threshold. Run generated/analysis workloads through
 `bash scripts/agent-run` and the repository performance-audit workflow.
 
 ## Readiness and lifecycle
 
-This proposal stays under Design In Progress until its two prerequisite
-language proposals are resolved and P1–P5 have precise grammar,
-mandatory proof rules, trust boundaries, diagnostic schemas, work limits, and
-reviewed feasibility evidence. In particular, callback contract joins, `?`
-return facts, eager operands, record fact transfer, unreachable-path obligations,
-and invalid recursive-component publication must be exercised before promising
-compositional guarantees. The separate predicate-fact and callable-interface
-proposals are prerequisites; ownership/effect and numeric-language redesigns
+This proposal stays under Design In Progress until the predicate work policy
+and callable grammar are resolved and P4–P5 have the dependency-validation
+transitions and concrete diagnostic/documentation schemas identified above.
+The prerequisite contracts must be settled, but their full implementations and
+passing acceptance suites are not promotion requirements. Callback contract
+joins, `?` return facts, eager operands, record fact transfer, unreachable-path
+obligations, and invalid recursive-component publication remain required
+implementation acceptance before publishing compositional guarantees.
+The separate predicate-fact and callable-interface proposals are prerequisites; ownership/effect and numeric-language redesigns
 are not prerequisites for the restricted slice.
 
 A later Ready target must select a complete externally observable slice and

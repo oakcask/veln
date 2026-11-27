@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The typed predicate grammar, scalar value identities, flow-fact transfer, reachability, bounded entailment outcomes, or prerequisite proof-model acceptance evidence changes.
+update-when: The typed predicate grammar, scalar value identities, flow-fact transfer, reachability, bounded entailment outcomes, prerequisite proof-model acceptance evidence, or readiness classification changes.
 ---
 
 # Typed Predicate Logic and Flow Facts
@@ -27,8 +27,8 @@ to the static-contract consumer. Callable assignment belongs to the callable
 type proposal. These links identify consumers, not reverse prerequisites.
 
 There is no new standalone proof command or assertion primitive. The
-independent model and sema tests are prerequisite feasibility evidence. A
-user-visible implementation target must also select a complete consuming
+independent model and sema tests are planned implementation acceptance
+evidence. A user-visible implementation target must also select a complete consuming
 feature and its observable acceptance cases; passing model tests alone cannot
 publish a verified-language feature. Existing runtime clauses retain their
 current classification and runtime fallback.
@@ -77,8 +77,11 @@ copy equality, equality substitution, order transitivity, weakening strict
 bounds to inclusive bounds, and complementary branch conditions. The checker
 need not decide every Boolean formula. More complex supported formulas can
 produce an unknown proof result; bounded search must never accept them by
-default. Before Ready selection, fix deterministic work limits and mandatory-fragment
-cases using the feasibility evidence described below.
+default. The unresolved design choice is the exact mandatory-case boundary
+and deterministic work policy, because exhaustion changes which consumer
+obligations are accepted. The independently selectable
+[Predicate Work-budget Feasibility](predicate-work-budget-feasibility.md)
+investigation owns the bounded evidence needed to choose that policy.
 
 | Program event | Facts available afterward |
 | --- | --- |
@@ -236,14 +239,19 @@ iteration behavior. The consuming proposal owns CLI, runtime, lowering, and
 publication cases. Its eager-evaluation cases must observe skipped, duplicated,
 or reordered operands, rather than checking only the final Boolean value.
 
-Before Ready selection, define the accounting scope, unit, defaults, and
-versioning of deterministic work limits and the exact mandatory-fragment
-cases. Evaluate long Boolean formulas, deep aliases/record paths, and repeated
-queries at doubled sizes against a contract-free control. Record retained
-facts and proof steps and demonstrate a non-exponential work bound or a
-deterministic unknown cutoff. Numerical limits require measured feasibility
-evidence; they are not chosen here. Use `bash scripts/agent-run` and the
-repository performance-audit workflow for generated analysis workloads.
+Before Ready selection, resolve the accounting scope, unit, defaults, and
+versioning of deterministic work limits and the exact mandatory-case boundary
+using [Predicate Work-budget Feasibility](predicate-work-budget-feasibility.md).
+Its findings can change the mandatory fragment or cutoff, so this is a design
+investigation rather than a demand for a production verifier.
+
+During implementation, evaluate long Boolean formulas, deep aliases/record
+paths, and repeated queries at doubled sizes against a contract-free control.
+Record retained facts and proof steps and verify the selected non-exponential
+work bound or deterministic unknown cutoff in sema and consuming features.
+Use `bash scripts/agent-run` and the repository performance-audit workflow for
+generated analysis workloads. Passing these full transfer and consumer cases
+is implementation completion evidence, not required to select this proposal.
 
 ## Related work and alternatives
 
@@ -261,9 +269,13 @@ source comparisons do not demonstrate their implementation.
 
 ## Readiness and lifecycle
 
-Remain Design In Progress until the typed grammar, mandatory cases, bounded
-work policy, and transfer model have reviewed feasibility evidence. Consumers
-must not publish unvalidated facts while this prerequisite is incomplete.
+Remain Design In Progress until the bounded investigation resolves the
+mandatory-case boundary and deterministic work policy, and those choices are
+incorporated into this predicate/transfer contract. The grammar, value-identity,
+and flow-transfer acceptance cases above are implementation obligations; a
+complete sema prototype is not a Ready prerequisite. Investigation completion
+alone does not promote this proposal. Consumers must not publish unvalidated
+facts while their proof implementation is incomplete.
 During implementation, promote the checked behavior into the matching current
 contract/type specifications and executable consumer evidence. Remove completed
 scope and this catalog entry when no active scope remains, and update consumer

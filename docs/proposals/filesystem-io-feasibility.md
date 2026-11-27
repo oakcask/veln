@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The filesystem IO F4–F5 feasibility scope, provider adapter prototype, acceptance evidence, or completion and promotion conditions change.
+update-when: The filesystem IO F4–F5 feasibility scope, provider adapter prototype, acceptance evidence, or completion and production-delivery conditions change.
 ---
 
 # Filesystem IO Feasibility
@@ -14,9 +14,10 @@ adopting the production API.
 ## Scope And Dependency Direction
 
 This proposal owns the remaining feasibility gates F4–F5 extracted from
-[Filesystem And Shared Byte IO](filesystem-io.md). That proposal remains in
-Design In Progress until this work completes. This work does not depend on
-its production implementation or promotion to Ready.
+[Filesystem And Shared Byte IO](filesystem-io.md). Both targets have fixed
+contracts and are Ready. This foundation's completion precedes production
+rollout, not the parent's readiness classification. This work does not depend
+on implementing the production filesystem API.
 
 The implemented provider foundation, direct-facade outcome and provider-count
 validation matrices, empty-request bypass, and complete-transfer outcome
@@ -107,7 +108,7 @@ assuming that a deferred close can discard its outcome. The external API
 comparisons in the [filesystem design](filesystem-io.md#design-decisions)
 remain rationale for its IO contracts; they do not prove Veln adapter support.
 
-## Completion And Parent Promotion
+## Completion And Parent Delivery
 
 This proposal completes only when the remaining F4 rows and F5 have checked
 evidence at the stated boundaries. Bounded `copy`, scoped-fake open-resource
@@ -124,8 +125,10 @@ current effects, execution, or standard-library specification alongside its
 executable evidence. Do not describe prototype-only surfaces as available
 production APIs. Keep the remaining production rollout in `filesystem-io.md`.
 
-After all gates pass, review the parent proposal against that evidence before
-moving it to Ready. Remove this completed proposal and its catalog entry,
-replace the parent's dependency link with routes to the resulting current
-specifications and checked evidence, and leave only unimplemented work in the
-parent. Passing the gates does not itself complete the filesystem rollout.
+After all gates pass, review the parent delivery against that evidence.
+Remove this completed proposal and its catalog entry, replace the parent's
+foundation link with routes to the resulting current specifications and
+checked evidence, and leave only unimplemented work in the parent. A finding
+that requires a contract change reopens that specific design choice; passing
+these implementation gates is not a separate Ready-promotion ceremony and
+does not itself complete the filesystem rollout.

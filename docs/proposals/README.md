@@ -46,48 +46,52 @@ also states it.
   current [filesystem and byte IO specification](../specification/standard-library-filesystem-io.md).
   The target does not require the production filesystem API to be implemented
   first.
+- [Consistent Expression and Block Forms](control-flow-bodies.md): implement
+  direct conditional bodies, unit conditionals without `else`, and paired
+  `defer` forms with the specified token boundaries, cleanup timing, and
+  canonical formatting; parser/backend/formatter checks establish completion.
+- [Literal-expression Constant Folding](constant-folding.md): fold closed
+  `Int` and `Bool` executable expressions while preserving diagnostics and
+  runtime failures; full-range materialization and residual spans are
+  implementation acceptance, not prototype prerequisites.
+- [Standard-library Numeric Constants](numeric-constants.md): implement typed
+  module values for `Int` bounds and `Float` limits and special values through
+  the specified narrow scalar-data boundary; construction and non-finite
+  comparison checks are completion requirements.
+- [Floating-point Exponent Literals](floating-point-literals.md): implement
+  decimal and hexadecimal exponent notation with the specified token,
+  rounding, and range-error rules; shared conversion is implementation work.
+  Independent of numeric constants API delivery.
+- [Filesystem And Shared Byte IO](filesystem-io.md): implement the remaining
+  production filesystem, shared IO, and adapter rollout under the fixed
+  capability, outcome, and ownership contract. Complete and reuse F4–F5
+  conformance before production delivery; it is not a Ready-promotion gate.
+- [Predicate Work-budget Feasibility](predicate-work-budget-feasibility.md):
+  investigate the mandatory comparison fragment and deterministic accounting
+  policy using an isolated model and bounded workloads, independently of the
+  production verifier and static-contract implementation.
 
 ## Design In Progress
 
-- [Consistent Expression and Block Forms](control-flow-bodies.md): apply a
-  common classification to conditional bodies, single-expression arrows,
-  explicit scopes, and paired `defer` forms; specify unit conditionals without
-  `else`, deferred evaluation timing, canonical source, and design guardrails.
-  Language decisions require review before Ready promotion.
-- [Typed HTTP/2 Decision Projections](http2-typed-decisions.md): expose typed
-  decision payloads instead of status-string/getter sequences; requires a
-  complete view and retirement map for the affected decision families.
+- [Typed HTTP/2 Decision Projections](http2-typed-decisions.md): complete the
+  per-family public view, payload, signature, and status/getter retirement map.
+  No prototype or generic-function implementation is required for Ready.
 - [Single-receiver and Receiver-list Channel Waits](channel-wait-api.md):
-  replace two-receiver selection with matching single-receiver and list wait
-  families; result, selection-policy, public-type, and deterministic-wait
-  feasibility decisions remain before Ready promotion.
-- [Literal-expression Constant Folding](constant-folding.md): fold closed
-  `Int` and `Bool` executable expressions while preserving diagnostics and
-  runtime failures; requires full-range constant materialization and residual
-  failure-span feasibility evidence before Ready promotion.
-- [Standard-library Numeric Constants](numeric-constants.md): expose `Int`
-  bounds and `Float` finite limits, positive minima, epsilon, infinities, and
-  NaN through typed module values; requires scalar-data construction and
-  non-finite comparison feasibility evidence before Ready promotion.
-- [Floating-point Exponent Literals](floating-point-literals.md): add
-  decimal and hexadecimal float exponent notation with explicit rounding and
-  range errors; defer special-value tokens in favor of named constants. Independent of the
-  constants API delivery.
-- [Typed Predicate Logic and Flow Facts](typed-predicate-facts.md): define
-  typed scalar predicates, value identity, flow transfer, and bounded proof
-  outcomes as the shared prerequisite for callable interfaces and static
-  contracts.
-- [Contract-bearing Callable Types](contract-bearing-callable-types.md): retain
-  bound pre/post interfaces through function values and public types; depends
-  on typed predicate facts.
-- [Static Contracts for Composable Calls](static-contracts.md): prove marked
-  preconditions at calls and postconditions at returns, validate summaries,
-  and enforce executable boundaries; depends on both language proposals above.
-
-- Filesystem selection, host path conversion, shared byte IO, seek, provider
-  ownership, and scoped fake filesystems; initial design decisions are fixed,
-  but implementation selection depends on completing
-  [Filesystem IO Feasibility](filesystem-io-feasibility.md).
+  resolve owning declarations, type/constructor paths, imports, and tooling
+  publication of channel error and policy types alongside compiler-known calls.
+  Deterministic waits, rendezvous preservation, and migration audits are
+  implementation acceptance.
+- [Typed Predicate Logic and Flow Facts](typed-predicate-facts.md): resolve the
+  mandatory-case boundary and deterministic work policy using the separately
+  Ready budget investigation; full sema/consumer acceptance is delivery work.
+- [Contract-bearing Callable Types](contract-bearing-callable-types.md):
+  settle clause ordering, nesting, effect-row placement, canonical source,
+  and the predicate prerequisite's unresolved work policy. Grammar prototypes
+  and passing type/consumer tests are not Ready prerequisites.
+- [Static Contracts for Composable Calls](static-contracts.md): resolve the
+  predicate and callable contracts, source-dependency/recursive-summary
+  invalidation transitions, and concrete diagnostic/documentation schemas.
+  Full body, lowering, and publication verification is implementation acceptance.
 
 ## Planning Inventory
 

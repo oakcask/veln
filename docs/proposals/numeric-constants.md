@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The proposed std::num constants, literal construction dependency, scalar module-value representation, or numeric acceptance gates change.
+update-when: The proposed std::num constants, literal construction dependency, scalar module-value representation, numeric acceptance gates, or readiness classification changes.
 ---
 
 # Standard-library Numeric Constants
@@ -8,8 +8,9 @@ update-when: The proposed std::num constants, literal construction dependency, s
 Expose the principal bounds and special values of `Int` and `Float` through
 typed immutable standard-library values. Users should not need to copy large
 decimal literals or manufacture infinity through arithmetic. This is planned
-behavior. It is a Design In Progress target until the representation and
-comparison gates below have executable evidence.
+behavior and a Ready implementation target. The public values, scalar-data
+admission boundary, and comparison outcomes below define its contract;
+construction and comparison tests are implementation acceptance.
 
 ## Current boundary and purpose
 
@@ -156,13 +157,15 @@ or runtime host calls. It must use trusted standard-package identity; a
 same-spelled local package or module cannot acquire compiler privileges.
 Bridge spellings are internal and are not alternative supported public names.
 
-The exact bridge declaration and registration representation is an open
-implementation choice. Before Ready promotion, prototype its path from
-standard-package loading through semantic resolution, core/IR, and JVM
-materialization. Select one representation and record its accepted/rejected
-source cases here. If it requires a general new declaration facility, split
-that prerequisite into its own proposal instead of hiding it inside library
-work. Do not expand the public API to getters merely to bypass this gate.
+The exact private bridge declaration and registration representation is an
+implementation choice within this fixed admission boundary: only trusted
+standard-package scalar leaves receive the privilege, ordinary Float literal
+data and negation become admissible, and general user calls or effectful
+initializers remain rejected. Implement the package-loading, resolution,
+core/IR, and JVM path together and test both admitted and rejected origins.
+No general new declaration facility is part of this target; if one becomes
+necessary, resolve that scope change in a separate proposal. Do not replace
+the specified public values with getters to avoid implementing scalar data.
 
 For NaN, the implementation may select a convenient quiet encoding. All
 finite constants and infinities must preserve the specified bits through
@@ -233,18 +236,21 @@ coverage. No fake host effects are needed for these pure values.
 
 ## Readiness and completion
 
-Before moving this proposal to Ready:
+Ready selection uses the public value and comparison tables and the narrow
+construction boundary above. No prototype or passing numeric API suite is
+required before implementation. Private scalar representation does not change
+those public decisions, and any existing equality or ordering mismatch is an
+implementation defect to fix against the specified non-finite rows.
 
-1. Demonstrate the narrow construction bridge, including `Int`'s lower bound,
-   subnormals, quiet NaN, and package-origin rejection. Fix its representation
-   and internal source acceptance boundary.
-2. Audit existing scalar equality and ordering against the non-finite rows.
-   Identify any required fixes explicitly; do not infer correctness from JVM
-   boxing or host equality helpers.
-3. Fix runnable companion-test and backend-bit-inspection routes and add their
-   commands with the feasibility evidence. Confirm the source modules remain
-   discoverable through normal standard-package loading and documentation.
+During implementation:
 
+1. Verify the narrow construction bridge, including `Int`'s lower bound,
+   subnormals, quiet NaN, and package-origin rejection.
+2. Audit and correct scalar equality and ordering against the non-finite rows;
+   do not infer correctness from JVM boxing or host equality helpers.
+3. Run companion coverage through `bash scripts/agent-stdlib-test`, add focused
+   backend bit-inspection tests through `bash scripts/agent-test`, and verify
+   normal standard-package loading, navigation, and generated documentation.
 
 Implementation is complete only when every acceptance row has checked
 evidence, and the source-surface, types, execution, and relevant standard-library

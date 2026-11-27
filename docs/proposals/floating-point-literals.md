@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The proposed decimal-exponent or hexadecimal Float grammar, shared conversion and range policy, special-value token decision, or literal acceptance evidence changes.
+update-when: The proposed decimal-exponent or hexadecimal Float grammar, shared conversion and range policy, special-value token decision, literal acceptance evidence, or readiness classification changes.
 ---
 
 # Floating-point Exponent Literals
@@ -8,7 +8,7 @@ update-when: The proposed decimal-exponent or hexadecimal Float grammar, shared 
 Add decimal exponent notation and binary-scaled hexadecimal notation for finite
 `Float` values. Keep NaN and infinity available through the proposed
 standard-library constants. This
-is Design In Progress work, separate from delivering those named constants.
+is a Ready implementation target, separate from delivering those named constants.
 
 ## Decision and scope
 
@@ -175,11 +175,15 @@ the design choices, not claims of current Veln conformance.
 
 ## Readiness and completion
 
-Promote this proposal to Ready only after the literal acceptance table has
-fixed executable fixtures and an end-to-end conversion prototype.
-All consumers must use the same validated value: ordinary expression emission,
-patterns, module data, and contract evaluation must not independently parse
-hex text as decimal, round decimal scaling twice, or fall back to zero on
+The grammar, token-boundary examples, rounding/range rules, and acceptance
+table fix the implementation contract. Executable fixtures and end-to-end
+conversion are implementation deliverables; no conversion prototype is needed
+for Ready selection. Shared conversion and the choice of its internal
+representation do not change the specified source forms or numeric outcomes.
+
+Implementation completion requires all consumers to use the same validated
+value: ordinary expression emission, patterns, module data, and contract
+evaluation must not independently parse hex text as decimal, round decimal scaling twice, or fall back to zero on
 failure. The current JVM emission
 sites in `function_flow.rs` and `pattern_and_value_emission.rs` under
 `crates/veln-backend-jvm/src/classfile/` parse float text as `f64` and use zero

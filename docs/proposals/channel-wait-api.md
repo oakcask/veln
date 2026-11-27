@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The proposed single-receiver and receiver-list channel wait API, selection policy, result contract, cancellation semantics, or acceptance gates change.
+update-when: The proposed single-receiver and receiver-list channel wait API, selection policy, result contract, cancellation semantics, acceptance gates, or readiness classification changes.
 ---
 
 # Single-receiver and Receiver-list Channel Waits
@@ -121,8 +121,8 @@ Arrivals and closures during an attempt may change the available choices.
 promise its process-wide cursor behavior. Applications that require stable
 priority choose `Priority`. Exact per-caller round-robin state would need an
 explicit stateful selector and is outside this proposal. The choice to relax
-the old two-receiver alternation contract is a review gate, not an assertion
-that it has no consumers.
+the old two-receiver alternation contract is a deliberate proposed change.
+Migration must inspect its consumers rather than assume none depend on it.
 
 ### Cardinality, races, and preserved state
 
@@ -271,11 +271,12 @@ the sole oracle for another.
 Deterministic tests must use separate scoped Veln fake handlers. Production
 waits continue to use real host effects. The current injected clock can control
 token observations in `waitCancelled`, but the selection timeout path itself
-uses `System.nanoTime` and sleep. A fakeable wait boundary therefore needs
-feasibility evidence before Ready promotion; a clock fake alone does not prove
-deterministic timeout behavior. Apply the effect-handler maintenance workflow
-to that implementation. Do not introduce environment selectors or use fragile
-elapsed-time assertions as a substitute for controlled schedules.
+uses `System.nanoTime` and sleep. Implementing a fakeable wait boundary is
+therefore part of the timeout and cancellation acceptance work; a clock fake
+alone does not prove deterministic timeout behavior. The required schedules and preserved-state observations are
+already specified, so a wait prototype is not a Ready prerequisite. Apply the
+effect-handler maintenance workflow to that implementation. Do not introduce
+environment selectors or use fragile elapsed-time assertions as a substitute for controlled schedules.
 
 ## Migration and implementation boundaries
 
@@ -302,19 +303,25 @@ no heterogeneous selection, combined send/receive cases, general IO readiness,
 absolute deadlines, fairness guarantee, or latency target. The current polling
 algorithm is implementation evidence, not a required future algorithm.
 
-Before implementation, settle these Ready gates:
+## Readiness and completion
 
-1. Approve the result-only family and the deliberate closure/timeout ambiguity.
-   If those choices change, revise the signatures and acceptance table together.
-2. Approve explicit `Priority` and `Unspecified` policies, including removal of
-   the exact global alternation promise, or specify a caller-owned alternative.
-3. Establish how channel-owned public error and policy types are declared,
-   imported, documented, and resolved alongside compiler-known channel calls.
-4. Demonstrate deterministic timeout/cancellation support and rendezvous losing
-   transfer preservation without changing production behavior through test flags.
-5. Fix the migration scope through an audit of symbol descriptors, callers,
-   tooling, specifications, and tests. A new API must not leave an old callable
-   path with different effects or results.
+The remaining design blocker is publication of `ReceiveError` and
+`SelectionOrder` alongside the compiler-known channel namespace. Before Ready,
+specify their owning declarations, qualified type and constructor paths,
+import behavior, documentation/navigation targets, and any conflict with the
+compiler-provided calls. Those are caller-visible source choices, not a
+request for an implemented namespace prototype.
+
+The result-only family, deliberate closure/timeout ambiguity, and explicit
+`Priority` and `Unspecified` policies above are the proposed contract. Review
+changes to those decisions by updating signatures, outcomes, and migration
+rules together; an unspecified approval step is not an additional gate.
+
+Deterministic timeout/cancellation support, rendezvous losing-transfer
+preservation, and the audit of symbol descriptors, callers, tooling,
+specifications, and tests are implementation completion requirements. A new
+API must not leave an old callable path with different effects or results.
+They do not require a trial implementation before Ready.
 
 During implementation, run focused checker and JVM tests through
 `bash scripts/agent-test`, and stdlib companions through

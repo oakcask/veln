@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The proposed literal-expression folding scope, integer evaluation semantics, diagnostic preservation rules, or compiler acceptance gates change.
+update-when: The proposed literal-expression folding scope, integer evaluation semantics, diagnostic preservation rules, compiler acceptance gates, or readiness classification changes.
 ---
 
 # Literal-expression Constant Folding
@@ -11,8 +11,10 @@ in executable function bodies. For example, `1 + 2 * 3` produces the value
 in generated code without adding source syntax or making source acceptance
 depend on optimization.
 
-This proposal is design work, not implemented behavior. Promotion to Ready
-requires the feasibility evidence in [Delivery gates](#delivery-gates).
+This is a Ready implementation target, not implemented behavior. The operator
+domain, fixed-width evaluation, preservation rules, and acceptance model below
+fix the observable contract; [Delivery gates](#delivery-gates) apply to
+implementation completion.
 
 ## Current boundary
 
@@ -171,7 +173,7 @@ CI, establish scaling. No runtime speedup percentage is claimed.
 
 Perform the transformation on typed executable expressions after semantic
 validation and before JVM emission. The exact core/IR ownership is an
-implementation choice to settle with the feasibility evidence. Keep checked
+implementation choice within the specified preservation contract. Keep checked
 source facts available to tools and preserve provenance for residual failures.
 Evaluate each candidate with explicit target integer operations; do not rely
 on Rust debug overflow behavior or unbounded proof arithmetic.
@@ -201,13 +203,13 @@ need.
 
 ## Delivery gates
 
-Before Ready promotion, demonstrate full-range integer constant materialization
-in the current core/IR and JVM backend, and retain computed-failure source
-spans after a child fold. These are feasibility gates because the existing
-literal-shaped representation and source admission must not constrain runtime
-values. Record the selected transformation boundary and confirm all table
-rows can be checked with existing harnesses or a focused instruction-inspection
-helper.
+Ready selection does not require a folding prototype. Full-range integer
+materialization and residual failure spans are required implementation
+outcomes, not unresolved choices about the operator domain or source behavior.
+The implementation may extend private core/IR representations to meet them.
+Record the selected transformation boundary and verify the acceptance rows
+with core/IR assertions, backend execution, CLI projections, and a focused
+method-instruction inspection helper where needed.
 
 Implementation completion requires the acceptance evidence above and an audit
 of generated-input cost under the performance-regression skill. Promote the
