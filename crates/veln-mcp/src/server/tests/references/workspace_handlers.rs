@@ -791,7 +791,7 @@ fn assert_standard_handler_project_isolation(
         .unwrap();
     let definition_content = json!({"definition":{
         "uri":standard_uri,
-        "range":{"start":{"line":101,"column":13},"end":{"line":101,"column":19}},
+        "range":{"start":{"line":110,"column":13},"end":{"line":110,"column":19}},
         "packageDocumentationUri":package_documentation_uri
     }});
     assert_eq!(

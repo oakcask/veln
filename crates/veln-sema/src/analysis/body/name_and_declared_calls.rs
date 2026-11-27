@@ -332,9 +332,7 @@ impl<'a> FunctionChecker<'a> {
             }
             ModuleValueLookup::Missing => return None,
         }
-        for arg in args {
-            self.infer_expr(arg, None);
-        }
+        self.infer_unconstrained_arguments(args);
         Some(Type::Unknown)
     }
 
@@ -565,9 +563,7 @@ impl<'a> FunctionChecker<'a> {
                 "call_target",
             );
         }
-        for arg in args {
-            self.infer_expr(arg, None);
-        }
+        self.infer_unconstrained_arguments(args);
     }
 
     fn infer_io_provider_state_call(

@@ -276,6 +276,11 @@ driver iterations remain committed. On clean end, the driver delegates to
 `finalize_receive_connection_eof(...)` and returns either the accepted final
 core state or `IncompleteInput`.
 
+Each submitted output list stops at the first duplex write failure. The
+failing frame and every later frame in that list receive no further write
+attempt. This includes a network provider reply whose malformed committed
+count the network adapter projects as a transport error.
+
 A duplex read or write `Err(error)` returns
 `TransportFailure(error)`. The variant contains the unchanged
 `net::NetError`; it is distinct from protocol, incomplete-input, and local
@@ -322,9 +327,10 @@ Accepted response actions are applied in list order through
 the duplex stream before the next core action is attempted. If a later core
 action is rejected, earlier committed writes remain visible and the rejected
 action and later actions write no bytes. Callback failures write no response
-action bytes. Clean EOF and incomplete EOF preserve the same accepted and
-incomplete-input behavior as the connection driver. A duplex read or write
-failure returns `TransportFailure(error)` with the unchanged
+action bytes. A response write failure stops the current output list, so no
+later response frame is attempted. Clean EOF and incomplete EOF preserve the
+same accepted and incomplete-input behavior as the connection driver. A duplex
+read or write failure returns `TransportFailure(error)` with the unchanged
 `net::NetError`. Its kind is `"transport"` and its id is
 `"http2.application.transport_failure"`; it is not a protocol or callback
 failure.
@@ -915,6 +921,10 @@ Checked HTTP/2 examples that exercise network boundaries use the same explicit
 `net::IO` boundary. Their deterministic network cases install `net::system()`
 inside the scoped host-network fixture; no checked HTTP/2 example depends on
 source-less public network calls.
+The `core.test.veln` companion submits ordered HEADERS and DATA frame chunks
+through the network duplex adapter. It verifies that an ordinary low-level
+failure or a malformed committed count stops after the first frame attempt and
+preserves the projected network error.
 The `connection.test.veln` companion covers TCP service accept,
 stream I/O, stream-close, and listener-close failures on first and later
 accepted connections, cumulative accepted counts, cleanup precedence, and

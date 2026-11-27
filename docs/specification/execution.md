@@ -527,8 +527,10 @@ A listener accepts streams until clean listener end or a host failure.
 `net::read` returns a typed `net::ReadOutcome` or `net::NetError`. Injected
 network handlers can return separate chunks; default host socket reads follow
 the bytes available from the socket and do not preserve peer write boundaries.
-`net::write_all` preserves the bytes in one chunk and retries uncommitted
-suffixes until completion or the first typed failure. Stream close and
+`net::write_all` preserves cumulative committed progress for one chunk and
+retries only uncommitted suffixes until completion, the first typed failure,
+or an invalid provider count. Its typed outcome distinguishes exact failure
+progress from the known lower bound after an invalid reply. Stream close and
 listener close are explicit ownership operations. Read shutdown preserves
 write ownership and makes blocked or later reads return `Closed`; write
 shutdown makes blocked or later writes return `Closed`. A closed handle remains
@@ -572,8 +574,9 @@ streams, standard input, or undo completed writes.
 `Ok(Some(ByteChunk))` for non-empty data, `Ok(None)` for clean end, and the
 unchanged typed network error for failure. A successful empty read is a typed
 non-progress error. `write_chunks(chunks)` completes each chunk in list order
-through `net::write_all` and returns the first typed failure. The adapter does
-not listen, connect, accept, close, or shut down the stream.
+through `net::write_all` and projects either failure outcome to its terminal
+unit/error boundary. The adapter does not expose byte progress, listen,
+connect, accept, close, or shut down the stream.
 
 HTTP/2 connection drivers own only the core state and caller-owned duplex
 interface. The client writes its preface and initial SETTINGS before reading;

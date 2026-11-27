@@ -66,6 +66,15 @@ pub type WriteOutcome
 	pub WriteFailed(committed: ByteCount, error: NetError)
 end
 
+## A complete-write result reports the cumulative prefix committed across all
+## low-level writes. InvalidReply retains only the independently verified
+## prefix because an invalid provider count cannot establish exact progress.
+pub type WriteAllOutcome
+	pub Complete(count: ByteCount)
+	pub Failed(committed: ByteCount, error: NetError)
+	pub InvalidReply(known_prefix: ByteCount, error: NetError)
+end
+
 ## The substitutable network-operation boundary. This module does not install
 ## a handler implicitly.
 pub effect IO
@@ -176,43 +185,66 @@ end
 
 ## Write the complete byte chunk through the active IO handler. Partial
 ## successes retry only the uncommitted suffix with the same deadline and
-## cancellation token. A write failure stops the operation immediately.
-pub fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<(), NetError> effects [IO]
-	write_all_remaining(stream, bytes, deadline, token)
+## cancellation token. Failures retain exact cumulative progress. An invalid
+## provider count retains only the verified prefix from preceding attempts.
+pub fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> WriteAllOutcome effects [IO]
+	write_all_remaining(stream, bytes, 0, deadline, token)
 end
 
-fn write_all_remaining(stream: Stream, remaining: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<(), NetError> effects [IO]
+fn write_all_remaining(stream: Stream, remaining: ByteChunk, committed: Int, deadline: Option<Deadline>, token: Option<CancelToken>) -> WriteAllOutcome effects [IO]
 	if byte_count_to_int(byte_chunk_count(remaining)) == 0
-		Ok(())
+		Complete(ByteCount(committed))
 	else
-		match write_all_next(remaining, perform IO::write(stream, remaining, deadline, token))
-			Ok(None) => Ok(())
-			Ok(Some(suffix)) => write_all_remaining(stream, suffix, deadline, token)
-			Err(error) => Err(error)
+		match write_all_next(remaining, committed, perform IO::write(stream, remaining, deadline, token))
+			WriteAllComplete(count) => Complete(count)
+			WriteAllFailed(count, error) => Failed(count, error)
+			WriteAllInvalidReply(count, error) => InvalidReply(count, error)
+			WriteAllContinue(next_committed, suffix) => write_all_remaining(stream, suffix, next_committed, deadline, token)
 		end
 	end
 end
 
-fn write_all_next(remaining: ByteChunk, outcome: WriteOutcome) -> Result<Option<ByteChunk>, NetError>
+type WriteAllStep
+	WriteAllContinue(committed: Int, remaining: ByteChunk)
+	WriteAllComplete(count: ByteCount)
+	WriteAllFailed(committed: ByteCount, error: NetError)
+	WriteAllInvalidReply(known_prefix: ByteCount, error: NetError)
+end
+
+fn write_all_next(remaining: ByteChunk, committed: Int, outcome: WriteOutcome) -> WriteAllStep
+	let remaining_count = byte_count_to_int(byte_chunk_count(remaining))
 	match outcome
-		Written(count) => write_all_next_after_success(remaining, byte_count_to_int(byte_chunk_count(remaining)), count)
-		WriteFailed(_, error) => Err(error)
+		Written(count) => write_all_next_after_success(remaining, remaining_count, committed, count)
+		WriteFailed(count, error) => write_all_next_after_failure(remaining_count, committed, count, error)
 	end
 end
 
-fn write_all_next_after_success(remaining: ByteChunk, remaining_count: Int, count: ByteCount) -> Result<Option<ByteChunk>, NetError>
-	let committed = byte_count_to_int(count)
-	if committed == remaining_count
-		Ok(None)
-	else if committed == 0
-		Err(write_all_progress_error("write returned zero before the input was complete"))
-	else if committed > remaining_count
-		Err(write_all_progress_error("write returned a count larger than its input"))
+fn write_all_next_after_success(remaining: ByteChunk, remaining_count: Int, prefix: Int, count: ByteCount) -> WriteAllStep
+	let next = byte_count_to_int(count)
+	if next < 0
+		WriteAllInvalidReply(ByteCount(prefix), write_all_progress_error("write returned a negative count"))
+	else if next == remaining_count
+		WriteAllComplete(ByteCount(prefix + next))
+	else if next == 0
+		WriteAllFailed(ByteCount(prefix), write_all_progress_error("write returned zero before the input was complete"))
+	else if next > remaining_count
+		WriteAllInvalidReply(ByteCount(prefix), write_all_progress_error("write returned a count larger than its input"))
 	else
 		match byte_drop(remaining, count)
-			Ok(suffix) => Ok(Some(suffix))
-			Err(message) => Err(write_all_progress_error(message))
+			Ok(suffix) => WriteAllContinue(prefix + next, suffix)
+			Err(message) => WriteAllInvalidReply(ByteCount(prefix), write_all_progress_error(message))
 		end
+	end
+end
+
+fn write_all_next_after_failure(remaining_count: Int, prefix: Int, count: ByteCount, error: NetError) -> WriteAllStep
+	let next = byte_count_to_int(count)
+	if next < 0
+		WriteAllInvalidReply(ByteCount(prefix), write_all_progress_error("write failure returned a negative committed count"))
+	else if next > remaining_count
+		WriteAllInvalidReply(ByteCount(prefix), write_all_progress_error("write failure returned a committed count larger than its input"))
+	else
+		WriteAllFailed(ByteCount(prefix + next), error)
 	end
 end
 

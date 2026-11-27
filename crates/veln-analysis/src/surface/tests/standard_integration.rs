@@ -229,8 +229,19 @@ fn loaded_toolchain_standard_fixture() -> &'static (SurfaceModule, Vec<Diagnosti
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../veln-stdlib/veln");
         let core_test = fs::read_to_string(root.join("http2/core.test.veln"))
             .expect("standard HTTP/2 core test source should load");
-        let project =
-            toolchain_standard_project(vec![SourceFile::new("http2/core.test.veln", core_test)]);
+        let transport_net_test = fs::read_to_string(root.join("transport/net_test.veln"))
+            .expect("standard transport network test support should load");
+        let transport_net_resource_test =
+            fs::read_to_string(root.join("transport/net_resource_test.veln"))
+                .expect("standard transport network resource test support should load");
+        let project = toolchain_standard_project(vec![
+            SourceFile::new("http2/core.test.veln", core_test),
+            SourceFile::new("transport/net_test.veln", transport_net_test),
+            SourceFile::new(
+                "transport/net_resource_test.veln",
+                transport_net_resource_test,
+            ),
+        ]);
         let expected_runtime_sources = project
             .files
             .iter()

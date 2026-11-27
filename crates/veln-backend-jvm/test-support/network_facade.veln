@@ -21,7 +21,11 @@ handler scripted_system_write_network(calls: { tx : Sender<Int>, rx : Receiver<I
 			Some(count) => begin
 				let _ = channel::send(calls.tx, count + 1)
 				let _ = match cancel_after_partial
-					Some(token) => if facade_bytes_match(bytes, "abcdef") time::cancel(token) else () end
+					Some(token) => if facade_bytes_match(bytes, "abcdef")
+						time::cancel(token)
+					else
+						()
+					end
 					None => ()
 				end
 				match byte_chunk_to_visible_ascii_string(bytes)
@@ -52,7 +56,11 @@ handler facade_clock(expected_wait: Int) for host_effects::Clock
 end
 
 handler stable_network_clock(value: Int) for host_effects::Clock
-	request(operation, milliseconds) => if operation == "cancelled" Ok(0) else Ok(value) end
+	request(operation, milliseconds) => if operation == "cancelled"
+		Ok(0)
+	else
+		Ok(value)
+	end
 	wall_time() => Ok({ unix_seconds: 0, nanosecond: 0 })
 end
 
@@ -195,7 +203,7 @@ handler supplied_write_outcome(outcome: net::WriteOutcome) for net::IO
 	close_stream(stream) => Err(facade_error("write-all-unexpected", "close_stream"))
 end
 
-pub fn write_all_selected(stream: net::Stream, bytes: ByteChunk, outcome: net::WriteOutcome) -> Result<(), net::NetError>
+pub fn write_all_selected(stream: net::Stream, bytes: ByteChunk, outcome: net::WriteOutcome) -> net::WriteAllOutcome
 	handle net::write_all(stream, bytes, None, None) with supplied_write_outcome(outcome)
 end
 
@@ -265,7 +273,10 @@ fn verify_network_facade_with_system() -> Result<(), String> effects [net::IO, n
 end
 
 pub fn verify_network_facade() -> Result<(), String> effects [net, time]
-	handle handle verify_network_facade_with_system() with net::system() with fixed_network("facade", byte_chunk([]))
+	handle verify_network_facade_with_system() with
+		fixed_network("facade", byte_chunk([])),
+		net::system()
+	end
 end
 
 fn expect_write_all_calls(calls: { tx : Sender<Int>, rx : Receiver<Int> }, expected: Int, message: String) -> Result<(), String> effects [concurrency]
@@ -275,15 +286,14 @@ fn expect_write_all_calls(calls: { tx : Sender<Int>, rx : Receiver<Int> }, expec
 	end
 end
 
-fn expect_system_write_failure(result: Result<(), net::NetError>) -> Result<(), String>
+fn expect_system_write_failure(result: net::WriteAllOutcome) -> Result<(), String>
 	match result
-		Err(net::NetError("write", None, Some("127.0.0.1:2"), net::Other, message)) => if message == "transport write failed: forced_failure\nnote: Stream identity: write-all:1.\nnote: Lifecycle phase: during_operation.\nnote: Commit state: input=false, output=true, ownership=false.\nnote: Platform cause: failed after prefix."
+		net::WriteAllOutcome::Failed(net::ByteCount(3), net::NetError("write", None, Some("127.0.0.1:2"), net::Other, message)) => if message == "transport write failed: forced_failure\nnote: Stream identity: write-all:1.\nnote: Lifecycle phase: during_operation.\nnote: Commit state: input=false, output=true, ownership=false.\nnote: Platform cause: failed after prefix."
 			Ok(())
 		else
 			Err("write_all changed the system failure context")
 		end
-		Err(_) => Err("write_all changed the system failure shape")
-		Ok(()) => Err("write_all ignored a failed partial write")
+		_ => Err("write_all changed the system failure shape or cumulative prefix")
 	end
 end
 
@@ -294,15 +304,16 @@ fn verify_write_all_with_system(calls: { tx : Sender<Int>, rx : Receiver<Int> })
 	let partial_token = time::cancel_token()
 	let partial = handle net::write_all(stream, byte_chunk_from_visible_ascii_string("abcdef")?, Some(deadline), Some(partial_token)) with stable_network_clock(1000)
 	let _ = match partial
-		Ok(()) => Ok(())
-		Err(net::NetError(_, _, _, _, message)) => Err(message)
+		net::WriteAllOutcome::Complete(net::ByteCount(6)) => Ok(())
+		net::WriteAllOutcome::Failed(_, net::NetError(_, _, _, _, message)) => Err(message)
+		net::WriteAllOutcome::InvalidReply(_, net::NetError(_, _, _, _, message)) => Err(message)
 	end?
 	let _ = expect_write_all_calls(calls, 3, "write_all used the wrong number of partial writes")?
 	let zero_token = time::cancel_token()
 	let _ = channel::send(calls.tx, 3)
 	let zero = handle net::write_all(stream, byte_chunk_from_visible_ascii_string("zero")?, Some(deadline), Some(zero_token)) with stable_network_clock(1000)
 	let _ = facade_expect(match zero
-		Err(net::NetError("write_all", None, None, net::Other, _)) => true
+		net::WriteAllOutcome::Failed(net::ByteCount(0), net::NetError("write_all", None, None, net::Other, _)) => true
 		_ => false
 	end, "write_all did not reject zero progress")?
 	let _ = expect_write_all_calls(calls, 4, "write_all retried after zero progress")?
@@ -315,8 +326,8 @@ fn verify_write_all_with_system(calls: { tx : Sender<Int>, rx : Receiver<Int> })
 	let _ = channel::send(calls.tx, 5)
 	let no_write = handle net::write_all(stream, empty, Some(deadline), Some(empty_token)) with stable_network_clock(1000)
 	let _ = facade_expect(match no_write
-		Ok(()) => true
-		Err(_) => false
+		net::WriteAllOutcome::Complete(net::ByteCount(0)) => true
+		_ => false
 	end, "write_all did not accept an empty input")?
 	expect_write_all_calls(calls, 5, "write_all wrote an empty input")
 end
@@ -324,7 +335,10 @@ end
 pub fn verify_write_all() -> Result<(), String> effects [net, time, concurrency]
 	let calls = channel::bounded<Int>(1)
 	let _ = channel::send(calls.tx, 0)
-	let result = handle handle verify_write_all_with_system(calls) with net::system() with scripted_system_write_network(calls, None)
+	let result = handle verify_write_all_with_system(calls) with
+		scripted_system_write_network(calls, None),
+		net::system()
+	end
 	let _ = result?
 	verify_write_all_token_identity()
 end
@@ -336,13 +350,16 @@ fn verify_write_all_one_byte_progress_with_system(bytes: ByteChunk, expected_cou
 	let result = handle net::write_all(stream, bytes, Some(deadline), Some(token)) with stable_network_clock(1000)
 	let _ = expect_write_all_calls(calls, expected_count, "write_all used the wrong number of one-byte writes")?
 	match result
-		Ok(()) => Ok(())
-		Err(_) => Err("write_all failed during one-byte progress")
+		net::WriteAllOutcome::Complete(count) => facade_expect(byte_count_to_int(count) == expected_count, "write_all returned the wrong cumulative count")
+		_ => Err("write_all failed during one-byte progress")
 	end
 end
 
 pub fn verify_write_all_one_byte_progress(bytes: ByteChunk, expected_count: Int) -> Result<(), String> effects [net, time, concurrency]
 	let calls = channel::bounded<Int>(1)
 	let _ = channel::send(calls.tx, 0)
-	handle handle verify_write_all_one_byte_progress_with_system(bytes, expected_count, calls) with net::system() with scripted_system_write_network(calls, None)
+	handle verify_write_all_one_byte_progress_with_system(bytes, expected_count, calls) with
+		scripted_system_write_network(calls, None),
+		net::system()
+	end
 end

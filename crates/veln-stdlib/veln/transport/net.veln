@@ -26,8 +26,9 @@ fn write_stream_chunk_list(stream: net::Stream, chunks: List<ByteChunk>) -> Resu
 	match chunks
 		Nil => Ok(())
 		Cons(chunk, tail) => match net::write_all(stream, chunk, None, None)
-			Ok(()) => write_stream_chunk_list(stream, tail)
-			Err(error) => Err(error)
+			net::WriteAllOutcome::Complete(_) => write_stream_chunk_list(stream, tail)
+			net::WriteAllOutcome::Failed(_, error) => Err(error)
+			net::WriteAllOutcome::InvalidReply(_, error) => Err(error)
 		end
 	end
 end

@@ -17,8 +17,8 @@ use crate::effects::prelude_effect_origin;
 use crate::schema::primitives::lowercase_schema_primitive;
 use crate::source_less_lookup::qualified_symbol;
 use crate::types::signatures::{
-    FunctionSignature, ModuleValueIdentity, SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX,
-    SchemaReferenceErrorKind, UserEffectPathResolution,
+    EffectOperationSignature, EffectSignature, FunctionSignature, ModuleValueIdentity,
+    SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX, SchemaReferenceErrorKind, UserEffectPathResolution,
 };
 
 type LocalNameDeclaration = (String, SourceSpan);

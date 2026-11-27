@@ -18,10 +18,19 @@ fn standard_library_package_documentation_resources_follow_published_links() {
     );
     let mut session = Session::new(&project.root);
     session.request("initialize", r#"{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}"#);
+    let (resources, base, index_text) = read_standard_library_index(&mut session);
+    assert_templates(&mut session);
+    let modules = read_documented_modules(&mut session, &resources, &base, &index_text);
+    assert_documented_declarations(&mut session, &resources, &base, &modules);
+    assert_unknown_documentation_digest(&mut session, &base);
+    session.finish();
+}
+
+fn read_standard_library_index(session: &mut Session) -> (Vec<JsonValue>, String, String) {
     let list = session.request("resources/list", "{}");
     let result = field(&list, "result");
     assert!(result.object_field("nextCursor").is_none());
-    let resources = field(result, "resources").as_array().unwrap();
+    let resources = field(result, "resources").as_array().unwrap().to_vec();
     let indices: Vec<_> = resources
         .iter()
         .filter(|resource| {
@@ -39,22 +48,38 @@ fn standard_library_package_documentation_resources_follow_published_links() {
     assert_eq!(string(index, "mimeType"), MARKDOWN);
     assert!(index.object_field("description").is_none());
     let index_uri = string(index, "uri");
-    let base = index_uri.strip_suffix("/index").unwrap();
+    let base = index_uri.strip_suffix("/index").unwrap().to_owned();
     assert!(base.starts_with("veln-doc:///package/std/snapshot/"));
     let index_text = session.read(index_uri);
     assert!(index_text.starts_with("# Package Documentation: std\n"));
     assert!(index_text.contains("- Package identity: std"));
+    (resources, base, index_text)
+}
 
-    assert_templates(&mut session);
+fn read_documented_modules(
+    session: &mut Session,
+    resources: &[JsonValue],
+    base: &str,
+    index_text: &str,
+) -> BTreeMap<&'static str, String> {
     let mut modules = BTreeMap::new();
     for name in ["prelude", "net", "observe", "trace"] {
-        let uri = linked_uri(&index_text, name);
+        let uri = linked_uri(index_text, name);
         assert_hidden_resource(resources, &uri, base, "module");
         let text = session.read(&uri);
         assert!(text.starts_with(&format!("# Module {name}\n")));
         assert!(text.contains(&format!("- Source path: {name}.veln")));
         modules.insert(name, text);
     }
+    modules
+}
+
+fn assert_documented_declarations(
+    session: &mut Session,
+    resources: &[JsonValue],
+    base: &str,
+    modules: &BTreeMap<&str, String>,
+) {
     for (module, label, heading) in declaration_reads() {
         let uri = linked_uri(&modules[module], label);
         assert_hidden_resource(resources, &uri, base, "declaration");
@@ -94,7 +119,9 @@ fn standard_library_package_documentation_resources_follow_published_links() {
     for text in modules.values() {
         assert_private_details_absent(text);
     }
+}
 
+fn assert_unknown_documentation_digest(session: &mut Session, base: &str) {
     // Change only the documentation digest, keeping the discovered snapshot.
     let (snapshot, digest) = base.split_once("/documentation/").unwrap();
     let wrong_digest = if digest == "0".repeat(64) { "1" } else { "0" }.repeat(64);
@@ -107,7 +134,6 @@ fn standard_library_package_documentation_resources_follow_published_links() {
     assert_eq!(field(error, "code").as_i64(), Some(-32002));
     assert_eq!(string(field(error, "data"), "code"), "resource_not_found");
     assert!(response.object_field("result").is_none());
-    session.finish();
 }
 
 fn assert_templates(session: &mut Session) {
@@ -338,6 +364,7 @@ fn declaration_reads() -> &'static [(&'static str, &'static str, &'static str)] 
         ("net", "type Endpoint", "# Type Endpoint"),
         ("net", "type NetErrorKind", "# Type NetErrorKind"),
         ("net", "type NetError", "# Type NetError"),
+        ("net", "type WriteAllOutcome", "# Type WriteAllOutcome"),
         (
             "net",
             "function split_host_port",

@@ -28,8 +28,9 @@ fn write_chunks_with(stream: net::Stream, chunks: List<ByteChunk>, deadline: Opt
 	match chunks
 		Nil => Ok(())
 		Cons(bytes, tail) => match net::write_all(stream, bytes, deadline, token)
-			Ok(_) => write_chunks_with(stream, tail, deadline, token)
-			Err(error) => Err(error)
+			net::WriteAllOutcome::Complete(_) => write_chunks_with(stream, tail, deadline, token)
+			net::WriteAllOutcome::Failed(_, error) => Err(error)
+			net::WriteAllOutcome::InvalidReply(_, error) => Err(error)
 		end
 	end
 end
@@ -59,5 +60,9 @@ end
 
 pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
+	handle fixture_body() with
+		fake_effects::clock(state),
+		fake_effects::network(state),
+		net::system()
+	end
 end

@@ -1,0 +1,98 @@
+use prelude
+use net
+
+pub type Script
+	pub Script(writes: List<net::WriteOutcome>)
+end
+
+type State
+	State(writes: List<net::WriteOutcome>, inputs: List<ByteChunk>, controls_match: Bool)
+end
+
+pub type Snapshot
+	pub Snapshot(inputs: List<ByteChunk>, remaining_writes: List<net::WriteOutcome>, controls_match: Bool)
+end
+
+pub type Observation
+	pub Observation(outcome: net::WriteAllOutcome, snapshot: Snapshot)
+end
+
+fn failure(operation: String, message: String) -> net::NetError
+	net::NetError(operation, None, None, net::Other, message)
+end
+
+fn unexpected_endpoints(operation: String) -> Result<List<net::Endpoint>, net::NetError>
+	Err(failure(operation, "write-all test performed an unexpected operation"))
+end
+
+fn unexpected_listener(operation: String) -> Result<net::Listener, net::NetError>
+	Err(failure(operation, "write-all test performed an unexpected operation"))
+end
+
+fn unexpected_endpoint(operation: String) -> Result<net::Endpoint, net::NetError>
+	Err(failure(operation, "write-all test performed an unexpected operation"))
+end
+
+fn unexpected_read(operation: String) -> Result<net::ReadOutcome, net::NetError>
+	Err(failure(operation, "write-all test performed an unexpected operation"))
+end
+
+fn unexpected_unit(operation: String) -> Result<(), net::NetError>
+	Err(failure(operation, "write-all test performed an unexpected operation"))
+end
+
+fn next_write(state: { tx : Sender<State>, rx : Receiver<State> }, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>, expected_deadline: Option<Deadline>, expected_token: Option<CancelToken>) -> net::WriteOutcome effects [concurrency]
+	match channel::recv(state.rx)
+		Some(State(writes, inputs, controls_match)) => match writes
+			Cons(outcome, remaining) => begin
+				let next_controls_match = controls_match and deadline == expected_deadline and token == expected_token
+				let _ = channel::send(state.tx, State(remaining, Cons(bytes, inputs), next_controls_match))
+				outcome
+			end
+			Nil => begin
+				let _ = channel::send(state.tx, State(Nil, Cons(bytes, inputs), false))
+				net::WriteFailed(net::ByteCount(0), failure("write", "write-all test exhausted its script"))
+			end
+		end
+		None => net::WriteFailed(net::ByteCount(0), failure("write", "write-all test lost its state"))
+	end
+end
+
+handler scripted_io(state: { tx : Sender<State>, rx : Receiver<State> }, expected_deadline: Option<Deadline>, expected_token: Option<CancelToken>) for net::IO effects [net, time, concurrency]
+	resolve(address) => unexpected_endpoints("resolve")
+	listen(address) => unexpected_listener("listen")
+	connect(address, deadline, token) => prelude_builtin::net_system_connect(address, deadline, token)
+	accept(listener, deadline, token) => Err(failure("accept", "write-all test performed an unexpected operation"))
+	listener_address(listener) => unexpected_endpoint("listener_address")
+	close_listener(listener) => unexpected_unit("close_listener")
+	read(stream, deadline, token) => unexpected_read("read")
+	write(stream, bytes, deadline, token) => next_write(state, bytes, deadline, token, expected_deadline, expected_token)
+	local_address(stream) => unexpected_endpoint("local_address")
+	peer_address(stream) => unexpected_endpoint("peer_address")
+	shutdown_read(stream) => unexpected_unit("shutdown_read")
+	shutdown_write(stream) => unexpected_unit("shutdown_write")
+	close_stream(stream) => prelude_builtin::net_system_close_stream(stream)
+end
+
+fn execute_body(script: Script, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>, state: { tx : Sender<State>, rx : Receiver<State> }) -> Result<Observation, String> effects [net::IO, concurrency]
+	match net::connect(net::Address(net::Tcp4, "write.test", 443))
+		Err(_) => Err("write-all test stream did not connect")
+		Ok(stream) => begin
+			let outcome = net::write_all(stream, bytes, deadline, token)
+			let _ = net::close_stream(stream)
+			match channel::recv(state.rx)
+				Some(State(writes, inputs, controls_match)) => Ok(Observation(outcome, Snapshot(inputs, writes, controls_match)))
+				None => Err("write-all test lost its final state")
+			end
+		end
+	end
+end
+
+pub fn execute(script: Script, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<Observation, String> effects [net, time, concurrency]
+	let state = channel::bounded<State>(1)
+	let initial = match script
+		Script(writes) => State(writes, list_nil(), true)
+	end
+	let _ = channel::send(state.tx, initial)
+	handle execute_body(script, bytes, deadline, token, state) with scripted_io(state, deadline, token)
+end

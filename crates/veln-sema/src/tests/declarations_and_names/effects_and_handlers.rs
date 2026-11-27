@@ -113,6 +113,30 @@ fn nominal_effect_unknown_perform_reports_effect_span() {
 }
 
 #[test]
+fn nominal_effect_unknown_perform_still_infers_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> String\n",
+            "  perform MissingAudit::record(missing_user)\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "effect.unknown"
+            && diagnostic.message == "performed effect `MissingAudit` is not known"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved value `missing_user`"
+    }));
+}
+
+#[test]
 fn nominal_effect_missing_public_reports_perform_provenance() {
     let source = SourceFile::new(
         "main.veln",

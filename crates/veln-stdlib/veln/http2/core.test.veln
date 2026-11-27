@@ -2,6 +2,35 @@ use prelude
 use http2::core
 use http2::hpack
 use http2::core::settings_ack
+use transport::net_test
+
+fn outbound_headers_and_data_frames() -> Result<List<ByteChunk>, String>
+	let headers = byte_chunk_from_hex("000003010400000001828486")?
+	let data = byte_chunk_from_hex("000004000100000001aabbccdd")?
+	Ok(list_cons(headers, list_cons(data, list_nil())))
+end
+
+test http2_frame_write_stops_after_the_first_low_level_failure() -> Result<(), String> effects [net, time, concurrency]
+	match transport::net_test::direct_write_result("http2-write-failure", outbound_headers_and_data_frames()?)?
+		{ result: result, trace: Cons("write:http2-frame", Nil) } => if transport::net_test::write_failure_matches(result, "scripted-write", "HTTP/2 frame write failed")
+			Ok(())
+		else
+			Err("HTTP/2 frame write changed the original network failure")
+		end
+		_ => Err("HTTP/2 frame write continued after the first low-level failure")
+	end
+end
+
+test http2_frame_write_stops_after_the_first_malformed_count() -> Result<(), String> effects [net, time, concurrency]
+	match transport::net_test::direct_write_result("http2-malformed-write", outbound_headers_and_data_frames()?)?
+		{ result: result, trace: Cons("write:http2-frame", Nil) } => if transport::net_test::invalid_write_reply_matches(result)
+			Ok(())
+		else
+			Err("HTTP/2 frame write changed the synthesized invalid-provider error")
+		end
+		_ => Err("HTTP/2 frame write continued after a malformed low-level count")
+	end
+end
 
 fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
 	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)

@@ -87,12 +87,13 @@ fn read_stream_chunk_or_end(stream: net::Stream) -> Option<ByteChunk> effects [n
 	end
 end
 
-fn write_stream_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
+fn write_stream_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net::IO]
 	match chunks
-		Nil => ()
-		Cons(bytes, tail) => begin
-			let _ = net::write_all(stream, bytes, None, None)
-			write_stream_chunks(stream, tail)
+		Nil => Ok(())
+		Cons(bytes, tail) => match net::write_all(stream, bytes, None, None)
+			net::WriteAllOutcome::Complete(_) => write_stream_chunks(stream, tail)
+			net::WriteAllOutcome::Failed(_, error) => Err(error)
+			net::WriteAllOutcome::InvalidReply(_, error) => Err(error)
 		end
 	end
 end

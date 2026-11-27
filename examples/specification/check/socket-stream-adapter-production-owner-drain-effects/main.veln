@@ -43,7 +43,8 @@ fn ordered_send_chunks(actions: List<ResponseAction>) -> List<ByteChunk>
 end
 
 fn apply_ordered_send_chunks(stream: net::Stream, actions: List<ResponseAction>) -> () effects [net::IO]
-	write_stream_chunks(stream, ordered_send_chunks(actions))
+	let _ = write_stream_chunks(stream, ordered_send_chunks(actions))
+	()
 end
 
 fn collect_lifecycle_actions(stream: net::Stream, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, time, concurrency]
@@ -90,12 +91,13 @@ pub fn adapter_missing_net(listener: net::Listener, owner: CancelOwner, deadline
 	owner_drain_adapter(listener, owner, deadline)
 end
 
-fn write_stream_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
+fn write_stream_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net::IO]
 	match chunks
-		Nil => ()
-		Cons(bytes, tail) => begin
-			let _ = net::write_all(stream, bytes, None, None)
-			write_stream_chunks(stream, tail)
+		Nil => Ok(())
+		Cons(bytes, tail) => match net::write_all(stream, bytes, None, None)
+			net::WriteAllOutcome::Complete(_) => write_stream_chunks(stream, tail)
+			net::WriteAllOutcome::Failed(_, error) => Err(error)
+			net::WriteAllOutcome::InvalidReply(_, error) => Err(error)
 		end
 	end
 end
