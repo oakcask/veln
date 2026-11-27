@@ -1,6 +1,12 @@
 use super::*;
 
 impl FunctionChecker<'_> {
+    pub(in crate::analysis::body) fn infer_unconstrained_arguments(&mut self, args: &[Expr]) {
+        for arg in args {
+            self.infer_expr(arg, None);
+        }
+    }
+
     pub(super) fn record_call_effects(
         &mut self,
         expr: &Expr,
