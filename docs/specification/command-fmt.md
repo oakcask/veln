@@ -142,4 +142,8 @@ and idempotence. The checked
 case covers both terminated body forms, short-chain migration with and without
 grouping parentheses, single-line and multiline chain layouts, mixed short and
 terminated chains in both nesting directions, outermost-first entry order,
-final-comma removal, boundary-comment retention, and idempotence.
+final-comma removal, boundary-comment retention, and idempotence. Formatter
+golden tests also pin complete-chain eligibility: postfix, branch, `begin`,
+handled-block, multiline-body, and comment boundaries keep the surrounding
+mixed chain nested, while eligible independent chains beyond statement and
+`defer` boundaries still migrate. Each boundary output is idempotent.

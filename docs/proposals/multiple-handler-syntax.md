@@ -74,11 +74,16 @@ are required. Production handlers continue to use real host effects.
 
 ## Acceptance evidence
 
-Implementation is complete when checked formatter cases cover the remaining
-single-entry, multiline-expression, block, and comment-boundary inputs; a
-second formatting pass is byte-identical; and semantic/backend cases cover the
-remaining contract above. The current parse-before-write gate must continue to
-leave every selected file unchanged when any file has a parse diagnostic.
+Current formatter tests pin the complete-chain boundary for postfix, branch,
+`begin`, handled-block, multiline-body, and comment inputs. They also pin
+independent migration beyond statement and `defer` boundaries and require a
+byte-identical second formatting pass.
+
+Implementation is complete when checked formatter cases cover migration of the
+remaining single-entry, multiline-expression, block, and comment-preserving
+inputs, and semantic/backend cases cover the remaining contract above. The
+current parse-before-write gate must continue to leave every selected file
+unchanged when any file has a parse diagnostic.
 
 After those checks pass, remove this proposal and its Ready catalog entry. The
 current specifications and executable examples must remain the authority for
