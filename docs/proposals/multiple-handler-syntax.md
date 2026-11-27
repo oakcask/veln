@@ -10,26 +10,22 @@ defines the implemented terminated expression-body and block-body handler
 lists. The [effects specification](../specification/effects.md) defines their
 outermost-first ordered semantics, and the
 [format specification](../specification/command-fmt.md) defines canonical
-formatting for directly written lists and the implemented short-chain
+formatting for directly written lists and the implemented short and mixed-chain
 migration.
 
 This proposal now covers only the remaining migration forms and
 ordered-contract cases that are not yet accepted by focused executable
-evidence. The accepted source forms, direct list formatting, comment-free
-short-chain migration for single-line and eligible multiline chains, the
-complete-chain boundary, successful ordered context evaluation, inner
-shadowing, and body-result preservation are current behavior rather than
-future work.
+evidence.
 
 ## Automatic migration
 
 The current [format specification](../specification/command-fmt.md) defines the
 implemented migration for comment-free single-line and eligible multiline
-chains made only of short handler expressions. Remaining migration should
-combine directly nested mixtures of short and list forms without crossing a
-statement, `defer`, function call, branch, or postfix operator. A `begin` used
-as the direct outer body should become a handled block without removing the
-cleanup boundary.
+short chains and for eligible mixtures of short and terminated
+expression-body forms. Remaining migration should support the other body and
+comment forms without crossing a statement, `defer`, function call, branch, or
+postfix operator. A `begin` used as the direct outer body should become a
+handled block without removing the cleanup boundary.
 
 The migrated output should use the short single-handler form when one handler
 and a one-line body remain. Multiple handlers with a one-line body should use
@@ -74,11 +70,11 @@ are required. Production handlers continue to use real host effects.
 
 ## Acceptance evidence
 
-Implementation is complete when checked formatter cases cover the remaining
-mixed, single-entry, multiline-expression, block, and comment-boundary inputs;
-a second formatting pass is byte-identical; and semantic/backend cases cover
-the remaining contract above. The current parse-before-write gate must continue
-to leave every selected file unchanged when any file has a parse diagnostic.
+Implementation is complete when checked formatter cases cover migration of the
+remaining single-entry, multiline-expression, block, and comment-preserving
+inputs, and semantic/backend cases cover the remaining contract above. The
+current parse-before-write gate must continue to leave every selected file
+unchanged when any file has a parse diagnostic.
 
 After those checks pass, remove this proposal and its Ready catalog entry. The
 current specifications and executable examples must remain the authority for

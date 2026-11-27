@@ -24,9 +24,9 @@ also states it.
 - [Return Cancellable Wait Outcomes Directly](cancellable-wait-outcomes.md):
   consolidate timer wait reporting and distinguish interruption from cancellation.
 - [Multiple-handler Migration and Acceptance](multiple-handler-syntax.md):
-  expand migration to mixed, block, other multiline-body, and
-  comment-preserving cases, and complete the remaining failure, cleanup, task,
-  provider-capture, and acceptance matrix.
+  expand migration to block, other multiline-body, and comment-preserving
+  cases, and complete the remaining failure, cleanup, task, provider-capture,
+  and acceptance matrix.
 - [Generic Functions](generic-functions.md): implement explicit rank-one type
   schemes, independent call instantiation, scheme-preserving aliases,
   artifacts and tooling, and backend acceptance. Current declaration syntax

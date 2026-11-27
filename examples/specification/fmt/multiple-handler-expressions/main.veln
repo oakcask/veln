@@ -22,6 +22,10 @@ fn second() -> Int
   2
 end
 
+fn wrap(value: Int) -> Int
+  value
+end
+
 fn value() -> Int effects [Ask]
   perform Ask::value()
 end
@@ -64,4 +68,37 @@ fn migrate_multiline_short_chain() -> Int
   handle (
     handle (handle value() with inner(second())) with outer(first())
   ) with handler()
+end
+
+fn migrate_short_over_list() -> Int
+  handle (handle value() with
+    outer(first()),
+    inner(second())
+  end) with handler()
+end
+
+fn migrate_list_over_short() -> Int
+  handle (handle value() with inner(second())) with
+    handler(),
+    outer(first())
+  end
+end
+
+fn preserve_inner_closing_comment() -> Int
+  wrap(handle (handle value() with
+    inner(second())
+  end # inner closing
+  ) with outer(first()))
+end
+
+fn preserve_list_sibling_comment() -> Vec<Int>
+  [handle (handle value() with inner(second())) with
+    outer(first())
+  end, second() # later item
+  ]
+end
+
+fn preserve_record_continuation() -> Int
+  { first: first() # final field
+  }.first
 end

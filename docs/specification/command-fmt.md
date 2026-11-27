@@ -52,9 +52,10 @@ A handler header places `for` between its formatted parameter list and nominal
 effect path, followed by any retained-effect list. Reformatting that output is
 idempotent and preserves the same effect path and retained effects.
 
-A directly written terminated handler list keeps its body form and entry
-order. An expression body begins on the `handle` header and retains any of its
-own multiline delimiters before `with`. A block body begins on the next line.
+A directly written terminated handler list that is not part of an eligible
+nested-chain migration keeps its body form and entry order. An expression body
+begins on the `handle` header and retains any of its own multiline delimiters
+before `with`. A block body begins on the next line.
 Body lines and handler entries use one additional tab; `with` for a block and
 the closing `end` align with `handle`. The formatter writes one entry per line,
 writes commas only between entries, removes an input final comma, and preserves
@@ -64,22 +65,25 @@ comments attached to entries. A standalone comment before a block form's
 identical bytes.
 
 The formatter migrates a comment-free chain of two or more directly nested
-short handler expressions. The complete chain may span source lines and may
-use grouping parentheses, but its handled body must format on one line. The
-result is one terminated expression-body list whose entries run from the
-outermost handler to the innermost handler. The migration preserves the
-handled body and each handler context expression. Reformatting the migrated
-result produces identical bytes. During one formatting pass, the formatter
-leaves the chain nested if it contains comments, mixes short and terminated
-forms, uses a handled block or `begin`, has a body that formats across multiple
-lines, or reaches another handler only through a statement, `defer`, call,
-branch, or postfix operator. An ineligible comment-free multiline chain keeps
-a canonical multiline nested form that is byte-identical on a second pass.
-Eligibility applies to the complete directly nested chain: when an outer form
-is ineligible, no directly nested suffix of that chain migrates on its own. A
-statement, `defer`, call, branch, or postfix operator ends that direct chain,
-so an eligible chain inside the independent expression may migrate without
-changing the ineligible outer form.
+short handler expressions. It also migrates a directly nested chain that mixes
+the short form with terminated expression-body handler lists. The complete
+chain may span source lines and may use grouping parentheses, but its handled
+body must format on one line. The result is one terminated expression-body
+list whose entries run from the outermost handler to the innermost handler;
+entries already grouped in one list retain their written order. The migration
+preserves the handled body and each handler context expression. Reformatting
+the migrated result produces identical bytes.
+
+During one formatting pass, the formatter leaves the chain nested if it
+contains comments, uses a handled block or `begin`, has a body that formats
+across multiple lines, or reaches another handler only through a statement,
+`defer`, call, branch, or postfix operator. An ineligible comment-free
+multiline chain keeps a canonical multiline nested form that is byte-identical
+on a second pass. Eligibility applies to the complete directly nested chain:
+when an outer form is ineligible, no directly nested suffix of that chain
+migrates on its own. A statement, `defer`, call, branch, or postfix operator
+ends that direct chain, so an eligible chain inside the independent expression
+may migrate without changing the ineligible outer form.
 
 In structurally recognized variant-refinement type text, the formatter writes
 one space on each side of `|`. It preserves the written alternative order,
@@ -108,8 +112,21 @@ left unchanged.
 
 Standalone comments attach to the next parsed source line and receive that
 line's indentation. Comment-only lines do not interrupt declarations. Trailing
-comments stay on their source line. Slash-prefixed comment-like text is not
-migrated.
+comments stay with their source subject. A comment after an `if` or `else if`
+condition remains on that condition line before the branch body. A call or
+collection writes the comma or closing delimiter needed by a commented child
+without placing that syntax behind the line comment. A closing call or
+collection delimiter may move to the next line so a comment owned by its final
+child remains inside that child. A field access or postfix operator that
+continues from the collection remains after the moved closing delimiter.
+Expanding a multiline handler expression does not
+consume a trailing comment from a later sibling expression, including the next
+function-body expression, call argument, list item, record field, or dictionary
+entry. A comment owned by the enclosing call remains outside its argument.
+When a terminated inner handler's closing `end` owns a trailing comment, the
+formatter groups that inner handler so the comment remains immediately after
+the `end` before the outer handler or enclosing expression continues.
+Slash-prefixed comment-like text is not migrated.
 
 ## Limits and errors
 
@@ -135,7 +152,8 @@ inferred parameter classifications. The checked
 case covers ordinary and effect declaration binders, trailing-comma removal,
 and idempotence. The checked
 [`multiple-handler-expressions`](../../examples/specification/fmt/multiple-handler-expressions/)
-case covers both terminated body forms, short-chain migration with and without
-grouping parentheses, single-line and multiline chain layouts,
-outermost-first entry order, final-comma removal, boundary-comment retention,
-and idempotence.
+case covers handler-list formatting, nested-chain migration, comment ownership,
+and idempotence through two command passes. Focused formatter tests cover the
+migration boundaries and comment-preservation rules above. They reparse the
+first output, compare syntax ownership where formatting moves delimiters, and
+require byte-identical output on the second pass.

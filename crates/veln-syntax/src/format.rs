@@ -36,12 +36,28 @@ thread_local! {
     static COMMENT_RANGE_KEYS_INSPECTED: std::cell::Cell<usize> = const {
         std::cell::Cell::new(0)
     };
+    static TRAILING_COMMENT_ENTRIES_INSPECTED: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
+    static MIXED_HANDLE_CHAIN_CANDIDATES: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
 }
 
 #[cfg(test)]
 pub(crate) fn reset_comment_range_queries() {
     COMMENT_RANGE_QUERIES.set(0);
     COMMENT_RANGE_KEYS_INSPECTED.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_trailing_comment_entries_inspected() {
+    TRAILING_COMMENT_ENTRIES_INSPECTED.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn trailing_comment_entries_inspected() -> usize {
+    TRAILING_COMMENT_ENTRIES_INSPECTED.get()
 }
 
 #[cfg(test)]
@@ -62,4 +78,28 @@ fn record_comment_range_query() {
 #[cfg(test)]
 fn record_comment_range_key_inspected() {
     COMMENT_RANGE_KEYS_INSPECTED.set(COMMENT_RANGE_KEYS_INSPECTED.get().saturating_add(1));
+}
+
+#[cfg(test)]
+fn record_trailing_comment_entries_inspected(count: usize) {
+    TRAILING_COMMENT_ENTRIES_INSPECTED.set(
+        TRAILING_COMMENT_ENTRIES_INSPECTED
+            .get()
+            .saturating_add(count),
+    );
+}
+
+#[cfg(test)]
+pub(crate) fn reset_mixed_handle_chain_candidates() {
+    MIXED_HANDLE_CHAIN_CANDIDATES.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn mixed_handle_chain_candidates() -> usize {
+    MIXED_HANDLE_CHAIN_CANDIDATES.get()
+}
+
+#[cfg(test)]
+fn record_mixed_handle_chain_candidate() {
+    MIXED_HANDLE_CHAIN_CANDIDATES.set(MIXED_HANDLE_CHAIN_CANDIDATES.get().saturating_add(1));
 }

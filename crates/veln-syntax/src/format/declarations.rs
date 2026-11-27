@@ -93,51 +93,105 @@ fn format_module_value(out: &mut String, comments: &LineComments, value: &crate:
         0,
         comments,
     ));
-    push_source_line(out, comments, value.span.start.line, 0, line);
+    push_source_lines_through(
+        out,
+        comments,
+        value.span.start.line,
+        span_end_line(&value.span),
+        0,
+        line,
+    );
 }
 
 fn format_effect_decl(out: &mut String, comments: &LineComments, effect: &crate::EffectDecl) {
+    push_source_line(
+        out,
+        comments,
+        effect.span.start.line,
+        0,
+        format_effect_header(effect),
+    );
+    for operation in &effect.operations {
+        push_source_line(
+            out,
+            comments,
+            operation.span.start.line,
+            1,
+            format_effect_operation(operation),
+        );
+    }
+    push_source_line(out, comments, effect.span.end.line, 0, String::from("end"));
+}
+
+fn format_effect_header(effect: &crate::EffectDecl) -> String {
     let mut header = String::new();
     if effect.visibility == crate::Visibility::Public {
         header.push_str("pub ");
     }
     header.push_str("effect ");
     header.push_str(effect.name.as_deref().unwrap_or("<missing>"));
-    push_source_line(out, comments, effect.span.start.line, 0, header);
-    for operation in &effect.operations {
-        let mut line = String::new();
-        line.push_str(operation.name.as_deref().unwrap_or("<missing>"));
-        line.push('(');
-        for (index, param) in operation.params.iter().enumerate() {
-            if index > 0 {
-                line.push_str(", ");
-            }
-            line.push_str(&param.name);
-            line.push_str(": ");
-            line.push_str(
-                param
-                    .ty
-                    .as_deref()
-                    .map(canonical_type_text)
-                    .unwrap_or_else(|| "unknown".to_string())
-                    .as_str(),
-            );
+    header
+}
+
+fn format_effect_operation(operation: &crate::EffectOperationDecl) -> String {
+    let mut line = String::new();
+    line.push_str(operation.name.as_deref().unwrap_or("<missing>"));
+    line.push('(');
+    for (index, param) in operation.params.iter().enumerate() {
+        if index > 0 {
+            line.push_str(", ");
         }
-        line.push_str(") -> ");
+        line.push_str(&param.name);
+        line.push_str(": ");
         line.push_str(
-            operation
-                .return_type
+            param
+                .ty
                 .as_deref()
                 .map(canonical_type_text)
                 .unwrap_or_else(|| "unknown".to_string())
                 .as_str(),
         );
-        push_source_line(out, comments, operation.span.start.line, 1, line);
     }
-    push_source_line(out, comments, effect.span.end.line, 0, String::from("end"));
+    line.push_str(") -> ");
+    line.push_str(
+        operation
+            .return_type
+            .as_deref()
+            .map(canonical_type_text)
+            .unwrap_or_else(|| "unknown".to_string())
+            .as_str(),
+    );
+    line
 }
 
 fn format_handler_decl(out: &mut String, comments: &LineComments, handler: &HandlerDecl) {
+    push_source_line(
+        out,
+        comments,
+        handler.span.start.line,
+        0,
+        format_handler_header(handler),
+    );
+    for clause in &handler.operation_clauses {
+        push_source_lines_through(
+            out,
+            comments,
+            clause.span.start.line,
+            span_end_line(&clause.span),
+            1,
+            format_handler_clause(clause, comments),
+        );
+    }
+    push_source_line(
+        out,
+        comments,
+        handler_end_line(handler),
+        0,
+        String::from("end"),
+    );
+}
+
+fn format_handler_header(handler: &HandlerDecl) -> String {
     let mut header = String::new();
     if handler.visibility == Visibility::Public {
         header.push_str("pub ");
@@ -167,34 +221,25 @@ fn format_handler_decl(out: &mut String, comments: &LineComments, handler: &Hand
         header.push_str(&effects.join(", "));
         header.push(']');
     }
-    push_source_line(out, comments, handler.span.start.line, 0, header);
-    for clause in &handler.operation_clauses {
-        let params = clause
-            .params
-            .iter()
-            .map(|param| param.name.clone())
-            .collect::<Vec<_>>()
-            .join(", ");
-        push_source_line(
-            out,
-            comments,
-            clause.span.start.line,
-            1,
-            format!(
-                "{}({}) => {}",
-                clause.operation.as_deref().unwrap_or("<missing>"),
-                params,
-                format_expr_at_indent_with_comments(&clause.body, 1, comments)
-            ),
-        );
-    }
-    push_source_line(
-        out,
-        comments,
-        handler_end_line(handler),
-        0,
-        String::from("end"),
-    );
+    header
+}
+
+fn format_handler_clause(
+    clause: &crate::HandlerOperationClauseDecl,
+    comments: &LineComments,
+) -> String {
+    let params = clause
+        .params
+        .iter()
+        .map(|param| param.name.clone())
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "{}({}) => {}",
+        clause.operation.as_deref().unwrap_or("<missing>"),
+        params,
+        format_expr_at_indent_with_comments(&clause.body, 1, comments)
+    )
 }
 
 fn format_schema_decl(out: &mut String, comments: &LineComments, schema: &SchemaDecl) {
@@ -519,12 +564,16 @@ fn format_function_contracts(out: &mut String, comments: &LineComments, function
 
 fn format_function_body(out: &mut String, comments: &LineComments, function: &FunctionDecl) {
     for line in &function.body {
-        let (source_line, content) = format_body_line(line, 1, comments);
-        push_source_line(out, comments, source_line, 1, content);
+        let (source_line, through_line, content) = format_body_line(line, 1, comments);
+        push_source_lines_through(out, comments, source_line, through_line, 1, content);
     }
 }
 
-fn format_body_line(line: &BodyLine, indent: usize, comments: &LineComments) -> (usize, String) {
+fn format_body_line(
+    line: &BodyLine,
+    indent: usize,
+    comments: &LineComments,
+) -> (usize, usize, String) {
     match line {
         BodyLine::Let {
             pattern,
@@ -541,14 +590,16 @@ fn format_body_line(line: &BodyLine, indent: usize, comments: &LineComments) -> 
             }
             content.push_str(" = ");
             content.push_str(&format_expr_at_indent_with_comments(expr, indent, comments));
-            (span.start.line, content)
+            (span.start.line, span_end_line(span), content)
         }
         BodyLine::Expr { expr, span } => (
             span.start.line,
+            span_end_line(span),
             format_expr_at_indent_with_comments(expr, indent, comments),
         ),
         BodyLine::Defer { body, span, .. } => (
             span.start.line,
+            span_end_line(span),
             format_defer_statement_with_comments(body, span, indent, comments),
         ),
     }

@@ -1258,7 +1258,12 @@ Formatting returns one whole-document `TextEdit` in the response; it does not
 return a multi-file workspace edit. It uses the same accepted-source formatter
 as [`veln fmt`](command-fmt.md#formatting-rules), including preservation of an
 explicit import's `as alias` clause before its optional package source and the
-same eligible nested short-handler migration.
+same eligible migration of nested short-handler chains and chains that mix
+short and terminated expression-body forms. The shared formatter also
+preserves whether a trailing comment belongs to an inner handler's closing
+`end`, a handler argument, or the enclosing call when a handler expands across
+lines. It also preserves a field access or postfix operator after a collection
+whose closing delimiter moves past a trailing child comment.
 
 ## References
 

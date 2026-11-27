@@ -1,5 +1,5 @@
 use super::patterns::format_pattern;
-use super::source_layout::{LineComments, push_indent, push_source_line};
+use super::source_layout::{LineComments, push_indent, push_source_lines_through, span_end_line};
 use super::type_text::canonical_type_text;
 use crate::{BodyLine, Expr};
 
@@ -32,9 +32,16 @@ pub(super) fn format_cleanup_region_with_comments(
     comments.emit_after(span.start.line, &mut text);
     text.push('\n');
     for line in body {
-        let (source_line, content) =
+        let (source_line, through_line, content) =
             format_cleanup_body_line_with_comments(line, indent + 1, comments, render_expr);
-        push_source_line(&mut text, comments, source_line, indent + 1, content);
+        push_source_lines_through(
+            &mut text,
+            comments,
+            source_line,
+            through_line,
+            indent + 1,
+            content,
+        );
     }
     let end_line = if span.end.column == 1 {
         span.end.line.saturating_sub(1)
@@ -97,7 +104,7 @@ pub(super) fn format_cleanup_body_line_with_comments(
     indent: usize,
     comments: &LineComments,
     render_expr: &impl Fn(&Expr, usize) -> String,
-) -> (usize, String) {
+) -> (usize, usize, String) {
     match line {
         BodyLine::Let {
             pattern,
@@ -113,11 +120,16 @@ pub(super) fn format_cleanup_body_line_with_comments(
             }
             text.push_str(" = ");
             text.push_str(&render_expr(expr, indent));
-            (span.start.line, text)
+            (span.start.line, span_end_line(span), text)
         }
-        BodyLine::Expr { expr, span } => (span.start.line, render_expr(expr, indent)),
+        BodyLine::Expr { expr, span } => (
+            span.start.line,
+            span_end_line(span),
+            render_expr(expr, indent),
+        ),
         BodyLine::Defer { body, span, .. } => (
             span.start.line,
+            span_end_line(span),
             format_defer_statement_with_comments(body, span, indent, comments, render_expr),
         ),
     }

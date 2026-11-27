@@ -19,6 +19,7 @@ pub(super) fn format_expr_at_indent_with_comments(
     let mut continued_comments = Vec::new();
     take_continued_begin_comments(expr, false, comments, &mut continued_comments);
     let mut text = format_expr_at_indent_ctx(expr, indent, Some(comments));
+    continued_comments.extend(comments.take_after_owner_ending_at(expr.span.end.offset));
     for comment in continued_comments {
         text.push_str("  ");
         text.push_str(&comment);
@@ -182,16 +183,11 @@ fn format_expr_prec_ctx(
     side: ExprSide,
     indent: usize,
     comments: Option<&LineComments>,
-    allow_short_handle_chain_migration: bool,
+    allow_handle_chain_migration: bool,
 ) -> String {
     let prec = expr_prec(expr);
-    let mut rendered = format_expr_inner(
-        expr,
-        prec,
-        indent,
-        comments,
-        allow_short_handle_chain_migration,
-    );
+    let mut rendered =
+        format_expr_inner(expr, prec, indent, comments, allow_handle_chain_migration);
 
     let needs_parens = match side {
         ExprSide::Root | ExprSide::Left => prec < parent_prec,
@@ -209,7 +205,7 @@ fn format_expr_inner(
     prec: u8,
     indent: usize,
     comments: Option<&LineComments>,
-    allow_short_handle_chain_migration: bool,
+    allow_handle_chain_migration: bool,
 ) -> String {
     match &expr.kind {
         kind @ (ExprKind::Missing
@@ -228,13 +224,9 @@ fn format_expr_inner(
         | ExprKind::Handle { .. }
         | ExprKind::SchemaDecode { .. }
         | ExprKind::SchemaValidate { .. }
-        | ExprKind::SchemaEncode { .. }) => format_keyword_expr(
-            expr,
-            kind,
-            indent,
-            comments,
-            allow_short_handle_chain_migration,
-        ),
+        | ExprKind::SchemaEncode { .. }) => {
+            format_keyword_expr(expr, kind, indent, comments, allow_handle_chain_migration)
+        }
         kind @ (ExprKind::Record(_) | ExprKind::Dict(_) | ExprKind::List(_)) => {
             format_collection_expr(kind, indent, comments)
         }
@@ -309,7 +301,7 @@ fn format_keyword_expr(
     kind: &ExprKind,
     indent: usize,
     comments: Option<&LineComments>,
-    allow_short_handle_chain_migration: bool,
+    allow_handle_chain_migration: bool,
 ) -> String {
     match kind {
         ExprKind::Perform {
@@ -318,8 +310,8 @@ fn format_keyword_expr(
             args,
             ..
         } => {
-            let args = format_expr_args(args, indent, comments);
-            format!("perform {}::{}({args})", effect.join("::"), operation)
+            let args = format_parenthesized_expr_args(args, indent, comments);
+            format!("perform {}::{operation}{args}", effect.join("::"))
         }
         ExprKind::Handle {
             body,
@@ -333,7 +325,7 @@ fn format_keyword_expr(
             *terminated,
             indent,
             comments,
-            allow_short_handle_chain_migration,
+            allow_handle_chain_migration,
         ),
         ExprKind::SchemaDecode {
             schema,
@@ -376,10 +368,16 @@ fn format_handle_expr(
     terminated: bool,
     indent: usize,
     comments: Option<&LineComments>,
-    allow_short_handle_chain_migration: bool,
+    allow_handle_chain_migration: bool,
 ) -> String {
+    if allow_handle_chain_migration
+        && let Some(formatted) = format_mixed_handle_chain(expr, indent, comments)
+    {
+        return formatted;
+    }
+
     if !terminated {
-        if allow_short_handle_chain_migration
+        if allow_handle_chain_migration
             && let Some(formatted) = format_short_handle_chain(expr, indent, comments)
         {
             return formatted;
@@ -387,8 +385,14 @@ fn format_handle_expr(
         return format_unterminated_handle(body, entries, indent, comments);
     }
 
+    let header_trailing_comments = match (body, entries.first(), comments) {
+        (HandleBody::Expression(body), Some(first_entry), Some(comments)) => {
+            comments.take_after_in_range(body.span.end.offset, first_entry.span.start.offset)
+        }
+        _ => Vec::new(),
+    };
     let mut text = String::from("handle");
-    format_terminated_handle_body(&mut text, body, indent, comments);
+    format_terminated_handle_body(&mut text, body, indent, comments, &header_trailing_comments);
     format_terminated_handler_entries(&mut text, entries, indent, comments);
     if let Some(comments) = comments {
         comments.emit_before(expr_end_line(expr), &mut text, indent + 1);
@@ -398,6 +402,105 @@ fn format_handle_expr(
     text
 }
 
+fn format_mixed_handle_chain(
+    expr: &Expr,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> Option<String> {
+    let (body, entries) = direct_mixed_handle_chain(expr)?;
+    #[cfg(test)]
+    super::record_mixed_handle_chain_candidate();
+
+    if comments.is_some_and(|comments| comments.has_comment_in_span_or_separator(&expr.span)) {
+        return None;
+    }
+
+    let formatted_body = format_expr_at_indent_ctx(body, indent, None);
+    if formatted_body.contains('\n') {
+        return Some(format_retained_mixed_handle_chain(
+            expr,
+            formatted_body,
+            indent,
+        ));
+    }
+
+    Some(format_flattened_short_handle_chain(
+        &formatted_body,
+        &entries,
+        indent,
+    ))
+}
+
+fn format_retained_mixed_handle_chain(
+    expr: &Expr,
+    formatted_body: String,
+    indent: usize,
+) -> String {
+    let mut current = expr;
+    let mut levels = Vec::new();
+    while let ExprKind::Handle {
+        body: HandleBody::Expression(body),
+        entries,
+        terminated,
+    } = &current.kind
+    {
+        levels.push((entries.as_slice(), *terminated));
+        current = body;
+    }
+
+    let mut text = formatted_body;
+    for (entries, terminated) in levels.into_iter().rev() {
+        if terminated {
+            let mut retained = format!("handle {text} with\n");
+            format_terminated_handler_entries(&mut retained, entries, indent, None);
+            push_indent(&mut retained, indent);
+            retained.push_str("end");
+            text = retained;
+        } else {
+            let entry = entries
+                .first()
+                .expect("unterminated handle must have one handler entry");
+            let args = format_parenthesized_expr_args(&entry.args, indent, None);
+            text = format!("handle {text} with {}{args}", entry.handler.join("::"));
+        }
+    }
+    text
+}
+
+fn direct_mixed_handle_chain(expr: &Expr) -> Option<(&Expr, Vec<&HandlerEntry>)> {
+    let mut current = expr;
+    let mut entries = Vec::new();
+    let mut saw_short = false;
+    let mut saw_terminated = false;
+
+    while let ExprKind::Handle {
+        body: HandleBody::Expression(body),
+        entries: current_entries,
+        terminated,
+    } = &current.kind
+    {
+        if !terminated && current_entries.len() != 1 {
+            return None;
+        }
+        saw_short |= !terminated;
+        saw_terminated |= *terminated;
+        entries.extend(current_entries);
+        current = body;
+    }
+
+    if !saw_short || !saw_terminated {
+        return None;
+    }
+    if matches!(
+        current.kind,
+        ExprKind::Handle { .. } | ExprKind::Begin { .. }
+    ) {
+        return None;
+    }
+
+    Some((current, entries))
+}
+
 fn format_short_handle_chain(
     expr: &Expr,
     indent: usize,
@@ -405,7 +508,7 @@ fn format_short_handle_chain(
 ) -> Option<String> {
     let (body, entries) = direct_short_handle_chain(expr)?;
 
-    if comments.is_some_and(|comments| comments.has_comment_in_span(&expr.span)) {
+    if comments.is_some_and(|comments| comments.has_comment_in_span_or_separator(&expr.span)) {
         return None;
     }
 
@@ -508,12 +611,39 @@ fn format_unterminated_handle(
     let entry = entries
         .first()
         .expect("unterminated handle must have one handler entry");
-    let args = format_expr_args(&entry.args, indent, comments);
-    format!(
-        "handle {} with {}({args})",
-        format_expr_prec_ctx(body, 0, ExprSide::Root, indent, comments, false),
-        entry.handler.join("::")
-    )
+    let args = format_parenthesized_expr_args(&entry.args, indent, comments);
+    let body = format_continued_handle_body(body, indent, comments);
+    format!("handle {} with {}{args}", body, entry.handler.join("::"))
+}
+
+fn format_continued_handle_body(
+    body: &Expr,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    let formatted = format_expr_prec_ctx(body, 0, ExprSide::Root, indent, comments, false);
+    let trailing_comments = match (&body.kind, comments) {
+        (
+            ExprKind::Handle {
+                terminated: true, ..
+            },
+            Some(comments),
+        ) => comments.take_after_last_end_in_span(&body.span),
+        _ => Vec::new(),
+    };
+    if trailing_comments.is_empty() {
+        return formatted;
+    }
+
+    let mut grouped = format!("({formatted}");
+    for comment in trailing_comments {
+        grouped.push_str("  ");
+        grouped.push_str(&comment);
+    }
+    grouped.push('\n');
+    push_indent(&mut grouped, indent);
+    grouped.push(')');
+    grouped
 }
 
 fn format_terminated_handle_body(
@@ -521,34 +651,45 @@ fn format_terminated_handle_body(
     body: &HandleBody,
     indent: usize,
     comments: Option<&LineComments>,
+    header_trailing_comments: &[String],
 ) {
     match body {
         HandleBody::Expression(body) => {
             text.push(' ');
-            text.push_str(&format_expr_prec_ctx(
-                body,
-                0,
-                ExprSide::Root,
-                indent,
-                comments,
-                false,
-            ));
-            text.push_str(" with\n");
+            text.push_str(&format_continued_handle_body(body, indent, comments));
+            text.push_str(" with");
+            for comment in header_trailing_comments {
+                text.push_str("  ");
+                text.push_str(comment);
+            }
+            text.push('\n');
         }
         HandleBody::Block { body, block_span } => {
             text.push('\n');
             for line in body {
                 match comments {
                     Some(comments) => {
-                        let (source_line, content) = format_cleanup_body_line_with_comments(
-                            line,
-                            indent + 1,
+                        let (source_line, through_line, content) =
+                            format_cleanup_body_line_with_comments(
+                                line,
+                                indent + 1,
+                                comments,
+                                &|expr, child_indent| {
+                                    format_expr_at_indent_with_comments(
+                                        expr,
+                                        child_indent,
+                                        comments,
+                                    )
+                                },
+                            );
+                        push_source_lines_through(
+                            text,
                             comments,
-                            &|expr, child_indent| {
-                                format_expr_at_indent_with_comments(expr, child_indent, comments)
-                            },
+                            source_line,
+                            through_line,
+                            indent + 1,
+                            content,
                         );
-                        push_source_line(text, comments, source_line, indent + 1, content);
                     }
                     None => {
                         push_indent(text, indent + 1);
@@ -587,7 +728,14 @@ fn format_terminated_handler_entries(
             line.push_str(&comment);
         }
         if let Some(comments) = comments {
-            push_source_line(text, comments, entry.span.start.line, indent + 1, line);
+            push_source_lines_through(
+                text,
+                comments,
+                entry.span.start.line,
+                span_end_line(&entry.span),
+                indent + 1,
+                line,
+            );
         } else {
             push_indent(text, indent + 1);
             text.push_str(&line);
@@ -605,7 +753,7 @@ fn take_handler_entry_trailing_comments(
         for arg in &entry.args {
             take_continued_begin_comments(arg, true, comments, &mut trailing_comments);
         }
-        trailing_comments.extend(comments.take_after(entry.span.end.line));
+        trailing_comments.extend(comments.take_after_in_span_or_separator(&entry.span));
     }
     trailing_comments
 }
@@ -616,9 +764,11 @@ fn format_handler_entry(
     comments: Option<&LineComments>,
 ) -> String {
     let mut line = entry.handler.join("::");
-    line.push('(');
-    line.push_str(&format_expr_args(&entry.args, indent + 1, comments));
-    line.push(')');
+    line.push_str(&format_parenthesized_expr_args(
+        &entry.args,
+        indent + 1,
+        comments,
+    ));
     line
 }
 
@@ -722,18 +872,85 @@ fn format_call_expr(
     indent: usize,
     comments: Option<&LineComments>,
 ) -> String {
-    let args = format_expr_args(args, indent, comments);
+    let args = format_parenthesized_expr_args(args, indent, comments);
     format!(
-        "{}({args})",
+        "{}{args}",
         format_expr_prec(callee, prec, ExprSide::Left, indent, comments)
     )
 }
 
-fn format_expr_args(args: &[Expr], indent: usize, comments: Option<&LineComments>) -> String {
-    args.iter()
-        .map(|arg| format_expr_at_indent_ctx(arg, indent, comments))
-        .collect::<Vec<_>>()
-        .join(", ")
+fn format_parenthesized_expr_args(
+    args: &[Expr],
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    format_delimited_subjects(
+        args.iter()
+            .map(|arg| (format_expr_at_indent_ctx(arg, indent, comments), &arg.span)),
+        indent,
+        comments,
+        "(",
+        ")",
+        true,
+    )
+}
+
+fn format_delimited_subjects<'a>(
+    subjects: impl ExactSizeIterator<Item = (String, &'a veln_source::SourceSpan)>,
+    indent: usize,
+    comments: Option<&LineComments>,
+    open: &str,
+    close: &str,
+    break_before_close_for_final_comment: bool,
+) -> String {
+    let subjects = subjects.collect::<Vec<_>>();
+    let subject_count = subjects.len();
+    let mut rendered = String::from(open);
+    let mut needs_inline_space = false;
+    for (index, (subject, span)) in subjects.iter().enumerate() {
+        if needs_inline_space {
+            rendered.push(' ');
+        }
+        rendered.push_str(subject);
+        let is_last = index + 1 == subject_count;
+        if !is_last {
+            rendered.push(',');
+        }
+
+        let trailing = comments.map_or_else(Vec::new, |comments| {
+            if let Some((_, next_span)) = subjects.get(index + 1) {
+                comments.take_after_in_range(span.start.offset, next_span.start.offset)
+            } else {
+                let mut trailing = comments.take_after_in_range(span.start.offset, span.end.offset);
+                trailing.extend(comments.take_after_separator(span));
+                trailing
+            }
+        });
+        if is_last && (!break_before_close_for_final_comment || trailing.is_empty()) {
+            rendered.push_str(close);
+        }
+        if !trailing.is_empty() {
+            for comment in trailing {
+                rendered.push_str("  ");
+                rendered.push_str(&comment);
+            }
+            if !is_last {
+                rendered.push('\n');
+                push_indent(&mut rendered, indent + 1);
+            } else if break_before_close_for_final_comment {
+                rendered.push('\n');
+                push_indent(&mut rendered, indent);
+                rendered.push_str(close.trim_start());
+            }
+            needs_inline_space = false;
+        } else {
+            needs_inline_space = index + 1 < subject_count;
+        }
+    }
+    if subject_count == 0 {
+        rendered.push_str(close);
+    }
+    rendered
 }
 
 fn format_record_expr(
@@ -744,18 +961,23 @@ fn format_record_expr(
     if fields.is_empty() {
         return "{}".to_string();
     }
-    let fields = fields
-        .iter()
-        .map(|field| {
-            format!(
-                "{}: {}",
-                field.name,
-                format_expr_at_indent_ctx(&field.expr, indent, comments)
+    format_delimited_subjects(
+        fields.iter().map(|field| {
+            (
+                format!(
+                    "{}: {}",
+                    field.name,
+                    format_expr_at_indent_ctx(&field.expr, indent, comments)
+                ),
+                &field.span,
             )
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("{{ {fields} }}")
+        }),
+        indent,
+        comments,
+        "{ ",
+        " }",
+        true,
+    )
 }
 
 fn format_dict_expr(
@@ -763,27 +985,39 @@ fn format_dict_expr(
     indent: usize,
     comments: Option<&LineComments>,
 ) -> String {
-    let entries = entries
-        .iter()
-        .map(|entry| {
-            format!(
-                "{}: {}",
-                format_expr_at_indent_ctx(&entry.key, indent, comments),
-                format_expr_at_indent_ctx(&entry.value, indent, comments)
+    format_delimited_subjects(
+        entries.iter().map(|entry| {
+            (
+                format!(
+                    "{}: {}",
+                    format_expr_at_indent_ctx(&entry.key, indent, comments),
+                    format_expr_at_indent_ctx(&entry.value, indent, comments)
+                ),
+                &entry.span,
             )
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("{{ {entries} }}")
+        }),
+        indent,
+        comments,
+        "{ ",
+        " }",
+        true,
+    )
 }
 
 fn format_list_expr(items: &[Expr], indent: usize, comments: Option<&LineComments>) -> String {
-    let items = items
-        .iter()
-        .map(|item| format_expr_at_indent_ctx(item, indent, comments))
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("[{items}]")
+    format_delimited_subjects(
+        items.iter().map(|item| {
+            (
+                format_expr_at_indent_ctx(item, indent, comments),
+                &item.span,
+            )
+        }),
+        indent,
+        comments,
+        "[",
+        "]",
+        true,
+    )
 }
 
 fn format_if_expr(
@@ -794,10 +1028,11 @@ fn format_if_expr(
     indent: usize,
     comments: Option<&LineComments>,
 ) -> String {
-    let mut text = format!(
-        "if {}\n",
-        format_expr_at_indent_ctx(condition, indent, comments)
-    );
+    let mut text = String::from("if ");
+    text.push_str(&format_child_with_trailing_comments(
+        condition, indent, comments,
+    ));
+    text.push('\n');
     push_indent(&mut text, indent + 1);
     text.push_str(&format_expr_at_indent_ctx(
         then_branch,
@@ -808,7 +1043,7 @@ fn format_if_expr(
     for branch in else_if_branches {
         push_indent(&mut text, indent);
         text.push_str("else if ");
-        text.push_str(&format_expr_at_indent_ctx(
+        text.push_str(&format_child_with_trailing_comments(
             &branch.condition,
             indent,
             comments,
@@ -833,6 +1068,21 @@ fn format_if_expr(
     text.push('\n');
     push_indent(&mut text, indent);
     text.push_str("end");
+    text
+}
+
+fn format_child_with_trailing_comments(
+    child: &Expr,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    let mut text = format_expr_at_indent_ctx(child, indent, comments);
+    if let Some(comments) = comments {
+        for comment in comments.take_after_owner_ending_at(child.span.end.offset) {
+            text.push_str("  ");
+            text.push_str(&comment);
+        }
+    }
     text
 }
 

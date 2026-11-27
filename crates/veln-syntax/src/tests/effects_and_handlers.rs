@@ -457,31 +457,11 @@ fn formatter_keeps_ineligible_nested_short_handler_chains_nested() {
         ),
         (
             concat!(
-                "fn mixed() -> Int\n",
-                "  handle (handle (handle value() with\n",
-                "    listed()\n",
-                "  end) with middle()) with outer()\n",
-                "end\n",
-            ),
-            "end with middle() with outer()",
-        ),
-        (
-            concat!(
                 "fn call_boundary() -> Int\n",
                 "  handle wrap(handle value() with inner()) with outer()\n",
                 "end\n",
             ),
             "handle wrap(handle value() with inner()) with outer()",
-        ),
-        (
-            concat!(
-                "fn mixed_other_direction() -> Int\n",
-                "  handle (handle (handle value() with inner()) with middle()) with\n",
-                "    listed()\n",
-                "  end\n",
-                "end\n",
-            ),
-            "handle handle handle value() with inner() with middle() with",
         ),
     ];
 
@@ -492,6 +472,645 @@ fn formatter_keeps_ineligible_nested_short_handler_chains_nested() {
 
         let formatted = format_tree(&output.tree);
         assert!(formatted.contains(retained), "{formatted}");
+    }
+}
+
+#[test]
+fn formatter_migrates_mixed_handler_chains_in_both_directions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn short_over_list() -> Int\n",
+            "  handle (handle value() with\n",
+            "    middle(),\n",
+            "    inner()\n",
+            "  end) with outer()\n",
+            "end\n\n",
+            "fn list_over_short() -> Int\n",
+            "  handle (handle value() with inner()) with\n",
+            "    outer(),\n",
+            "    middle()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn short_over_list() -> Int\n",
+            "\thandle value() with\n",
+            "\t\touter(),\n",
+            "\t\tmiddle(),\n",
+            "\t\tinner()\n",
+            "\tend\n",
+            "end\n\n",
+            "fn list_over_short() -> Int\n",
+            "\thandle value() with\n",
+            "\t\touter(),\n",
+            "\t\tmiddle(),\n",
+            "\t\tinner()\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
+fn formatter_preserves_following_mixed_chain_comment_ownership() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn adjacent_mixed_chains() -> Int\n",
+            "  handle (handle first() with\n",
+            "    first_inner()\n",
+            "  end) with first_outer()\n",
+            "  handle (handle second() with # next header\n",
+            "    second_inner()\n",
+            "  end) with second_outer()\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn adjacent_mixed_chains() -> Int\n",
+            "\thandle first() with\n",
+            "\t\tfirst_outer(),\n",
+            "\t\tfirst_inner()\n",
+            "\tend\n",
+            "\thandle handle second() with  # next header\n",
+            "\t\tsecond_inner()\n",
+            "\tend with second_outer()\n",
+            "end\n",
+        )
+    );
+
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    let reformatted = format_tree(&reparsed.tree);
+    let reparsed_again = parse(&SourceFile::new("reformatted.veln", reformatted.clone()));
+    assert!(
+        reparsed_again.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed_again.diagnostics
+    );
+    assert_eq!(reformatted, formatted);
+}
+
+#[test]
+fn formatter_preserves_nested_argument_mixed_chain_comment_ownership() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn nested_arguments() -> Int\n",
+            "  wrap(\n",
+            "    handle (handle first() with\n",
+            "      first_inner()\n",
+            "    end) with first_outer(), handle (handle second() with # next header\n",
+            "      second_inner()\n",
+            "    end) with second_outer()\n",
+            "  )\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn nested_arguments() -> Int\n",
+            "\twrap(handle first() with\n",
+            "\t\tfirst_outer(),\n",
+            "\t\tfirst_inner()\n",
+            "\tend, handle handle second() with  # next header\n",
+            "\t\tsecond_inner()\n",
+            "\tend with second_outer())\n",
+            "end\n",
+        )
+    );
+
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    let reformatted = format_tree(&reparsed.tree);
+    let reparsed_again = parse(&SourceFile::new("reformatted.veln", reformatted.clone()));
+    assert!(
+        reparsed_again.diagnostics.is_empty(),
+        "{reformatted}\n{:#?}",
+        reparsed_again.diagnostics,
+    );
+    assert_eq!(reformatted, formatted);
+}
+
+#[test]
+fn formatter_preserves_delimited_mixed_chain_comment_ownership() {
+    let cases = [
+        (
+            concat!(
+                "fn sample() -> Int\n",
+                "wrap(handle (handle value() with\n",
+                "inner()\n",
+                "end # inner closing\n",
+                ") with outer())\n",
+                "end\n",
+            ),
+            concat!(
+                "fn sample() -> Int\n",
+                "\twrap(handle (handle value() with\n",
+                "\t\tinner()\n",
+                "\tend  # inner closing\n",
+                "\t) with outer())\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn call_siblings() -> Int\n",
+                "wrap(handle handle first() with\n",
+                "first_inner()\n",
+                "end with first_outer(), later() # later argument\n",
+                ")\n",
+                "end\n",
+            ),
+            concat!(
+                "fn call_siblings() -> Int\n",
+                "\twrap(handle first() with\n",
+                "\t\tfirst_outer(),\n",
+                "\t\tfirst_inner()\n",
+                "\tend, later()  # later argument\n",
+                "\t)\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn enclosing_call() -> Int\n",
+                "wrap(handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer()) # call\n",
+                "end\n",
+            ),
+            concat!(
+                "fn enclosing_call() -> Int\n",
+                "\twrap(handle value() with\n",
+                "\t\touter(),\n",
+                "\t\tinner()\n",
+                "\tend)  # call\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn same_line_siblings() -> Int\n",
+                "wrap(handle (handle first() with\n",
+                "first_inner()\n",
+                "end # first closing\n",
+                ") with first_outer(), handle (handle second() with # second header\n",
+                "second_inner()\n",
+                "end) with second_outer())\n",
+                "end\n",
+            ),
+            concat!(
+                "fn same_line_siblings() -> Int\n",
+                "\twrap(handle (handle first() with\n",
+                "\t\tfirst_inner()\n",
+                "\tend  # first closing\n",
+                "\t) with first_outer(), handle handle second() with  # second header\n",
+                "\t\tsecond_inner()\n",
+                "\tend with second_outer())\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn list_sibling() -> Int\n",
+                "[handle (handle first() with\n",
+                "first_inner()\n",
+                "end) with first_outer(), later() # later item\n",
+                "]\n",
+                "end\n",
+            ),
+            concat!(
+                "fn list_sibling() -> Int\n",
+                "\t[handle first() with\n",
+                "\t\tfirst_outer(),\n",
+                "\t\tfirst_inner()\n",
+                "\tend, later()  # later item\n",
+                "\t]\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn record_sibling() -> Int\n",
+                "{ first: handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer(), later: later() # later field\n",
+                "}\n",
+                "end\n",
+            ),
+            concat!(
+                "fn record_sibling() -> Int\n",
+                "\t{ first: handle value() with\n",
+                "\t\touter(),\n",
+                "\t\tinner()\n",
+                "\tend, later: later()  # later field\n",
+                "\t}\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn dictionary_sibling() -> Int\n",
+                "{ \"first\": handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer(), \"later\": later() # later entry\n",
+                "}\n",
+                "end\n",
+            ),
+            concat!(
+                "fn dictionary_sibling() -> Int\n",
+                "\t{ \"first\": handle value() with\n",
+                "\t\touter(),\n",
+                "\t\tinner()\n",
+                "\tend, \"later\": later()  # later entry\n",
+                "\t}\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn spaced_separator_comment() -> Int\n",
+                "wrap(handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer() , # first argument\n",
+                "later())\n",
+                "end\n",
+            ),
+            concat!(
+                "fn spaced_separator_comment() -> Int\n",
+                "\twrap(handle handle value() with\n",
+                "\t\tinner()\n",
+                "\tend with outer(),  # first argument\n",
+                "\t\tlater())\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn final_argument_comment() -> Int\n",
+                "wrap(handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer(), # final argument\n",
+                ")\n",
+                "end\n",
+            ),
+            concat!(
+                "fn final_argument_comment() -> Int\n",
+                "\twrap(handle handle value() with\n",
+                "\t\tinner()\n",
+                "\tend with outer()  # final argument\n",
+                "\t)\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn next_line_separator_comment() -> Int\n",
+                "wrap(handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer()\n",
+                ", # first argument\n",
+                "later())\n",
+                "end\n",
+            ),
+            concat!(
+                "fn next_line_separator_comment() -> Int\n",
+                "\twrap(handle handle value() with\n",
+                "\t\tinner()\n",
+                "\tend with outer(),  # first argument\n",
+                "\t\tlater())\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn final_list_comment() -> Int\n",
+                "[handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer(), # final item\n",
+                "]\n",
+                "end\n",
+            ),
+            concat!(
+                "fn final_list_comment() -> Int\n",
+                "\t[handle handle value() with\n",
+                "\t\tinner()\n",
+                "\tend with outer()  # final item\n",
+                "\t]\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn final_record_comment() -> Int\n",
+                "{ value: handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer(), # final field\n",
+                "}.value\n",
+                "end\n",
+            ),
+            concat!(
+                "fn final_record_comment() -> Int\n",
+                "\t{ value: handle handle value() with\n",
+                "\t\tinner()\n",
+                "\tend with outer()  # final field\n",
+                "\t}.value\n",
+                "end\n",
+            ),
+        ),
+    ];
+
+    for (source_text, expected) in cases {
+        assert_commented_format_round_trip(source_text, expected);
+    }
+}
+
+fn assert_commented_format_round_trip(source_text: &str, expected: &str) {
+    let parsed = parse(&SourceFile::new("main.veln", source_text));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let formatted = format_tree(&parsed.tree);
+    assert_eq!(formatted, expected);
+
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{formatted}\n{:#?}",
+        reparsed.diagnostics
+    );
+    if source_text.contains("# inner closing") {
+        assert_eq!(
+            preceding_comment_owner(&parsed.tree, "# inner closing"),
+            preceding_comment_owner(&reparsed.tree, "# inner closing")
+        );
+    }
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+fn preceding_comment_owner(tree: &SyntaxTree, comment_text: &str) -> (TokenKind, String) {
+    let mut preceding = None;
+    for token in tree.lossless_tokens() {
+        match token.kind {
+            TokenKind::Newline => preceding = None,
+            TokenKind::Whitespace => {}
+            TokenKind::Comment if token.text.trim_start() == comment_text => {
+                return preceding.expect("comment must have a preceding owner token");
+            }
+            TokenKind::Comment | TokenKind::Eof => {}
+            _ => preceding = Some((token.kind, token.text.clone())),
+        }
+    }
+    panic!("missing comment {comment_text}");
+}
+
+#[test]
+fn formatter_keeps_mixed_handler_chains_across_excluded_boundaries() {
+    let cases = [
+        (
+            concat!(
+                "fn postfix_boundary() -> Int\n",
+                "  handle (handle value() with inner())? with\n",
+                "    outer()\n",
+                "  end\n",
+                "end\n",
+            ),
+            concat!(
+                "fn postfix_boundary() -> Int\n",
+                "\thandle handle value() with inner()? with\n",
+                "\t\touter()\n",
+                "\tend\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn call_boundary() -> Int\n",
+                "  handle wrap(handle value() with inner()) with\n",
+                "    outer()\n",
+                "  end\n",
+                "end\n",
+            ),
+            concat!(
+                "fn call_boundary() -> Int\n",
+                "\thandle wrap(handle value() with inner()) with\n",
+                "\t\touter()\n",
+                "\tend\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn branch_boundary() -> Int\n",
+                "  handle if condition()\n",
+                "    handle value() with inner()\n",
+                "  else\n",
+                "    value()\n",
+                "  end with\n",
+                "    outer()\n",
+                "  end\n",
+                "end\n",
+            ),
+            concat!(
+                "fn branch_boundary() -> Int\n",
+                "\thandle if condition()\n",
+                "\t\thandle value() with inner()\n",
+                "\telse\n",
+                "\t\tvalue()\n",
+                "\tend with\n",
+                "\t\touter()\n",
+                "\tend\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn begin_boundary() -> Int\n",
+                "  handle (handle begin\n",
+                "    value()\n",
+                "  end with\n",
+                "    inner()\n",
+                "  end) with outer()\n",
+                "end\n",
+            ),
+            concat!(
+                "fn begin_boundary() -> Int\n",
+                "\thandle handle begin\n",
+                "\t\tvalue()\n",
+                "\tend with\n",
+                "\t\tinner()\n",
+                "\tend with outer()\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn handled_block_boundary() -> Int\n",
+                "  handle (handle\n",
+                "    value()\n",
+                "  with\n",
+                "    inner()\n",
+                "  end) with outer()\n",
+                "end\n",
+            ),
+            concat!(
+                "fn handled_block_boundary() -> Int\n",
+                "\thandle handle\n",
+                "\t\tvalue()\n",
+                "\twith\n",
+                "\t\tinner()\n",
+                "\tend with outer()\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn commented_context_boundary() -> Int\n",
+                "  handle (handle value() with\n",
+                "    inner()\n",
+                "  end) with outer(begin\n",
+                "    value()\n",
+                "  end # retain context\n",
+                "  )\n",
+                "end\n",
+            ),
+            concat!(
+                "fn commented_context_boundary() -> Int\n",
+                "\thandle handle value() with\n",
+                "\t\tinner()\n",
+                "\tend with outer(begin\n",
+                "\t\tvalue()\n",
+                "\tend)  # retain context\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn multiline_mixed_body() -> Int\n",
+                "  handle (handle match value()\n",
+                "    0 => 1\n",
+                "    _ => 2\n",
+                "  end with\n",
+                "    inner()\n",
+                "  end) with outer()\n",
+                "end\n",
+            ),
+            concat!(
+                "fn multiline_mixed_body() -> Int\n",
+                "\thandle handle match value()\n",
+                "\t\t0 => 1\n",
+                "\t\t_ => 2\n",
+                "\tend with\n",
+                "\t\tinner()\n",
+                "\tend with outer()\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn statement_boundary() -> Int\n",
+                "  handle\n",
+                "    let ignored = prepare()\n",
+                "    handle (handle value() with inner()) with middle()\n",
+                "  with\n",
+                "    outer()\n",
+                "  end\n",
+                "end\n",
+            ),
+            concat!(
+                "fn statement_boundary() -> Int\n",
+                "\thandle\n",
+                "\t\tlet ignored = prepare()\n",
+                "\t\thandle value() with\n",
+                "\t\t\tmiddle(),\n",
+                "\t\t\tinner()\n",
+                "\t\tend\n",
+                "\twith\n",
+                "\t\touter()\n",
+                "\tend\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn defer_boundary() -> Int\n",
+                "  handle\n",
+                "    defer\n",
+                "      handle (handle release() with inner()) with middle()\n",
+                "    end\n",
+                "    value()\n",
+                "  with\n",
+                "    outer()\n",
+                "  end\n",
+                "end\n",
+            ),
+            concat!(
+                "fn defer_boundary() -> Int\n",
+                "\thandle\n",
+                "\t\tdefer\n",
+                "\t\t\thandle release() with\n",
+                "\t\t\t\tmiddle(),\n",
+                "\t\t\t\tinner()\n",
+                "\t\t\tend\n",
+                "\t\tend\n",
+                "\t\tvalue()\n",
+                "\twith\n",
+                "\t\touter()\n",
+                "\tend\n",
+                "end\n",
+            ),
+        ),
+    ];
+
+    for (source_text, expected) in cases {
+        let source = SourceFile::new("main.veln", source_text);
+        let output = parse(&source);
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+        let formatted = format_tree(&output.tree);
+        assert_eq!(formatted, expected);
+        let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+        assert!(
+            reparsed.diagnostics.is_empty(),
+            "{:#?}",
+            reparsed.diagnostics
+        );
+        assert_eq!(format_tree(&reparsed.tree), formatted);
     }
 }
 
@@ -570,6 +1189,15 @@ fn formatter_stabilizes_nested_migrations_across_call_boundaries() {
 fn formatter_scales_across_repeated_call_boundary_migrations() {
     assert_nested_call_boundary_format_stable(16);
     assert_nested_call_boundary_format_stable(20);
+
+    let original = mixed_call_boundary_candidate_visits(8);
+    let larger = mixed_call_boundary_candidate_visits(16);
+    assert!(original <= 2 * 8, "unexpected original visits: {original}");
+    assert!(larger <= 2 * 16, "unexpected larger visits: {larger}");
+    assert!(
+        larger <= original.saturating_mul(2),
+        "doubling mixed call-boundary depth grew visits from {original} to {larger}"
+    );
 }
 
 fn assert_nested_call_boundary_format_stable(depth: usize) {
@@ -594,6 +1222,24 @@ fn assert_nested_call_boundary_format_stable(depth: usize) {
         reparsed.diagnostics
     );
     assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+fn mixed_call_boundary_candidate_visits(depth: usize) -> usize {
+    let mut expr = "value()".to_string();
+    for _ in 0..depth {
+        expr = format!("handle (handle wrap({expr}) with\n  inner()\nend) with outer()");
+    }
+    let source = SourceFile::new(
+        "main.veln",
+        format!("fn nested_mixed_call_boundary() -> Int\n  {expr}\nend\n"),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    crate::format::reset_mixed_handle_chain_candidates();
+    let formatted = format_tree(&output.tree);
+    assert!(formatted.contains("outer()"), "{formatted}");
+    crate::format::mixed_handle_chain_candidates()
 }
 
 #[test]
