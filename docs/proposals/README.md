@@ -50,6 +50,10 @@ also states it.
 
 ## Design In Progress
 
+- [Bodies for Conditional Branches and Arrow Clauses](control-flow-bodies.md):
+  allow direct branch bodies and newline arrow bodies with implicit cleanup
+  scopes, retain explicit `begin`, and permit unit conditionals without `else`;
+  boundary and canonical-format decisions require review before Ready promotion.
 - [Typed HTTP/2 Decision Projections](http2-typed-decisions.md): expose typed
   decision payloads instead of status-string/getter sequences; requires a
   complete view and retirement map for the affected decision families.
