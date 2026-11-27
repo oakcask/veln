@@ -71,7 +71,8 @@ Other non-zero Java exits have `error.kind: "runtime"` and
 `details.phase: "runtime"`.
 
 Every structured `error` includes a `related` array. A zero-divisor remainder
-failure includes an `operation` note with the complete `%` expression span.
+failure and a located division or shift failure include an `operation` note
+with the complete operator-expression span.
 A cleanup failure attached
 to an existing primary failure contributes one object with
 `kind: "cleanup_failure"` and its runtime `message`. Objects retain cleanup
@@ -197,11 +198,28 @@ acquire those `listen` or `connect` commit facts.
 
 An invalid dynamic shift count uses
 `details.id: "runtime.invalid_shift_count"` with `operator`,
-`actual_count`, `minimum_count`, and `maximum_count`. Other host failures
-keep the generic runtime shape. The same projection applies when a schema field
-or schema-level predicate evaluates an invalid dynamic shift; the checked
+`actual_count`, `minimum_count`, and `maximum_count`. When constant folding
+reduces a closed count expression to an out-of-range value but leaves the
+failing shift executable, `count_span` identifies that original count
+expression and `operation_span` identifies the complete shift. The first
+related object has `kind: "operation"` and the same operation span. Captured
+output includes output from registered cleanup. Other host failures keep the
+generic runtime shape. The same projection applies when a schema field or
+schema-level predicate evaluates an invalid dynamic shift; the checked
 [`schema-runtime-refinement-predicate-invalid-shift-json`](../../examples/specification/run/schema-runtime-refinement-predicate-invalid-shift-json/)
-case covers that boundary.
+case covers that boundary. The checked
+[`literal-constant-folding-shift-failure-json`](../../examples/specification/run/literal-constant-folding-shift-failure-json/)
+case covers the located folded-count projection.
+
+A division whose closed divisor expression folds to zero uses
+`details.id: "runtime.division_by_zero"`, `operator: "/"`, and numeric
+`divisor: 0`. `divisor_span` identifies the original divisor expression and
+`operation_span` identifies the complete division. The primary message is
+`division divisor is zero`; the first related object identifies the operation
+and its span. Captured output includes output produced before the failure and
+from registered cleanup. The checked
+[`literal-constant-folding-division-failure-json`](../../examples/specification/run/literal-constant-folding-division-failure-json/)
+case covers this projection.
 
 A computed zero remainder divisor uses
 `details.id: "runtime.remainder_by_zero"`, `operator: "%"`, and numeric
@@ -211,7 +229,9 @@ A computed zero remainder divisor uses
 command renders the divisor location and the related operation location
 without exposing a host arithmetic exception. A zero divisor evaluated inside
 a runtime contract predicate uses this same record instead of a contract
-failure record.
+failure record. The checked
+[`literal-constant-folding-remainder-failure-json`](../../examples/specification/run/literal-constant-folding-remainder-failure-json/)
+case covers preservation after folding the divisor child.
 
 ## Returned result values
 

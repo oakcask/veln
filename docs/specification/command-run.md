@@ -202,6 +202,16 @@ is specified by [run JSON](run-json.md). When the operation occurs in a
 runtime contract predicate, this runtime failure is reported instead of a
 contract-violation diagnostic.
 
+If constant folding reduces a computed division divisor to zero, execution
+fails with `runtime.division_by_zero` and the message
+`division divisor is zero` at the original divisor-expression location. If it
+reduces a shift count outside `0..63`, execution fails with
+`runtime.invalid_shift_count` at the original count-expression location. In
+both cases, a related note identifies the complete operator expression,
+output produced before the failure is retained, registered cleanup runs, and
+later statements do not execute. The [run JSON contract](run-json.md) owns the
+structured fields for these failures.
+
 ## Limits
 
 The command does not execute unreachable code, acquire dependencies, or fall
