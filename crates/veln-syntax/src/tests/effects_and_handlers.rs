@@ -711,6 +711,40 @@ fn unterminated_handler_recovery_stops_before_the_next_top_level_item() {
 }
 
 #[test]
+fn unterminated_handler_argument_preserves_both_function_boundaries() {
+    let source_text = concat!(
+        "fn broken() -> Int\n",
+        "  handle 1 with\n",
+        "    outer(\n",
+        "  end\n",
+        "end\n\n",
+        "fn survivor() -> Int\n",
+        "  1\n",
+        "end\n",
+    );
+    let survivor_start = source_text.find("fn survivor").expect("survivor offset");
+    let output = parse(&SourceFile::new("main.veln", source_text));
+
+    assert!(!output.diagnostics.is_empty());
+    assert!(matches!(
+        output.tree.items.as_slice(),
+        [SyntaxItem::Function(broken), SyntaxItem::Function(survivor)]
+            if broken.name.as_deref() == Some("broken")
+                && broken.end_present
+                && survivor.name.as_deref() == Some("survivor")
+                && survivor.end_present
+    ));
+    assert!(
+        output.diagnostics.iter().all(|diagnostic| diagnostic
+            .span
+            .as_ref()
+            .is_none_or(|span| span.end.offset <= survivor_start)),
+        "{:#?}",
+        output.diagnostics
+    );
+}
+
+#[test]
 fn contextual_handler_names_remain_terminated_handler_entries() {
     let source = SourceFile::new(
         "main.veln",

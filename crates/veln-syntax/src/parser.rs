@@ -437,6 +437,7 @@ struct ExprParser<'a> {
     context: &'static str,
     tokens: &'a [Token],
     cursor: usize,
+    recovery_end: Option<usize>,
     cleanup_depth: usize,
     control_blocks: Vec<TokenKind>,
     diagnostics: Vec<ParseDiagnostic>,

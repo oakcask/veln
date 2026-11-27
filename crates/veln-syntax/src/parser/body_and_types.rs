@@ -9,6 +9,7 @@ struct ExpressionLineCollector {
     tokens: Vec<Token>,
     delimiter_depth: usize,
     block_stack: Vec<TokenKind>,
+    block_delimiter_depths: Vec<usize>,
     handle_candidates: Vec<(bool, usize)>,
     continued_handle_after_with: Option<bool>,
     previous_kind: Option<TokenKind>,
@@ -60,6 +61,7 @@ impl ExpressionLineCollector {
             tokens: Vec::new(),
             delimiter_depth: 0,
             block_stack: Vec::new(),
+            block_delimiter_depths: Vec::new(),
             handle_candidates: Vec::new(),
             continued_handle_after_with: None,
             previous_kind: None,
@@ -117,11 +119,25 @@ impl ExpressionLineCollector {
     fn recover_before_branch(&mut self, parser: &Parser<'_>) {
         if parser.at(TokenKind::Else) {
             recover_cleanup_blocks_before_branch(&mut self.block_stack, TokenKind::If);
+            self.block_delimiter_depths.truncate(self.block_stack.len());
         } else if self.delimiter_depth == 0
             && self.at_line_start
             && line_starts_match_arm(&parser.tokens, parser.cursor)
         {
             recover_cleanup_blocks_before_branch(&mut self.block_stack, TokenKind::Match);
+            self.block_delimiter_depths.truncate(self.block_stack.len());
+        }
+    }
+
+    fn push_block(&mut self, kind: TokenKind) {
+        self.block_stack.push(kind);
+        self.block_delimiter_depths.push(self.delimiter_depth);
+    }
+
+    fn close_owned_block(&mut self) {
+        if self.block_delimiter_depths.last() == Some(&self.delimiter_depth) {
+            self.block_stack.pop();
+            self.block_delimiter_depths.pop();
         }
     }
 
@@ -135,7 +151,7 @@ impl ExpressionLineCollector {
             TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
                 self.delimiter_depth = self.delimiter_depth.saturating_sub(1);
             }
-            TokenKind::Match | TokenKind::Begin => self.block_stack.push(token_kind),
+            TokenKind::Match | TokenKind::Begin => self.push_block(token_kind),
             TokenKind::Handle
                 if self.previous_kind != Some(TokenKind::DoubleColon)
                     && next_kind != Some(TokenKind::DoubleColon) =>
@@ -149,12 +165,12 @@ impl ExpressionLineCollector {
             TokenKind::Newline if self.previous_kind == Some(TokenKind::Handle) => {
                 if let Some((started, _)) = self.handle_candidates.last_mut() {
                     *started = true;
-                    self.block_stack.push(TokenKind::Handle);
+                    self.push_block(TokenKind::Handle);
                 }
             }
             TokenKind::Newline if self.previous_kind == Some(TokenKind::With) => {
                 if self.continued_handle_after_with.take() == Some(false) {
-                    self.block_stack.push(TokenKind::Handle);
+                    self.push_block(TokenKind::Handle);
                 }
             }
             TokenKind::Newline => {
@@ -166,13 +182,13 @@ impl ExpressionLineCollector {
                 }
             }
             TokenKind::Defer if !self.block_stack.is_empty() && self.at_line_start => {
-                self.block_stack.push(token_kind);
+                self.push_block(token_kind);
             }
             TokenKind::If if self.previous_kind != Some(TokenKind::Else) => {
-                self.block_stack.push(token_kind);
+                self.push_block(token_kind);
             }
             TokenKind::End if !self.block_stack.is_empty() => {
-                self.block_stack.pop();
+                self.close_owned_block();
             }
             _ => {}
         }
@@ -527,8 +543,10 @@ impl<'a> Parser<'a> {
             collector.end = self.bump().range;
         }
 
+        let recovery_end = collector.range().end;
         let (expr, diagnostics) = ExprParser::new(self.source, context, &collector.tokens)
             .with_cleanup_depth(self.cleanup_depth)
+            .with_recovery_end(recovery_end)
             .parse();
         self.diagnostics.extend(diagnostics);
         (expr, collector.range())
