@@ -140,13 +140,19 @@ provider's original error. A `Written(0)` while input remains instead returns
 `Failed` with the already committed prefix and an `Other` error whose operation
 is `write_all`; this prevents an unbounded retry.
 
+Committed counts describe bytes accepted by the local transport. They do not
+establish that a peer received, processed, or durably stored those bytes. A
+caller must not treat either an exact committed prefix or a known lower bound
+as proof that replaying the remaining application operation is safe.
+
 A negative count or a count larger than the submitted suffix is an invalid
 provider reply. `write_all` does not slice with that count and does not retry.
 It returns `InvalidReply(known_prefix, error)`, where `known_prefix` contains
 only progress validated before the malformed reply. This count is a lower
 bound, not an exact total, because the provider might have produced side
-effects that its invalid reply cannot establish. Count accumulation is bounded
-by the original input length and cannot wrap.
+effects that its invalid reply cannot establish. The synthesized error has
+operation `write_all` and kind `Other`. Count accumulation is bounded by the
+original input length and cannot wrap.
 
 `ReadOutcome` has the `Chunk(ByteChunk)` and `End` shapes. The direct
 `read` and `read_with` functions return the handler's outcome unchanged,
@@ -363,11 +369,13 @@ a source-less public `net::...` compatibility surface.
 
 The exported implementation and companion tests are in
 `crates/veln-stdlib/veln/net.veln` and
-`crates/veln-stdlib/veln/net.test.veln`. The companion tests cover the values
-that source code can construct, cumulative `write_all` outcomes, suffix-only
-retries, malformed reply bounds, preserved controls, scoped resolution and failure
-translation, exact write progress, concurrency, interruption decisions, and
-lifecycle uncertainty across retries.
+`crates/veln-stdlib/veln/net.test.veln`. The separate
+`crates/veln-stdlib/veln/net_write_all_test.veln` module supplies the scoped
+scripted `net::IO` handler used by the companion tests. The companion tests
+cover the values that source code can construct, cumulative `write_all`
+outcomes, suffix-only retries, malformed reply bounds, preserved controls,
+scoped resolution and failure translation, exact write progress, concurrency,
+interruption decisions, and lifecycle uncertainty across retries.
 The adapter implementation is in
 `crates/veln-stdlib/veln/transport/net.veln`. Its companion evidence is in
 `crates/veln-stdlib/veln/transport/net.test.veln` and the adjacent separate
