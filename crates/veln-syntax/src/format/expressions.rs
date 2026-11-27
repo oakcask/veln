@@ -380,18 +380,11 @@ fn format_handle_expr(
 ) -> String {
     if !terminated {
         if allow_short_handle_chain_migration
-            && let Some((body, entries)) = flattenable_short_handle_chain(expr, comments)
+            && let Some(formatted) = format_short_handle_chain(expr, indent, comments)
         {
-            return format_flattened_short_handle_chain(body, &entries, indent);
+            return formatted;
         }
-        return format_unterminated_handle(
-            expr,
-            body,
-            entries,
-            indent,
-            comments,
-            allow_short_handle_chain_migration,
-        );
+        return format_unterminated_handle(body, entries, indent, comments);
     }
 
     let mut text = String::from("handle");
@@ -405,21 +398,31 @@ fn format_handle_expr(
     text
 }
 
-fn flattenable_short_handle_chain<'a>(
-    expr: &'a Expr,
+fn format_short_handle_chain(
+    expr: &Expr,
+    indent: usize,
     comments: Option<&LineComments>,
-) -> Option<(&'a Expr, Vec<&'a HandlerEntry>)> {
-    if expr.span.start.line != expr_end_line(expr) {
-        return None;
-    }
-
+) -> Option<String> {
     let (body, entries) = direct_short_handle_chain(expr)?;
 
     if comments.is_some_and(|comments| comments.has_comment_in_span(&expr.span)) {
         return None;
     }
 
-    Some((body, entries))
+    let formatted_body = format_expr_at_indent_ctx(body, indent + 1, None);
+    if !formatted_body.contains('\n') {
+        return Some(format_flattened_short_handle_chain(
+            &formatted_body,
+            &entries,
+            indent,
+        ));
+    }
+
+    Some(format_retained_short_handle_chain(
+        formatted_body,
+        &entries,
+        indent,
+    ))
 }
 
 fn direct_short_handle_chain(expr: &Expr) -> Option<(&Expr, Vec<&HandlerEntry>)> {
@@ -453,14 +456,11 @@ fn direct_short_handle_chain(expr: &Expr) -> Option<(&Expr, Vec<&HandlerEntry>)>
 }
 
 fn format_flattened_short_handle_chain(
-    body: &Expr,
+    formatted_body: &str,
     entries: &[&HandlerEntry],
     indent: usize,
 ) -> String {
-    let mut text = format!(
-        "handle {} with\n",
-        format_expr_at_indent_ctx(body, indent, None)
-    );
+    let mut text = format!("handle {formatted_body} with\n");
     for (index, entry) in entries.iter().enumerate() {
         push_indent(&mut text, indent + 1);
         text.push_str(&format_handler_entry(entry, indent, None));
@@ -474,13 +474,33 @@ fn format_flattened_short_handle_chain(
     text
 }
 
+fn format_retained_short_handle_chain(
+    formatted_body: String,
+    entries: &[&HandlerEntry],
+    indent: usize,
+) -> String {
+    let mut text = String::from("handle (\n");
+    push_indent(&mut text, indent + 1);
+    for _ in &entries[1..] {
+        text.push_str("handle ");
+    }
+    text.push_str(&formatted_body);
+    for entry in entries[1..].iter().rev() {
+        text.push_str(" with ");
+        text.push_str(&format_handler_entry(entry, indent, None));
+    }
+    text.push('\n');
+    push_indent(&mut text, indent);
+    text.push_str(") with ");
+    text.push_str(&format_handler_entry(entries[0], indent, None));
+    text
+}
+
 fn format_unterminated_handle(
-    expr: &Expr,
     body: &HandleBody,
     entries: &[HandlerEntry],
     indent: usize,
     comments: Option<&LineComments>,
-    preserve_multiline_short_handle_chain: bool,
 ) -> String {
     let HandleBody::Expression(body) = body else {
         unreachable!("unterminated handle must have an expression body");
@@ -489,30 +509,6 @@ fn format_unterminated_handle(
         .first()
         .expect("unterminated handle must have one handler entry");
     let args = format_expr_args(&entry.args, indent, comments);
-    if preserve_multiline_short_handle_chain
-        && expr.span.start.line != expr_end_line(expr)
-        && direct_short_handle_chain(expr).is_some()
-        && !comments.is_some_and(|comments| comments.has_comment_in_span(&expr.span))
-    {
-        let mut text = String::from("handle (\n");
-        push_indent(&mut text, indent + 1);
-        text.push_str(&format_expr_prec_ctx(
-            body,
-            0,
-            ExprSide::Root,
-            indent + 1,
-            comments,
-            false,
-        ));
-        text.push('\n');
-        push_indent(&mut text, indent);
-        text.push_str(") with ");
-        text.push_str(&entry.handler.join("::"));
-        text.push('(');
-        text.push_str(&args);
-        text.push(')');
-        return text;
-    }
     format!(
         "handle {} with {}({args})",
         format_expr_prec_ctx(body, 0, ExprSide::Root, indent, comments, false),

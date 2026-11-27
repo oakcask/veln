@@ -67,8 +67,10 @@ fn migrate_unparenthesized_short_chain() -> Int
 	end
 end
 
-fn retain_multiline_short_chain() -> Int
-	handle (
-		handle handle value() with inner(second()) with outer(first())
-	) with handler()
+fn migrate_multiline_short_chain() -> Int
+	handle value() with
+		handler(),
+		outer(first()),
+		inner(second())
+	end
 end
