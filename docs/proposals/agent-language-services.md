@@ -27,9 +27,11 @@ The following work remains planned:
 - Codex and Claude Code plugin packaging and client-native installation flows;
 - the conformance gate.
 
-Each follow-up must define its own observable acceptance cases and executable
-evidence before implementation. It must update the matching current
-specification page and remove its completed scope from this inventory.
+Each follow-up must define its own observable acceptance cases and intended
+executable verification before implementation. Passing evidence is a delivery
+condition, not a prerequisite for selecting a complete Ready follow-up. Each
+implemented follow-up must update the matching current specification page and
+remove its completed scope from this inventory.
 
 ## Remaining acceptance model
 

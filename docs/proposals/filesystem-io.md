@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The proposed filesystem integration, native path conversion, shared byte IO capabilities, provider ownership, seek behavior, fake filesystem contracts, or filesystem IO feasibility dependency changes.
+update-when: The proposed filesystem integration, native path conversion, shared byte IO capabilities, provider ownership, seek behavior, fake filesystem contracts, filesystem IO feasibility dependency, or readiness classification changes.
 ---
 
 # Filesystem And Shared Byte IO
@@ -23,8 +23,10 @@ positional IO conformance, host translation, uncertain host-seek behavior,
 open-mode, metadata,
 namespace-mutation, truncate, append, and sync behavior, F5 cleanup behavior,
 and the remaining host integration evidence remain planned.
-Implementation selection remains blocked on the separate
-[Filesystem IO Feasibility](filesystem-io-feasibility.md) proposal.
+This is a Ready implementation target with a fixed source API and outcome
+contract. Production delivery reuses the conformance foundation from
+[Filesystem IO Feasibility](filesystem-io-feasibility.md); completing that
+foundation is implementation sequencing, not a prerequisite for Ready.
 
 ## Current Boundary And Scope
 
@@ -471,12 +473,19 @@ prerequisite.
 
 ## Implementation Readiness And Promotion
 
-The initial design decisions and acceptance tables are fixed above. Complete
-the separate feasibility proposal before moving this proposal to Ready.
-The adapter extension must be reviewed together with its source API,
-not inferred from the existing network handles. A smaller independently complete
-proposal may be split out only when it retains explicit ownership and outcome
-contracts.
+The initial design decisions and acceptance tables above fix the contract for
+Ready selection. F4–F5 conformance and cleanup evidence are implementation
+completion work, not unresolved public API or semantic choices. Complete and
+reuse that foundation before production rollout, or account for its remaining
+work explicitly in the selected delivery; do not require a production
+filesystem implementation before either Ready target can be selected.
+
+Review the adapter extension together with its source API, not by analogy
+with existing network handles. If a conformance finding requires changing the
+specified capabilities, progress, ownership, or cleanup outcomes, resolve that
+concrete design change before delivering the affected surface. A smaller
+independently complete proposal may be split out only when it retains explicit
+ownership and outcome contracts.
 
 When implementation lands, update the smallest current specifications for
 effects, shared IO, filesystem operations, and execution ownership alongside

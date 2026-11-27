@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Contract-bearing callable syntax, binder scope, alpha-equivalence, implication-based assignment, joins, public interface retention, or callable prerequisite acceptance evidence changes.
+update-when: Contract-bearing callable syntax, binder scope, alpha-equivalence, implication-based assignment, joins, public interface retention, callable prerequisite acceptance evidence, or readiness classification changes.
 ---
 
 # Contract-bearing Callable Types
@@ -27,10 +27,10 @@ of verified summaries. Examples use its proposed `static` clause mode. A
 contract in a type describes the obligation and promise; its presence does
 not prove that an arbitrary implementation satisfies the promise.
 
-The type model and grammar prototype may provide prerequisite evidence before
-the consuming verifier is complete. They must not expose callable values whose
-static requirements can be bypassed or whose ensures are trusted without
-verification. No user-visible implementation target is complete without the
+The type model and grammar have implementation acceptance cases independent
+of the consuming verifier's completion. Implementations must not expose
+callable values whose static requirements can be bypassed or whose ensures
+are trusted without verification. No user-visible implementation target is complete without the
 consumer's call, return, and trust-boundary acceptance cases.
 
 ## Current behavior and investigated boundary
@@ -58,9 +58,10 @@ Names in this form bind within the callable type. Parameter renaming does not
 change type identity. Outer parentheses delimit the complete callable type in
 records, generic arguments, and nested functions. Declaration clauses and type
 clauses denote the same pre/post pair. Effect rows retain their existing role.
-The spelling is subject to this proposal's grammar/formatter gate; it is not an accepted
-source grammar. The grammar prototype must settle clause ordering, nesting,
-line breaks, and the interaction with effect rows before Ready selection.
+The spelling is proposed, not accepted source grammar. Before Ready selection,
+define clause ordering, nesting, parentheses, line breaks, and effect-row
+placement using accepted/rejected source examples and canonical output pairs.
+The design must settle those choices without requiring a grammar prototype.
 
 For compatible ordinary input/result types and effects, let a source callable
 have `(Ps, Qs)` and a target callable have `(Pt, Qt)`. Assignment requires:
@@ -142,10 +143,11 @@ These cases are planned evidence, not existing passing fixtures:
 | Change only a public mode or predicate | Recheck dependent compatibility and regenerate nested contract documentation; no stale interface acceptance. |
 | Generic proof abstraction, variadic contract binders, or polymorphic contract entailment | Report explicit unsupported use; never approximate it with an uncontracted callable. |
 
-Before Ready selection, provide accepted/rejected source-surface fixtures and
-formatter round trips settling clause order, nesting, parentheses, line breaks,
-and effect-row placement. Use focused type-model tests for alpha-equivalence,
-substitution, assignment, contextual boundaries, and joins. Test nested
+Before Ready selection, define accepted/rejected source examples and expected
+formatter output settling clause order, nesting, parentheses, line breaks,
+and effect-row placement. Executable grammar fixtures and formatter round trips
+are implementation completion evidence. Use focused type-model tests for
+alpha-equivalence, substitution, assignment, contextual boundaries, and joins. Test nested
 interfaces and failed compatibility without leaking tentative facts. The
 static-contract proposal additionally owns observable direct/indirect/imported
 call diagnostics, source verification, lowering, and documentation/publication
@@ -167,10 +169,13 @@ they do not establish Veln grammar or verification correctness.
 
 ## Readiness and lifecycle
 
-Remain Design In Progress until the predicate prerequisite, callable grammar,
-assignment/join decisions, public-interface rules, and feasibility evidence are
-reviewed. Do not add either prerequisite or this consumer to Ready solely
-because a prototype exists. During implementation, promote checked type
+Remain Design In Progress until the predicate prerequisite resolves its
+mandatory proof fragment and work policy, and the callable grammar and canonical
+source choices above are fixed. The binder, assignment/join, and public
+retention rules have planned acceptance cases; passing those type-model and
+consumer tests is implementation completion, not a Ready prerequisite.
+A complete grammar and resolved prerequisite contract can support Ready
+selection without a prototype. During implementation, promote checked type
 behavior to the current type/source-surface specifications and executable
 consumer cases. Remove completed scope and this catalog entry when no active
 scope remains; route dependents to the implemented specification.

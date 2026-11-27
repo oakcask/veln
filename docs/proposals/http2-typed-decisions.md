@@ -69,8 +69,13 @@ encode failures can carry state and partial output that must not disappear.
 The existing [outbound data decision](https://github.com/oakcask/veln/blob/7b4b32ed68d8309abbdc0512f0f92caae80c3219/crates/veln-stdlib/veln/http2/core/outbound_data_flow.veln)
 and [ping decisions](https://github.com/oakcask/veln/blob/7b4b32ed68d8309abbdc0512f0f92caae80c3219/crates/veln-stdlib/veln/http2/core/ping.veln)
 show why a universal accepted/rejected Boolean cannot express every family.
-The projection map is a design deliverable, not a demand for a prototype or
-passing implementation tests before a clear design can become Ready.
+The projection map is the remaining design deliverable, not a demand for a
+prototype or passing implementation tests before Ready. Each row must name
+the current decision, every replacement case and payload, projection signature,
+field meaning, and retired status/getter path. Unmapped families remain a
+design blocker; consumer migration and the acceptance tests below are
+implementation completion work. Generic-function implementation is not a
+prerequisite for choosing these family-specific views.
 
 ## Related work and alternatives
 

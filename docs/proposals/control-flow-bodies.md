@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The proposed expression/block consistency model, conditional bodies, paired defer syntax, evaluation timing, canonical formatting, or acceptance requirements change.
+update-when: The proposed expression/block consistency model, conditional bodies, paired defer syntax, evaluation timing, canonical formatting, acceptance requirements, or readiness classification changes.
 ---
 
 # Consistent Expression and Block Forms
@@ -21,8 +21,10 @@ This page proposes unimplemented behavior. The current
 [types](../specification/types.md), and
 [effects](../specification/effects.md) remain authoritative until implementation.
 The acceptance tables below are planned evidence, not passing tests supplied
-by this PR. The proposal is in Design In Progress pending review of the
-boundary, scope, and formatting decisions specified here.
+by this proposal. This is a Ready implementation target: the grammar,
+classification, scope and evaluation tables, cleanup traces, and canonical
+pairs below settle the language choices. Passing parser, backend, and
+formatter checks is an implementation completion requirement.
 
 ## Design model and scope
 
@@ -495,41 +497,18 @@ through the guarded local runners. Include bounded nested-body analysis checks
 and apply the performance-regression audit if implementation changes analysis
 of large generated inputs.
 
-## Guardrails adopted with this proposal PR
+## Readiness and completion
 
-The risk is independent decisions about operand count, newline selection,
-explicit boundaries, and scope timing that conflict across related syntax.
-The permanent [Source Syntax Design Policy](../reference/source-syntax-design.md)
-requires classification and observable evidence when syntax is designed or
-reviewed. `AGENTS.md` routes agents to that authority; the documentation
-policy routes proposal authors and reviewers to it. The proposal catalog
-remains navigation, not another owner of these rules.
+The declared forms have explicit token boundaries, result and cleanup scopes,
+deferred evaluation timing, and canonical output. Ready selection uses these
+reviewable contracts and the acceptance model above; it does not require a
+parser or formatter prototype. The independent
+[Source Syntax Design Policy](../reference/source-syntax-design.md) continues
+to govern later syntax changes.
 
-This PR adopts that review process now. It does not claim that proposed
-conditional or deferred forms are implemented. Review must reject an
-unclassified changed form, contradictory examples, missing evaluation timing,
-or formatter rules that can erase a scope without defined eligibility.
-For example, treating `=> NL Body` as a mere layout change or giving short
-`defer` eager arguments while claiming block equivalence violates this policy.
-
-A wording linter would accept semantically contradictory prose and reject
-valid explanations written differently. A new CI job therefore does not
-provide useful enforcement at this stage. Existing metadata and link checks
-validate discoverability; semantic review remains required. Its residual risk
-is missed contradictions. The maintenance cost is one focused policy and
-short discovery links. There is no temporary migration guard to retire.
-
-On implementation, concrete grammar, scope, timing, and formatter acceptance
-checks become the mechanical guards. Revisit the policy if the language adopts
-significant indentation, new arrow boundaries, different cleanup timing, or
-scope-changing formatting. Add automation only when it can verify those
-observations rather than the presence of prescribed prose.
-
-Promote this target to Ready after review resolves the declared design choices
-without leaving grammar, evaluation timing, or formatter behavior to
-implementation. On delivery, update executable grammar, checked examples,
-and the source-surface, type, effect, execution, format, and affected tooling
+On delivery, update executable grammar, checked examples, and the
+source-surface, type, effect, execution, format, and affected tooling
 specifications together. Remove this proposal and its catalog entry after the
-complete language contract is implemented; retain the independent design-review
-policy. Current language specifications and executable examples are unchanged
-in this PR because the conditional and short-defer behavior is not implemented.
+complete language contract is implemented. Current language specifications
+and executable examples are unchanged by this proposal because the conditional
+and short-defer behavior is not implemented.
