@@ -13,6 +13,108 @@ fn unit_at(anchor: &Expr) -> CoreExpr {
     core_expr(anchor, CoreType::unit(), CoreExprKind::Unit)
 }
 
+fn int_at(anchor: &Expr, value: i64) -> CoreExpr {
+    if value >= 0 {
+        core_expr(
+            anchor,
+            CoreType::int(),
+            CoreExprKind::IntLiteral(value.to_string()),
+        )
+    } else {
+        core_expr(
+            anchor,
+            CoreType::int(),
+            CoreExprKind::Prefix {
+                op: PrefixOp::Negate,
+                expr: Box::new(core_expr(
+                    anchor,
+                    CoreType::int(),
+                    CoreExprKind::IntLiteral(value.unsigned_abs().to_string()),
+                )),
+            },
+        )
+    }
+}
+
+fn closed_int_binary(anchor: &Expr, op: BinaryOp, left: i64, right: i64) -> CoreExpr {
+    core_expr(
+        anchor,
+        CoreType::int(),
+        CoreExprKind::Binary {
+            op,
+            left: Box::new(int_at(anchor, left)),
+            right: Box::new(int_at(anchor, right)),
+        },
+    )
+}
+
+fn assert_int_binary_folds(op: BinaryOp, left: i64, right: i64, expected: i64) {
+    let folded = lower_fixture_expr(CoreType::int(), |anchor| {
+        closed_int_binary(anchor, op, left, right).kind
+    })
+    .expect("integer operator should lower");
+    assert_eq!(folded.kind, IrExprKind::IntConstant(expected), "{op:?}");
+}
+
+fn assert_int_comparison_folds(op: BinaryOp, left: i64, right: i64, expected: bool) {
+    let folded = lower_fixture_expr(CoreType::bool(), |anchor| CoreExprKind::Binary {
+        op,
+        left: Box::new(int_at(anchor, left)),
+        right: Box::new(int_at(anchor, right)),
+    })
+    .expect("integer comparison should lower");
+    assert_eq!(folded.kind, IrExprKind::BoolLiteral(expected), "{op:?}");
+}
+
+fn assert_bool_binary_folds(op: BinaryOp, left: bool, right: bool, expected: bool) {
+    let folded = lower_fixture_expr(CoreType::bool(), |anchor| CoreExprKind::Binary {
+        op,
+        left: Box::new(core_expr(
+            anchor,
+            CoreType::bool(),
+            CoreExprKind::BoolLiteral(left),
+        )),
+        right: Box::new(core_expr(
+            anchor,
+            CoreType::bool(),
+            CoreExprKind::BoolLiteral(right),
+        )),
+    })
+    .expect("boolean operator should lower");
+    assert_eq!(folded.kind, IrExprKind::BoolLiteral(expected), "{op:?}");
+}
+
+fn balanced_add_tree(anchor: &Expr, depth: usize) -> CoreExpr {
+    if depth == 0 {
+        return int_at(anchor, 1);
+    }
+    core_expr(
+        anchor,
+        CoreType::int(),
+        CoreExprKind::Binary {
+            op: BinaryOp::Add,
+            left: Box::new(balanced_add_tree(anchor, depth - 1)),
+            right: Box::new(balanced_add_tree(anchor, depth - 1)),
+        },
+    )
+}
+
+fn deep_add_chain(anchor: &Expr, depth: usize) -> CoreExpr {
+    let mut expr = int_at(anchor, 0);
+    for _ in 0..depth {
+        expr = core_expr(
+            anchor,
+            CoreType::int(),
+            CoreExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(expr),
+                right: Box::new(int_at(anchor, 1)),
+            },
+        );
+    }
+    expr
+}
+
 #[test]
 fn lower_record_preserves_fields_types_and_nested_values() {
     let record_type = CoreType::Record(vec![
@@ -206,31 +308,8 @@ fn lower_binary_folds_closed_typed_scalars() {
 }
 
 #[test]
-fn folding_covers_fixed_width_integer_and_boolean_operator_domain() {
-    fn int(anchor: &Expr, value: i64) -> CoreExpr {
-        if value >= 0 {
-            core_expr(
-                anchor,
-                CoreType::int(),
-                CoreExprKind::IntLiteral(value.to_string()),
-            )
-        } else {
-            core_expr(
-                anchor,
-                CoreType::int(),
-                CoreExprKind::Prefix {
-                    op: PrefixOp::Negate,
-                    expr: Box::new(core_expr(
-                        anchor,
-                        CoreType::int(),
-                        CoreExprKind::IntLiteral(value.unsigned_abs().to_string()),
-                    )),
-                },
-            )
-        }
-    }
-
-    let int_cases = [
+fn folding_covers_fixed_width_integer_operator_results() {
+    for (op, left, right, expected) in [
         (BinaryOp::Add, 7, 9, 16),
         (BinaryOp::Subtract, 7, 9, -2),
         (BinaryOp::Multiply, i64::MAX, 2, -2),
@@ -242,17 +321,13 @@ fn folding_covers_fixed_width_integer_and_boolean_operator_domain() {
         (BinaryOp::ShiftLeft, 1, 63, i64::MIN),
         (BinaryOp::ShiftRight, -8, 2, -2),
         (BinaryOp::ShiftRightLogical, -1, 63, 1),
-    ];
-    for (op, left, right, expected) in int_cases {
-        let folded = lower_fixture_expr(CoreType::int(), |anchor| CoreExprKind::Binary {
-            op,
-            left: Box::new(int(anchor, left)),
-            right: Box::new(int(anchor, right)),
-        })
-        .expect("integer operator should lower");
-        assert_eq!(folded.kind, IrExprKind::IntConstant(expected), "{op:?}");
+    ] {
+        assert_int_binary_folds(op, left, right, expected);
     }
+}
 
+#[test]
+fn folding_covers_fixed_width_integer_comparisons() {
     for (op, left, right, expected) in [
         (BinaryOp::Equal, 4, 4, true),
         (BinaryOp::NotEqual, 4, 5, true),
@@ -261,36 +336,19 @@ fn folding_covers_fixed_width_integer_and_boolean_operator_domain() {
         (BinaryOp::Greater, 5, 4, true),
         (BinaryOp::GreaterEqual, 4, 4, true),
     ] {
-        let folded = lower_fixture_expr(CoreType::bool(), |anchor| CoreExprKind::Binary {
-            op,
-            left: Box::new(int(anchor, left)),
-            right: Box::new(int(anchor, right)),
-        })
-        .expect("integer comparison should lower");
-        assert_eq!(folded.kind, IrExprKind::BoolLiteral(expected), "{op:?}");
+        assert_int_comparison_folds(op, left, right, expected);
     }
+}
 
+#[test]
+fn folding_covers_boolean_operator_results() {
     for (op, left, right, expected) in [
         (BinaryOp::And, true, false, false),
         (BinaryOp::Or, true, false, true),
         (BinaryOp::Equal, true, true, true),
         (BinaryOp::NotEqual, true, false, true),
     ] {
-        let folded = lower_fixture_expr(CoreType::bool(), |anchor| CoreExprKind::Binary {
-            op,
-            left: Box::new(core_expr(
-                anchor,
-                CoreType::bool(),
-                CoreExprKind::BoolLiteral(left),
-            )),
-            right: Box::new(core_expr(
-                anchor,
-                CoreType::bool(),
-                CoreExprKind::BoolLiteral(right),
-            )),
-        })
-        .expect("boolean operator should lower");
-        assert_eq!(folded.kind, IrExprKind::BoolLiteral(expected), "{op:?}");
+        assert_bool_binary_folds(op, left, right, expected);
     }
 }
 
@@ -342,7 +400,7 @@ fn folding_wraps_minimum_integer_division_and_remainder() {
 }
 
 #[test]
-fn folding_keeps_dynamic_and_failing_parents_with_folded_children_and_original_spans() {
+fn folding_keeps_failing_parents_with_folded_children_and_original_spans() {
     for op in [
         BinaryOp::Divide,
         BinaryOp::Remainder,
@@ -352,42 +410,14 @@ fn folding_keeps_dynamic_and_failing_parents_with_folded_children_and_original_s
     ] {
         let residual = lower_fixture_expr(CoreType::int(), |anchor| {
             let invalid = if matches!(op, BinaryOp::Divide | BinaryOp::Remainder) {
-                CoreExprKind::Binary {
-                    op: BinaryOp::Subtract,
-                    left: Box::new(core_expr(
-                        anchor,
-                        CoreType::int(),
-                        CoreExprKind::IntLiteral("1".to_string()),
-                    )),
-                    right: Box::new(core_expr(
-                        anchor,
-                        CoreType::int(),
-                        CoreExprKind::IntLiteral("1".to_string()),
-                    )),
-                }
+                closed_int_binary(anchor, BinaryOp::Subtract, 1, 1)
             } else {
-                CoreExprKind::Binary {
-                    op: BinaryOp::Add,
-                    left: Box::new(core_expr(
-                        anchor,
-                        CoreType::int(),
-                        CoreExprKind::IntLiteral("63".to_string()),
-                    )),
-                    right: Box::new(core_expr(
-                        anchor,
-                        CoreType::int(),
-                        CoreExprKind::IntLiteral("1".to_string()),
-                    )),
-                }
+                closed_int_binary(anchor, BinaryOp::Add, 63, 1)
             };
             CoreExprKind::Binary {
                 op,
-                left: Box::new(core_expr(
-                    anchor,
-                    CoreType::int(),
-                    CoreExprKind::IntLiteral("7".to_string()),
-                )),
-                right: Box::new(core_expr(anchor, CoreType::int(), invalid)),
+                left: Box::new(int_at(anchor, 7)),
+                right: Box::new(invalid),
             }
         })
         .expect("residual failure should lower");
@@ -399,7 +429,10 @@ fn folding_keeps_dynamic_and_failing_parents_with_folded_children_and_original_s
                     && right.span == residual.span
         ));
     }
+}
 
+#[test]
+fn folding_keeps_dynamic_parents_with_folded_children() {
     let dynamic = lower_fixture_expr(CoreType::int(), |anchor| CoreExprKind::Binary {
         op: BinaryOp::Add,
         left: Box::new(core_expr(
@@ -407,23 +440,7 @@ fn folding_keeps_dynamic_and_failing_parents_with_folded_children_and_original_s
             CoreType::int(),
             CoreExprKind::Local("x".to_string()),
         )),
-        right: Box::new(core_expr(
-            anchor,
-            CoreType::int(),
-            CoreExprKind::Binary {
-                op: BinaryOp::Multiply,
-                left: Box::new(core_expr(
-                    anchor,
-                    CoreType::int(),
-                    CoreExprKind::IntLiteral("2".to_string()),
-                )),
-                right: Box::new(core_expr(
-                    anchor,
-                    CoreType::int(),
-                    CoreExprKind::IntLiteral("3".to_string()),
-                )),
-            },
-        )),
+        right: Box::new(closed_int_binary(anchor, BinaryOp::Multiply, 2, 3)),
     })
     .expect("dynamic parent should lower");
     assert!(matches!(
@@ -470,61 +487,22 @@ fn folding_excludes_float_context_and_cross_type_equality() {
 }
 
 #[test]
-fn folding_visit_work_is_linear_and_deep_trees_use_the_existing_lowering_walk() {
-    fn tree(anchor: &Expr, depth: usize) -> CoreExpr {
-        if depth == 0 {
-            return core_expr(
-                anchor,
-                CoreType::int(),
-                CoreExprKind::IntLiteral("1".to_string()),
-            );
-        }
-        core_expr(
-            anchor,
-            CoreType::int(),
-            CoreExprKind::Binary {
-                op: BinaryOp::Add,
-                left: Box::new(tree(anchor, depth - 1)),
-                right: Box::new(tree(anchor, depth - 1)),
-            },
-        )
-    }
-    fn chain(anchor: &Expr, depth: usize) -> CoreExpr {
-        let mut expr = core_expr(
-            anchor,
-            CoreType::int(),
-            CoreExprKind::IntLiteral("0".to_string()),
-        );
-        for _ in 0..depth {
-            expr = core_expr(
-                anchor,
-                CoreType::int(),
-                CoreExprKind::Binary {
-                    op: BinaryOp::Add,
-                    left: Box::new(expr),
-                    right: Box::new(core_expr(
-                        anchor,
-                        CoreType::int(),
-                        CoreExprKind::IntLiteral("1".to_string()),
-                    )),
-                },
-            );
-        }
-        expr
-    }
-
+fn folding_visit_work_is_linear() {
     super::constant_folding::take_visits();
-    let small = lower_fixture_expr(CoreType::int(), |anchor| tree(anchor, 6).kind)
+    let small = lower_fixture_expr(CoreType::int(), |anchor| balanced_add_tree(anchor, 6).kind)
         .expect("small tree should lower");
     assert_eq!(small.kind, IrExprKind::IntConstant(64));
     let small_visits = super::constant_folding::take_visits();
-    let large = lower_fixture_expr(CoreType::int(), |anchor| tree(anchor, 7).kind)
+    let large = lower_fixture_expr(CoreType::int(), |anchor| balanced_add_tree(anchor, 7).kind)
         .expect("large tree should lower");
     assert_eq!(large.kind, IrExprKind::IntConstant(128));
     let large_visits = super::constant_folding::take_visits();
     assert_eq!(large_visits, small_visits * 2 + 1);
+}
 
-    let deep = lower_fixture_expr(CoreType::int(), |anchor| chain(anchor, 128).kind)
+#[test]
+fn deep_trees_use_the_existing_lowering_walk() {
+    let deep = lower_fixture_expr(CoreType::int(), |anchor| deep_add_chain(anchor, 128).kind)
         .expect("deep tree should lower on the existing expression walk");
     assert_eq!(deep.kind, IrExprKind::IntConstant(128));
     super::constant_folding::take_visits();

@@ -633,22 +633,22 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
 
     pub(super) fn emit_expr(&mut self, code: &mut MethodCode, expr: &IrExpr) {
         match &expr.kind {
-            IrExprKind::Local(name) => self.emit_local(code, name),
-            IrExprKind::ModuleValue(identity) => self.emit_module_value(code, identity),
-            IrExprKind::BoolLiteral(value) => self.emit_bool_literal(code, *value),
-            IrExprKind::StringLiteral(value) => self.emit_string_literal(code, value),
-            IrExprKind::IntLiteral(value) => self.emit_int_literal(code, value),
-            IrExprKind::IntConstant(value) => self.emit_int_constant(code, *value),
-            IrExprKind::FloatLiteral(value) => self.emit_float_literal(code, value),
-            IrExprKind::Unit => self.emit_unit(code),
+            IrExprKind::Local(_)
+            | IrExprKind::ModuleValue(_)
+            | IrExprKind::BoolLiteral(_)
+            | IrExprKind::StringLiteral(_)
+            | IrExprKind::IntLiteral(_)
+            | IrExprKind::IntConstant(_)
+            | IrExprKind::FloatLiteral(_)
+            | IrExprKind::Unit
+            | IrExprKind::OptionNone
+            | IrExprKind::ListNil => self.emit_leaf_expr(code, expr),
             IrExprKind::FunctionValue { name, callsite } => {
                 self.emit_function_value(code, name, *callsite)
             }
             IrExprKind::ResultOk(value) => self.emit_result_constructor(code, "ok", value),
             IrExprKind::ResultErr(value) => self.emit_result_constructor(code, "err", value),
             IrExprKind::OptionSome(value) => self.emit_option_some(code, value),
-            IrExprKind::OptionNone => self.emit_option_none(code),
-            IrExprKind::ListNil => self.emit_list_nil(code),
             IrExprKind::ListCons { head, tail } => self.emit_list_cons(code, head, tail),
             IrExprKind::AdtVariant { name, payloads } => {
                 self.emit_adt_variant(code, name, payloads)
@@ -669,6 +669,22 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrExprKind::CleanupRegion { region } => self.emit_cleanup_region(code, region),
             IrExprKind::Prefix { op, expr } => self.emit_prefix(code, *op, expr),
             IrExprKind::Binary { op, left, right } => self.emit_binary(code, *op, left, right),
+        }
+    }
+
+    fn emit_leaf_expr(&mut self, code: &mut MethodCode, expr: &IrExpr) {
+        match &expr.kind {
+            IrExprKind::Local(name) => self.emit_local(code, name),
+            IrExprKind::ModuleValue(identity) => self.emit_module_value(code, identity),
+            IrExprKind::BoolLiteral(value) => self.emit_bool_literal(code, *value),
+            IrExprKind::StringLiteral(value) => self.emit_string_literal(code, value),
+            IrExprKind::IntLiteral(value) => self.emit_int_literal(code, value),
+            IrExprKind::IntConstant(value) => self.emit_int_constant(code, *value),
+            IrExprKind::FloatLiteral(value) => self.emit_float_literal(code, value),
+            IrExprKind::Unit => self.emit_unit(code),
+            IrExprKind::OptionNone => self.emit_option_none(code),
+            IrExprKind::ListNil => self.emit_list_nil(code),
+            _ => unreachable!("leaf expression dispatch requires a leaf expression"),
         }
     }
 

@@ -54,28 +54,42 @@ fn fold_int_binary(
 ) -> Option<IrExprKind> {
     let left = int_value(left)?;
     let right = int_value(right)?;
-    let integer = |value| (ty == &CoreType::int()).then_some(IrExprKind::IntConstant(value));
-    let boolean = |value| (ty == &CoreType::bool()).then_some(IrExprKind::BoolLiteral(value));
+    if ty == &CoreType::int() {
+        fold_int_result(op, left, right).map(IrExprKind::IntConstant)
+    } else if ty == &CoreType::bool() {
+        fold_int_comparison(op, left, right).map(IrExprKind::BoolLiteral)
+    } else {
+        None
+    }
+}
+
+fn fold_int_result(op: BinaryOp, left: i64, right: i64) -> Option<i64> {
     match op {
-        BinaryOp::Add => integer(left.wrapping_add(right)),
-        BinaryOp::Subtract => integer(left.wrapping_sub(right)),
-        BinaryOp::Multiply => integer(left.wrapping_mul(right)),
-        BinaryOp::Divide if right != 0 => integer(left.wrapping_div(right)),
-        BinaryOp::Remainder if right != 0 => integer(left.wrapping_rem(right)),
-        BinaryOp::BitwiseAnd => integer(left & right),
-        BinaryOp::BitwiseXor => integer(left ^ right),
-        BinaryOp::BitwiseOr => integer(left | right),
-        BinaryOp::ShiftLeft if (0..64).contains(&right) => integer(left.wrapping_shl(right as u32)),
-        BinaryOp::ShiftRight if (0..64).contains(&right) => integer(left >> right),
+        BinaryOp::Add => Some(left.wrapping_add(right)),
+        BinaryOp::Subtract => Some(left.wrapping_sub(right)),
+        BinaryOp::Multiply => Some(left.wrapping_mul(right)),
+        BinaryOp::Divide if right != 0 => Some(left.wrapping_div(right)),
+        BinaryOp::Remainder if right != 0 => Some(left.wrapping_rem(right)),
+        BinaryOp::BitwiseAnd => Some(left & right),
+        BinaryOp::BitwiseXor => Some(left ^ right),
+        BinaryOp::BitwiseOr => Some(left | right),
+        BinaryOp::ShiftLeft if (0..64).contains(&right) => Some(left.wrapping_shl(right as u32)),
+        BinaryOp::ShiftRight if (0..64).contains(&right) => Some(left >> right),
         BinaryOp::ShiftRightLogical if (0..64).contains(&right) => {
-            integer(((left as u64) >> right) as i64)
+            Some(((left as u64) >> right) as i64)
         }
-        BinaryOp::Equal => boolean(left == right),
-        BinaryOp::NotEqual => boolean(left != right),
-        BinaryOp::Less => boolean(left < right),
-        BinaryOp::LessEqual => boolean(left <= right),
-        BinaryOp::Greater => boolean(left > right),
-        BinaryOp::GreaterEqual => boolean(left >= right),
+        _ => None,
+    }
+}
+
+fn fold_int_comparison(op: BinaryOp, left: i64, right: i64) -> Option<bool> {
+    match op {
+        BinaryOp::Equal => Some(left == right),
+        BinaryOp::NotEqual => Some(left != right),
+        BinaryOp::Less => Some(left < right),
+        BinaryOp::LessEqual => Some(left <= right),
+        BinaryOp::Greater => Some(left > right),
+        BinaryOp::GreaterEqual => Some(left >= right),
         _ => None,
     }
 }
