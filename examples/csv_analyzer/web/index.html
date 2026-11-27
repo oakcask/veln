@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Order desk · Veln CSV analyzer</title>
+  <title>Order desk example</title>
   <link rel="stylesheet" href="/style.css">
   <script type="module" src="/app.js"></script>
 </head>
 <body>
   <main>
-    <header><p class="eyebrow">VELN EXAMPLES / ORDER DESK</p><h1>Check an order.<br>Keep the useful rows.</h1><p>Validate line items and total their value. Your data stays in this local session; nothing is saved.</p></header>
+    <header><p class="eyebrow">ORDER DESK EXAMPLE</p></header>
     <form id="analyze">
       <div class="toolbar"><label class="file">Open CSV <input id="file" type="file" accept=".csv,text/csv"></label><button id="sample" type="button">Load sample</button></div>
       <label for="csv">Order CSV</label>
@@ -26,7 +26,6 @@ mug,0,800</textarea>
       <h2>Rows to fix</h2><p class="hint">Line numbers include the header. Totals include accepted rows only.</p>
       <table><thead><tr><th scope="col">Line</th><th scope="col">Issue</th></tr></thead><tbody id="errors"></tbody></table>
     </section>
-    <footer>Veln computes the result · TypeScript displays it · No database</footer>
   </main>
 </body>
 </html>
