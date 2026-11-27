@@ -371,17 +371,12 @@ fn format_handle_expr(
     allow_handle_chain_migration: bool,
 ) -> String {
     if allow_handle_chain_migration
-        && let Some(formatted) = format_mixed_handle_chain(expr, indent, comments)
+        && let Some(formatted) = format_direct_handle_chain(expr, indent, comments)
     {
         return formatted;
     }
 
     if !terminated {
-        if allow_handle_chain_migration
-            && let Some(formatted) = format_short_handle_chain(expr, indent, comments)
-        {
-            return formatted;
-        }
         return format_unterminated_handle(body, entries, indent, comments);
     }
 
@@ -402,62 +397,82 @@ fn format_handle_expr(
     text
 }
 
-fn format_mixed_handle_chain(
+#[derive(Clone, Copy)]
+enum HandleChainKind {
+    Short,
+    Mixed,
+}
+
+struct HandleChainLevel<'a> {
+    entries: &'a [HandlerEntry],
+    terminated: bool,
+}
+
+struct DirectHandleChain<'a> {
+    body: &'a Expr,
+    entries: Vec<&'a HandlerEntry>,
+    levels: Vec<HandleChainLevel<'a>>,
+    kind: HandleChainKind,
+}
+
+fn format_direct_handle_chain(
     expr: &Expr,
     indent: usize,
     comments: Option<&LineComments>,
 ) -> Option<String> {
-    let (body, entries) = direct_mixed_handle_chain(expr)?;
+    let chain = direct_handle_chain(expr)?;
     #[cfg(test)]
-    super::record_mixed_handle_chain_candidate();
+    if matches!(chain.kind, HandleChainKind::Mixed) {
+        super::record_mixed_handle_chain_candidate();
+    }
 
     if comments.is_some_and(|comments| comments.has_comment_in_span_or_separator(&expr.span)) {
         return None;
     }
 
-    let formatted_body = format_expr_at_indent_ctx(body, indent, None);
-    if formatted_body.contains('\n') {
-        return Some(format_retained_mixed_handle_chain(
-            expr,
-            formatted_body,
+    let body_indent = match chain.kind {
+        HandleChainKind::Short => indent + 1,
+        HandleChainKind::Mixed => indent,
+    };
+    let formatted_body = format_expr_at_indent_ctx(chain.body, body_indent, None);
+    if !formatted_body.contains('\n') {
+        return Some(format_flattened_short_handle_chain(
+            &formatted_body,
+            &chain.entries,
             indent,
         ));
     }
 
-    Some(format_flattened_short_handle_chain(
-        &formatted_body,
-        &entries,
-        indent,
-    ))
+    match chain.kind {
+        HandleChainKind::Short => Some(format_retained_short_handle_chain(
+            formatted_body,
+            &chain.entries,
+            indent,
+        )),
+        HandleChainKind::Mixed => Some(format_retained_mixed_handle_chain(
+            formatted_body,
+            &chain.levels,
+            indent,
+        )),
+    }
 }
 
 fn format_retained_mixed_handle_chain(
-    expr: &Expr,
     formatted_body: String,
+    levels: &[HandleChainLevel<'_>],
     indent: usize,
 ) -> String {
-    let mut current = expr;
-    let mut levels = Vec::new();
-    while let ExprKind::Handle {
-        body: HandleBody::Expression(body),
-        entries,
-        terminated,
-    } = &current.kind
-    {
-        levels.push((entries.as_slice(), *terminated));
-        current = body;
-    }
-
     let mut text = formatted_body;
-    for (entries, terminated) in levels.into_iter().rev() {
-        if terminated {
+    for level in levels.iter().rev() {
+        if level.terminated {
             let mut retained = format!("handle {text} with\n");
-            format_terminated_handler_entries(&mut retained, entries, indent, None);
+            format_terminated_handler_entries(&mut retained, level.entries, indent, None);
             push_indent(&mut retained, indent);
             retained.push_str("end");
             text = retained;
         } else {
-            let entry = entries
+            let entry = level
+                .entries
                 .first()
                 .expect("unterminated handle must have one handler entry");
             let args = format_parenthesized_expr_args(&entry.args, indent, None);
@@ -467,9 +482,10 @@ fn format_retained_mixed_handle_chain(
     text
 }
 
-fn direct_mixed_handle_chain(expr: &Expr) -> Option<(&Expr, Vec<&HandlerEntry>)> {
+fn direct_handle_chain(expr: &Expr) -> Option<DirectHandleChain<'_>> {
     let mut current = expr;
     let mut entries = Vec::new();
+    let mut levels = Vec::new();
     let mut saw_short = false;
     let mut saw_terminated = false;
 
@@ -485,62 +501,10 @@ fn direct_mixed_handle_chain(expr: &Expr) -> Option<(&Expr, Vec<&HandlerEntry>)>
         saw_short |= !terminated;
         saw_terminated |= *terminated;
         entries.extend(current_entries);
-        current = body;
-    }
-
-    if !saw_short || !saw_terminated {
-        return None;
-    }
-    if matches!(
-        current.kind,
-        ExprKind::Handle { .. } | ExprKind::Begin { .. }
-    ) {
-        return None;
-    }
-
-    Some((current, entries))
-}
-
-fn format_short_handle_chain(
-    expr: &Expr,
-    indent: usize,
-    comments: Option<&LineComments>,
-) -> Option<String> {
-    let (body, entries) = direct_short_handle_chain(expr)?;
-
-    if comments.is_some_and(|comments| comments.has_comment_in_span_or_separator(&expr.span)) {
-        return None;
-    }
-
-    let formatted_body = format_expr_at_indent_ctx(body, indent + 1, None);
-    if !formatted_body.contains('\n') {
-        return Some(format_flattened_short_handle_chain(
-            &formatted_body,
-            &entries,
-            indent,
-        ));
-    }
-
-    Some(format_retained_short_handle_chain(
-        formatted_body,
-        &entries,
-        indent,
-    ))
-}
-
-fn direct_short_handle_chain(expr: &Expr) -> Option<(&Expr, Vec<&HandlerEntry>)> {
-    let mut current = expr;
-    let mut entries = Vec::new();
-    while let ExprKind::Handle {
-        body: HandleBody::Expression(body),
-        entries: current_entries,
-        terminated: false,
-    } = &current.kind
-    {
-        let [entry] = current_entries.as_slice() else {
-            return None;
-        };
-        entries.push(entry);
+        levels.push(HandleChainLevel {
+            entries: current_entries,
+            terminated: *terminated,
+        });
         current = body;
     }
 
@@ -551,11 +515,19 @@ fn direct_short_handle_chain(expr: &Expr) -> Option<(&Expr, Vec<&HandlerEntry>)>
         return None;
     }
 
-    if entries.len() < 2 {
+    let kind = if saw_short && saw_terminated {
+        HandleChainKind::Mixed
+    } else if saw_short && levels.len() >= 2 {
+        HandleChainKind::Short
+    } else {
         return None;
-    }
-
-    Some((current, entries))
+    };
+    Some(DirectHandleChain {
+        body: current,
+        entries,
+        levels,
+        kind,
+    })
 }
 
 fn format_flattened_short_handle_chain(
