@@ -580,6 +580,94 @@ fn format_tree_formats_attached_hash_line_comments() {
 }
 
 #[test]
+fn format_tree_keeps_if_condition_comments_with_their_conditions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose() -> Int\n",
+            "  if first() # first condition\n",
+            "    1\n",
+            "  else if second() # second condition\n",
+            "    2\n",
+            "  else\n",
+            "    3\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let formatted = format_tree(&parsed.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn choose() -> Int\n",
+            "\tif first()  # first condition\n",
+            "\t\t1\n",
+            "\telse if second()  # second condition\n",
+            "\t\t2\n",
+            "\telse\n",
+            "\t\t3\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
+fn trailing_comment_ownership_work_scales_with_entries() {
+    let original = trailing_comment_ownership_work(32);
+    let larger = trailing_comment_ownership_work(64);
+
+    assert!(
+        original <= 32,
+        "unexpected original trailing-comment inspections: {original}"
+    );
+    assert!(
+        larger <= 64,
+        "unexpected larger trailing-comment inspections: {larger}"
+    );
+    assert!(
+        larger <= original.saturating_mul(2),
+        "doubling trailing comments grew inspections from {original} to {larger}"
+    );
+}
+
+fn trailing_comment_ownership_work(comment_count: usize) -> usize {
+    let mut source_text = String::from("fn commented_children() -> Int\n  consume(\n");
+    for index in 0..comment_count {
+        source_text.push_str(&format!("    value{index}(), # child {index}\n"));
+    }
+    source_text.push_str("    final()\n  )\nend\n");
+
+    let parsed = parse(&SourceFile::new("main.veln", source_text));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    crate::format::reset_trailing_comment_entries_inspected();
+    let formatted = format_tree(&parsed.tree);
+    let inspections = crate::format::trailing_comment_entries_inspected();
+    assert_eq!(formatted.matches("# child").count(), comment_count);
+
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{formatted}\n{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+    inspections
+}
+
+#[test]
 fn format_tree_attaches_standalone_comments_to_formatted_lines() {
     let source = SourceFile::new(
         "main.veln",

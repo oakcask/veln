@@ -19,7 +19,7 @@ pub(super) fn format_expr_at_indent_with_comments(
     let mut continued_comments = Vec::new();
     take_continued_begin_comments(expr, false, comments, &mut continued_comments);
     let mut text = format_expr_at_indent_ctx(expr, indent, Some(comments));
-    continued_comments.extend(comments.take_after_in_span(&expr.span));
+    continued_comments.extend(comments.take_after_owner_ending_at(expr.span.end.offset));
     for comment in continued_comments {
         text.push_str("  ");
         text.push_str(&comment);
@@ -733,7 +733,7 @@ fn take_handler_entry_trailing_comments(
         for arg in &entry.args {
             take_continued_begin_comments(arg, true, comments, &mut trailing_comments);
         }
-        trailing_comments.extend(comments.take_after(entry.span.end.line));
+        trailing_comments.extend(comments.take_after_in_span_or_separator(&entry.span));
     }
     trailing_comments
 }
@@ -1006,10 +1006,11 @@ fn format_if_expr(
     indent: usize,
     comments: Option<&LineComments>,
 ) -> String {
-    let mut text = format!(
-        "if {}\n",
-        format_expr_at_indent_ctx(condition, indent, comments)
-    );
+    let mut text = String::from("if ");
+    text.push_str(&format_child_with_trailing_comments(
+        condition, indent, comments,
+    ));
+    text.push('\n');
     push_indent(&mut text, indent + 1);
     text.push_str(&format_expr_at_indent_ctx(
         then_branch,
@@ -1020,7 +1021,7 @@ fn format_if_expr(
     for branch in else_if_branches {
         push_indent(&mut text, indent);
         text.push_str("else if ");
-        text.push_str(&format_expr_at_indent_ctx(
+        text.push_str(&format_child_with_trailing_comments(
             &branch.condition,
             indent,
             comments,
@@ -1045,6 +1046,21 @@ fn format_if_expr(
     text.push('\n');
     push_indent(&mut text, indent);
     text.push_str("end");
+    text
+}
+
+fn format_child_with_trailing_comments(
+    child: &Expr,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    let mut text = format_expr_at_indent_ctx(child, indent, comments);
+    if let Some(comments) = comments {
+        for comment in comments.take_after_owner_ending_at(child.span.end.offset) {
+            text.push_str("  ");
+            text.push_str(&comment);
+        }
+    }
     text
 }
 

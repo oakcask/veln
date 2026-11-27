@@ -71,15 +71,89 @@ pub(super) fn push_indent(out: &mut String, level: usize) {
 #[derive(Default)]
 pub(super) struct LineComments {
     before: std::cell::RefCell<std::collections::BTreeMap<usize, Vec<String>>>,
-    after: std::cell::RefCell<std::collections::BTreeMap<usize, Vec<OwnedTrailingComment>>>,
+    after: std::cell::RefCell<TrailingComments>,
     owner_offsets: std::collections::BTreeSet<usize>,
+    owner_start_by_end: std::collections::BTreeMap<usize, usize>,
     separator_owner_offsets: std::collections::BTreeSet<usize>,
     pub(super) requires_lossless_preservation: bool,
 }
 
 struct OwnedTrailingComment {
-    owner_offset: usize,
+    source_line: usize,
     text: String,
+}
+
+#[derive(Default)]
+struct TrailingComments {
+    by_owner: std::collections::BTreeMap<usize, Vec<OwnedTrailingComment>>,
+    owners_by_line: std::collections::BTreeMap<usize, std::collections::BTreeSet<usize>>,
+}
+
+impl TrailingComments {
+    fn insert(&mut self, source_line: usize, owner_offset: usize, text: String) {
+        self.by_owner
+            .entry(owner_offset)
+            .or_default()
+            .push(OwnedTrailingComment { source_line, text });
+        self.owners_by_line
+            .entry(source_line)
+            .or_default()
+            .insert(owner_offset);
+    }
+
+    fn take_line(&mut self, source_line: usize) -> Vec<String> {
+        let Some(owner_offsets) = self.owners_by_line.remove(&source_line) else {
+            return Vec::new();
+        };
+        self.take_owner_offsets(owner_offsets)
+    }
+
+    fn take_range(&mut self, start_offset: usize, end_offset: usize) -> Vec<String> {
+        let owner_offsets = self
+            .by_owner
+            .range(start_offset..end_offset)
+            .map(|(owner_offset, _comments)| {
+                #[cfg(test)]
+                super::record_trailing_comment_entries_inspected(_comments.len());
+                *owner_offset
+            })
+            .collect::<Vec<_>>();
+        self.take_owner_offsets(owner_offsets)
+    }
+
+    fn take_owner(&mut self, owner_offset: usize) -> Vec<String> {
+        self.take_owner_offsets(std::iter::once(owner_offset))
+    }
+
+    fn take_owner_offsets(
+        &mut self,
+        owner_offsets: impl IntoIterator<Item = usize>,
+    ) -> Vec<String> {
+        let mut taken = Vec::new();
+        for owner_offset in owner_offsets {
+            let Some(comments) = self.by_owner.remove(&owner_offset) else {
+                continue;
+            };
+            for comment in comments {
+                let remove_line =
+                    if let Some(line_owners) = self.owners_by_line.get_mut(&comment.source_line) {
+                        line_owners.remove(&owner_offset);
+                        line_owners.is_empty()
+                    } else {
+                        false
+                    };
+                if remove_line {
+                    self.owners_by_line.remove(&comment.source_line);
+                }
+                taken.push(comment.text);
+            }
+        }
+        taken
+    }
+
+    fn is_empty(&self) -> bool {
+        self.by_owner.is_empty()
+    }
 }
 
 impl LineComments {
@@ -88,10 +162,12 @@ impl LineComments {
         let mut seen_code_on_line = false;
         let mut pending = Vec::new();
         let mut before = std::collections::BTreeMap::<usize, Vec<String>>::new();
-        let mut after = std::collections::BTreeMap::<usize, Vec<OwnedTrailingComment>>::new();
+        let mut after = TrailingComments::default();
         let mut owner_offsets = std::collections::BTreeSet::new();
+        let mut owner_start_by_end = std::collections::BTreeMap::new();
         let mut separator_owner_offsets = std::collections::BTreeSet::new();
         let mut last_code_offset = None;
+        let mut last_code_end_offset = None;
         let mut last_code_kind = None;
         let mut requires_lossless_preservation = false;
 
@@ -101,20 +177,21 @@ impl LineComments {
                     line += 1;
                     seen_code_on_line = false;
                     last_code_offset = None;
+                    last_code_end_offset = None;
                     last_code_kind = None;
                 }
                 TokenKind::Whitespace => {}
                 TokenKind::Comment => {
                     if seen_code_on_line {
-                        if let Some(owner_offset) = last_code_offset {
+                        if let (Some(owner_offset), Some(owner_end_offset)) =
+                            (last_code_offset, last_code_end_offset)
+                        {
                             owner_offsets.insert(owner_offset);
+                            owner_start_by_end.insert(owner_end_offset, owner_offset);
                             if last_code_kind == Some(TokenKind::Comma) {
                                 separator_owner_offsets.insert(owner_offset);
                             }
-                            after.entry(line).or_default().push(OwnedTrailingComment {
-                                owner_offset,
-                                text: token.text.trim_start().to_string(),
-                            });
+                            after.insert(line, owner_offset, token.text.trim_start().to_string());
                         }
                     } else {
                         pending.push(token.text.trim_start().to_string());
@@ -128,6 +205,7 @@ impl LineComments {
                     }
                     seen_code_on_line = true;
                     last_code_offset = Some(token.range.start);
+                    last_code_end_offset = Some(token.range.end);
                     last_code_kind = Some(token.kind);
                 }
             }
@@ -141,6 +219,7 @@ impl LineComments {
             before: std::cell::RefCell::new(before),
             after: std::cell::RefCell::new(after),
             owner_offsets,
+            owner_start_by_end,
             separator_owner_offsets,
             requires_lossless_preservation,
         }
@@ -177,27 +256,36 @@ impl LineComments {
     }
 
     pub(super) fn emit_after(&self, source_line: usize, out: &mut String) {
-        let Some(comments) = self.after.borrow_mut().remove(&source_line) else {
-            return;
-        };
-        for comment in comments {
+        for comment in self.after.borrow_mut().take_line(source_line) {
             out.push_str("  ");
-            out.push_str(&comment.text);
+            out.push_str(&comment);
         }
     }
 
     pub(super) fn take_after(&self, source_line: usize) -> Vec<String> {
-        self.after
-            .borrow_mut()
-            .remove(&source_line)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|comment| comment.text)
-            .collect()
+        self.after.borrow_mut().take_line(source_line)
     }
 
     pub(super) fn take_after_in_span(&self, span: &veln_source::SourceSpan) -> Vec<String> {
         self.take_after_in_range(span.start.offset, span.end.offset)
+    }
+
+    pub(super) fn take_after_in_span_or_separator(
+        &self,
+        span: &veln_source::SourceSpan,
+    ) -> Vec<String> {
+        let mut taken = self.take_after_owner_ending_at(span.end.offset);
+        if self.separator_owner_offsets.contains(&span.end.offset) {
+            taken.extend(self.after.borrow_mut().take_owner(span.end.offset));
+        }
+        taken
+    }
+
+    pub(super) fn take_after_owner_ending_at(&self, end_offset: usize) -> Vec<String> {
+        let Some(owner_offset) = self.owner_start_by_end.get(&end_offset).copied() else {
+            return Vec::new();
+        };
+        self.after.borrow_mut().take_owner(owner_offset)
     }
 
     pub(super) fn take_after_in_range(
@@ -209,20 +297,7 @@ impl LineComments {
             return Vec::new();
         }
 
-        let mut taken = Vec::new();
-        let mut after = self.after.borrow_mut();
-        for comments in after.values_mut() {
-            comments.retain(|comment| {
-                if comment.owner_offset >= start_offset && comment.owner_offset < end_offset {
-                    taken.push(comment.text.clone());
-                    false
-                } else {
-                    true
-                }
-            });
-        }
-        after.retain(|_, comments| !comments.is_empty());
-        taken
+        self.after.borrow_mut().take_range(start_offset, end_offset)
     }
 
     pub(super) fn has_comment_in_span(&self, span: &veln_source::SourceSpan) -> bool {
