@@ -682,8 +682,9 @@ All three forms remain accepted after formatting. The
 nested chain of short forms, or a chain that mixes short and terminated
 expression-body forms, is rewritten as one terminated expression-body list
 and when the formatter preserves a nested form. It also owns comment
-attachment across adjacent body expressions, including a comment on a mixed
-handler chain that follows another multiline handler expression.
+attachment across sibling expressions: expanding an earlier multiline handler
+expression does not consume a trailing comment from a later function-body
+expression or call argument.
 
 The syntax tree distinguishes an expression body from a block body, retains
 whether the form is terminated, and preserves the ordered entries, each
