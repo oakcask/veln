@@ -528,6 +528,45 @@ fn formatter_migrates_mixed_handler_chains_in_both_directions() {
 }
 
 #[test]
+fn formatter_emits_migrated_and_listed_handler_entries_identically() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn migrated() -> Int\n",
+            "  handle (handle value() with handlers::inner(1)) with handlers::outer(2)\n",
+            "end\n\n",
+            "fn listed() -> Int\n",
+            "  handle value() with\n",
+            "    handlers::outer(2),\n",
+            "    handlers::inner(1)\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn migrated() -> Int\n",
+            "\thandle value() with\n",
+            "\t\thandlers::outer(2),\n",
+            "\t\thandlers::inner(1)\n",
+            "\tend\n",
+            "end\n\n",
+            "fn listed() -> Int\n",
+            "\thandle value() with\n",
+            "\t\thandlers::outer(2),\n",
+            "\t\thandlers::inner(1)\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn formatter_preserves_alternating_multiline_handler_chain_layers() {
     let source = SourceFile::new(
         "main.veln",
