@@ -437,6 +437,47 @@ fn parses_and_formats_terminated_multiple_handler_forms() {
 }
 
 #[test]
+fn formatter_keeps_ineligible_nested_short_handler_chains_nested() {
+    let cases = [
+        (
+            concat!(
+                "fn commented() -> Int\n",
+                "  handle (handle value() with inner()) with outer() # retain nested\n",
+                "end\n",
+            ),
+            "handle handle value() with inner() with outer()  # retain nested",
+        ),
+        (
+            concat!(
+                "fn mixed() -> Int\n",
+                "  handle (handle (handle value() with\n",
+                "    listed()\n",
+                "  end) with middle()) with outer()\n",
+                "end\n",
+            ),
+            "end with middle() with outer()",
+        ),
+        (
+            concat!(
+                "fn call_boundary() -> Int\n",
+                "  handle wrap(handle value() with inner()) with outer()\n",
+                "end\n",
+            ),
+            "handle wrap(handle value() with inner()) with outer()",
+        ),
+    ];
+
+    for (source_text, retained) in cases {
+        let source = SourceFile::new("main.veln", source_text);
+        let output = parse(&source);
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+        let formatted = format_tree(&output.tree);
+        assert!(formatted.contains(retained), "{formatted}");
+    }
+}
+
+#[test]
 fn terminated_handlers_accept_multiline_bodies_arguments_and_contextual_names() {
     let source = SourceFile::new(
         "main.veln",

@@ -61,8 +61,18 @@ writes commas only between entries, removes an input final comma, and preserves
 comments attached to entries. A standalone comment before a block form's
 `with` remains with the body, and a standalone comment before the terminating
 `end` remains after the final entry. Formatting the result again produces
-identical bytes. Legacy nested short handler expressions are not flattened or
-converted by the current formatter.
+identical bytes.
+
+The formatter migrates a comment-free chain of two or more directly nested
+short handler expressions when the complete chain is on one source line. The
+chain may use grouping parentheses. The result is one terminated
+expression-body list whose entries run from the outermost handler to the
+innermost handler. The migration preserves the handled body and each handler
+context expression. Reformatting the migrated result produces identical
+bytes. The formatter leaves the chain nested if it contains comments, mixes
+short and terminated forms, uses a handled block or `begin`, spans multiple
+source lines, or reaches another handler only through a statement, `defer`,
+call, branch, or postfix operator.
 
 In structurally recognized variant-refinement type text, the formatter writes
 one space on each side of `|`. It preserves the written alternative order,
@@ -118,5 +128,6 @@ inferred parameter classifications. The checked
 case covers ordinary and effect declaration binders, trailing-comma removal,
 and idempotence. The checked
 [`multiple-handler-expressions`](../../examples/specification/fmt/multiple-handler-expressions/)
-case covers both terminated body forms, entry layout, final-comma removal,
+case covers both terminated body forms, short-chain migration with and without
+grouping parentheses, outermost-first entry order, final-comma removal,
 boundary-comment retention, and idempotence.

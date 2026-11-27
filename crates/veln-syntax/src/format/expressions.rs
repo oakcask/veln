@@ -345,6 +345,9 @@ fn format_handle_expr(
     comments: Option<&LineComments>,
 ) -> String {
     if !terminated {
+        if let Some((body, entries)) = flattenable_short_handle_chain(expr, comments) {
+            return format_flattened_short_handle_chain(body, &entries, indent);
+        }
         return format_unterminated_handle(body, entries, indent, comments);
     }
 
@@ -353,6 +356,66 @@ fn format_handle_expr(
     format_terminated_handler_entries(&mut text, entries, indent, comments);
     if let Some(comments) = comments {
         comments.emit_before(expr_end_line(expr), &mut text, indent + 1);
+    }
+    push_indent(&mut text, indent);
+    text.push_str("end");
+    text
+}
+
+fn flattenable_short_handle_chain<'a>(
+    expr: &'a Expr,
+    comments: Option<&LineComments>,
+) -> Option<(&'a Expr, Vec<&'a HandlerEntry>)> {
+    if expr.span.start.line != expr_end_line(expr)
+        || comments.is_some_and(|comments| comments.has_comment_in_span(&expr.span))
+    {
+        return None;
+    }
+
+    let mut current = expr;
+    let mut entries = Vec::new();
+    loop {
+        let ExprKind::Handle {
+            body: HandleBody::Expression(body),
+            entries: current_entries,
+            terminated: false,
+        } = &current.kind
+        else {
+            break;
+        };
+        let [entry] = current_entries.as_slice() else {
+            return None;
+        };
+        entries.push(entry);
+        current = body;
+    }
+
+    if matches!(
+        current.kind,
+        ExprKind::Handle { .. } | ExprKind::Begin { .. }
+    ) {
+        return None;
+    }
+
+    (entries.len() >= 2).then_some((current, entries))
+}
+
+fn format_flattened_short_handle_chain(
+    body: &Expr,
+    entries: &[&HandlerEntry],
+    indent: usize,
+) -> String {
+    let mut text = format!(
+        "handle {} with\n",
+        format_expr_at_indent_ctx(body, indent, None)
+    );
+    for (index, entry) in entries.iter().enumerate() {
+        push_indent(&mut text, indent + 1);
+        text.push_str(&format_handler_entry(entry, indent, None));
+        if index + 1 < entries.len() {
+            text.push(',');
+        }
+        text.push('\n');
     }
     push_indent(&mut text, indent);
     text.push_str("end");
