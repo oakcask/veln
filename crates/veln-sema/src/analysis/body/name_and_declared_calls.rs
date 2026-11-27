@@ -506,7 +506,16 @@ impl<'a> FunctionChecker<'a> {
         if self.declared_call_is_standard_prelude(callee) {
             return None;
         }
-        if self.declared_io_provider_state_operation(callee).is_some() {
+        if crate::call_resolution::io_provider_state_operation(
+            callee,
+            crate::call_resolution::CallResolutionContext {
+                environment: self.environment,
+                current_module: self.function.module_name.as_deref(),
+                current_package: self.function.package_name.as_deref(),
+            },
+        )
+        .is_some()
+        {
             return self.infer_io_provider_state_call(expr, callee, args, expected);
         }
 
@@ -568,9 +577,15 @@ impl<'a> FunctionChecker<'a> {
         args: &[Expr],
         expected: Option<&ExpectedType>,
     ) -> Option<Type> {
-        let operation = self
-            .declared_io_provider_state_operation(callee)?
-            .to_string();
+        let operation = crate::call_resolution::io_provider_state_operation(
+            callee,
+            crate::call_resolution::CallResolutionContext {
+                environment: self.environment,
+                current_module: self.function.module_name.as_deref(),
+                current_package: self.function.package_name.as_deref(),
+            },
+        )?
+        .to_string();
         let mut actuals = self.infer_io_provider_state_actuals(&operation, args, expected);
         let (params, variadic, return_type, origin) = self.call_signature(
             callee,
@@ -605,31 +620,6 @@ impl<'a> FunctionChecker<'a> {
         } else {
             return_type
         })
-    }
-
-    fn declared_io_provider_state_operation(&self, callee: &Expr) -> Option<&str> {
-        let ExprKind::NamePath { segments, .. } = &callee.kind else {
-            return None;
-        };
-        let function = match segments.as_slice() {
-            [name] => self
-                .environment
-                .unqualified_function_in_owner(
-                    name,
-                    self.function.module_name.as_deref(),
-                    self.function.package_name.as_deref(),
-                )
-                .found(),
-            _ => self.environment.function_path_in_owner(
-                segments,
-                self.function.module_name.as_deref(),
-                self.function.package_name.as_deref(),
-            ),
-        }?;
-        (function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-            && function.module_name.as_deref() == Some("std::io_provider")
-            && matches!(function.name.as_str(), "state" | "update"))
-        .then_some(function.name.as_str())
     }
 
     pub(super) fn declared_call_is_standard_prelude(&self, callee: &Expr) -> bool {

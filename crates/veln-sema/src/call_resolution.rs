@@ -371,12 +371,7 @@ fn core_function_call_signature(
     evidence: CallArgumentEvidence<'_, CoreType>,
     resolution: CallResolutionContext<'_>,
 ) -> Option<CoreCallSignature> {
-    if let Some(function) = resolve_function(
-        segments,
-        resolution.environment,
-        resolution.current_module,
-        resolution.current_package,
-    ) {
+    if let Some(function) = resolve_function(segments, resolution) {
         return Some(resolved_core_function_call_signature(
             function, expected, evidence,
         ));
@@ -457,6 +452,18 @@ fn lowered_function_types(function: &FunctionSignature) -> (Vec<CoreType>, CoreT
 fn is_io_provider_function(function: &FunctionSignature) -> bool {
     function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
         && function.module_name.as_deref() == Some("std::io_provider")
+}
+
+pub(crate) fn io_provider_state_operation<'a>(
+    callee: &Expr,
+    resolution: CallResolutionContext<'a>,
+) -> Option<&'a str> {
+    let ExprKind::NamePath { segments, .. } = &callee.kind else {
+        return None;
+    };
+    let function = resolve_function(segments, resolution)?;
+    (is_io_provider_function(function) && matches!(function.name.as_str(), "state" | "update"))
+        .then_some(function.name.as_str())
 }
 
 fn core_call_signature_from_parts(
@@ -549,15 +556,22 @@ fn resolved_surface_function_types(
 
 fn resolve_function<'a>(
     segments: &[String],
-    environment: &'a TypeEnvironment,
-    current_module: Option<&str>,
-    current_package: Option<&str>,
+    resolution: CallResolutionContext<'a>,
 ) -> Option<&'a FunctionSignature> {
     match segments {
-        [name] => environment
-            .unqualified_function_in_owner(name, current_module, current_package)
+        [name] => resolution
+            .environment
+            .unqualified_function_in_owner(
+                name,
+                resolution.current_module,
+                resolution.current_package,
+            )
             .found(),
-        _ => environment.function_path_in_owner(segments, current_module, current_package),
+        _ => resolution.environment.function_path_in_owner(
+            segments,
+            resolution.current_module,
+            resolution.current_package,
+        ),
     }
 }
 

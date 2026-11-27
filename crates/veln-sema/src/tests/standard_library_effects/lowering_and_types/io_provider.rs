@@ -3,6 +3,7 @@ use veln_core::{CheckedProgram, CoreFunction};
 use veln_ir::{IrFunction, TypedProgram};
 
 mod bounded_types;
+mod resolution;
 
 fn standard_io_provider_module(source: &SourceFile) -> SurfaceModule {
     let mut module = lower_standard_package_callables(source);
