@@ -112,8 +112,9 @@ left unchanged.
 
 Standalone comments attach to the next parsed source line and receive that
 line's indentation. Comment-only lines do not interrupt declarations. Trailing
-comments stay on their source line. Slash-prefixed comment-like text is not
-migrated.
+comments stay on their source line. Formatting a preceding multiline handler
+expression does not consume a trailing comment from the header of the next
+adjacent body expression. Slash-prefixed comment-like text is not migrated.
 
 ## Limits and errors
 
@@ -147,3 +148,6 @@ golden tests also pin complete-chain eligibility: postfix, branch, `begin`,
 handled-block, multiline-body, and comment boundaries keep the surrounding
 mixed chain nested, while eligible independent chains beyond statement and
 `defer` boundaries still migrate. Each boundary output is idempotent.
+Golden coverage also places a commented mixed chain immediately after an
+independently eligible mixed chain and checks that the second header keeps its
+comment.
