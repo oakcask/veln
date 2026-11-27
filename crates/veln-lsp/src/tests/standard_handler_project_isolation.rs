@@ -65,7 +65,7 @@ fn assert_standard_handler_lsp_project_isolation(
         [response(
             "2",
             &format!(
-                r#"{{"uri":"{standard_uri}","range":{{"start":{{"line":100,"character":12}},"end":{{"line":100,"character":18}}}}}}"#
+                r#"{{"uri":"{standard_uri}","range":{{"start":{{"line":109,"character":12}},"end":{{"line":109,"character":18}}}}}}"#
             ),
         )]
     );
