@@ -829,32 +829,10 @@ let_line -->
 let_annotation_opt --> tok(colon), type_text_until([equal, nl]), !.
 let_annotation_opt --> [].
 
-expr_line -->
-    expr_line_tokens(Tokens),
-    { Tokens \= [], phrase(expr, Tokens) }.
+expr_line --> expr, expression_line_end.
 
-expr_line_tokens(Tokens, S0, S) :-
-    terminated_handle_line_tokens(Tokens, S0, S),
-    !.
-expr_line_tokens(Tokens, S0, S) :-
-    collect_expr_line(S0, S, 0, 0, none, [], Reversed),
-    reverse(Reversed, Tokens).
-
-terminated_handle_line_tokens(Tokens, S0, S) :-
-    S0 = [t(handle, _) | _],
-    append(Prefix, [t(end, EndText), t(nl, _) | S], S0),
-    (   Prefix = [t(handle, _), t(nl, _) | _]
-    ;   append(_, [t(with, _), t(nl, _) | _], Prefix)
-    ),
-    append(Prefix, [t(end, EndText)], Tokens).
-
-collect_expr_line([t(nl, _) | Rest], Rest, 0, 0, _, Acc, Acc) :- !.
-collect_expr_line([], [], 0, 0, _, Acc, Acc) :- !.
-collect_expr_line([Token | Rest], S, Depth0, Block0, Previous, Acc0, Acc) :-
-    Token = t(Kind, _),
-    next_depth(Kind, Depth0, Depth),
-    next_block_depth(Kind, Previous, Depth0, Block0, Block),
-    collect_expr_line(Rest, S, Depth, Block, Kind, [Token | Acc0], Acc).
+expression_line_end --> nl, !.
+expression_line_end([], []).
 
 line_tokens(Tokens, S0, S) :-
     collect_line(S0, S, [], Reversed),
@@ -1127,13 +1105,6 @@ next_depth(rbracket, Depth0, Depth) :- !, Depth is max(0, Depth0 - 1).
 next_depth(rbrace, Depth0, Depth) :- !, Depth is max(0, Depth0 - 1).
 next_depth(_, Depth, Depth).
 
-next_block_depth(match, _, _, Block0, Block) :- !, Block is Block0 + 1.
-next_block_depth(begin, _, _, Block0, Block) :- !, Block is Block0 + 1.
-next_block_depth(defer, nl, 0, Block0, Block) :- !, Block is Block0 + 1.
-next_block_depth(if, Previous, _, Block0, Block) :- Previous \= else, !, Block is Block0 + 1.
-next_block_depth(end, _, _, Block0, Block) :- Block0 > 0, !, Block is Block0 - 1.
-next_block_depth(_, _, _, Block, Block).
-
 expr --> prefix_expr, binary_tail.
 binary_tail --> binary_op, prefix_expr, !, binary_tail.
 binary_tail --> [].
@@ -1239,15 +1210,18 @@ expression_handle -->
     expr,
     tok(with),
     nl,
+    nls,
     handler_entries,
     tok(end).
 
 block_handle -->
     tok(handle),
     nl,
+    nls,
     handle_body,
     tok(with),
     nl,
+    nls,
     handler_entries,
     tok(end).
 
@@ -1260,8 +1234,8 @@ handle_body(S0, S) :-
     ).
 
 handler_entries --> handler_application, handler_entries_tail.
-handler_entries_tail --> tok(comma), nl, handler_application, !, handler_entries_tail.
-handler_entries_tail --> trailing_comma_opt, nl.
+handler_entries_tail --> tok(comma), nl, nls, handler_application, !, handler_entries_tail.
+handler_entries_tail --> trailing_comma_opt, nl, nls.
 
 handler_application -->
     member_path,
@@ -1313,8 +1287,7 @@ match_arms_tail --> [].
 match_arm -->
     pattern,
     tok(fat_arrow),
-    expr_line_tokens(Tokens),
-    { Tokens \= [], phrase(expr, Tokens) }.
+    expr_line.
 
 if_expr --> tok(if), expr, nls, expr, nls, else_if_tail, tok(else), nls, expr, nls, tok(end).
 else_if_tail --> tok(else), tok(if), expr, nls, expr, nls, !, else_if_tail.

@@ -365,6 +365,7 @@ struct Parser<'a> {
     lossless_tokens: Vec<Token>,
     cursor: usize,
     cleanup_depth: usize,
+    recovering_to_top_level_item: bool,
     top_level_boundary_cache: Cell<Option<(usize, bool)>>,
     module_value_suffixes: ModuleValueSuffixClassifier,
     diagnostics: Vec<ParseDiagnostic>,

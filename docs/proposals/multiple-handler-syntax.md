@@ -43,6 +43,15 @@ forms. It must not cross a `begin` body, statement, `defer`, function call,
 branch, or postfix operator. A `begin` used as the direct outer body should
 become a handled block without removing the cleanup boundary.
 
+The migrated output should use the short single-handler form when one handler
+and a one-line body remain. Multiple handlers with a one-line body should use
+the terminated expression form. A direct `begin Body end` should become a
+handled block, while an existing handled block should retain that explicit
+boundary even when it contains one expression. Any other multiline expression
+body should become the body of a handled block without removing its own
+delimiters. Comments that need the list header or an entry line should keep a
+terminated list even when only one handler remains.
+
 Parentheses that only group the direct handled body may disappear. A comment
 attached to a grouping or delimiter that would disappear prevents that local
 rewrite unless the formatter can preserve the attachment. Body comments and
@@ -79,11 +88,11 @@ are required. Production handlers continue to use real host effects.
 ## Acceptance evidence
 
 Implementation is complete when checked formatter cases cover eligible legacy,
-parenthesized, mixed, block, and comment-boundary inputs; a second formatting
-pass is byte-identical; and semantic/backend cases compare migrated output with
-explicit traces for the remaining contract above. The current parse-before-
-write gate must continue to leave every selected file unchanged when any file
-has a parse diagnostic.
+parenthesized, mixed, single-entry, multiline-expression, block, and
+comment-boundary inputs; a second formatting pass is byte-identical; and
+semantic/backend cases compare migrated output with explicit traces for the
+remaining contract above. The current parse-before-write gate must continue to
+leave every selected file unchanged when any file has a parse diagnostic.
 
 After those checks pass, remove this proposal and its Ready catalog entry. The
 current specifications and executable examples must remain the authority for

@@ -14,6 +14,7 @@ impl<'a> Parser<'a> {
             lossless_tokens: tokens,
             cursor: 0,
             cleanup_depth: 0,
+            recovering_to_top_level_item: false,
             top_level_boundary_cache: Cell::new(None),
             module_value_suffixes: ModuleValueSuffixClassifier::new(),
             diagnostics,
@@ -39,7 +40,9 @@ impl<'a> Parser<'a> {
             if self.at(TokenKind::Eof) {
                 break;
             }
-            if let Some(item) = self.parse_top_level_item() {
+            let item = self.parse_top_level_item();
+            self.recovering_to_top_level_item = false;
+            if let Some(item) = item {
                 items.push(item);
             }
         }
@@ -265,6 +268,9 @@ impl<'a> Parser<'a> {
         let mut items = Vec::new();
         while !self.at(TokenKind::Eof) {
             self.eat_newlines();
+            if self.recovering_to_top_level_item {
+                return (items, false);
+            }
             if self.at(TokenKind::End) {
                 if self.cleanup_depth > 0 && self.end_closes_enclosing_declaration() {
                     return (items, false);
@@ -339,6 +345,41 @@ impl<'a> Parser<'a> {
         self.top_level_boundary_cache
             .set(Some((self.cursor, result)));
         result
+    }
+
+    pub(super) fn at_top_level_item_start(&self) -> bool {
+        match self.current().kind {
+            TokenKind::Fn
+            | TokenKind::Test
+            | TokenKind::Type
+            | TokenKind::Schema
+            | TokenKind::Effect
+            | TokenKind::Handler
+            | TokenKind::Codec => true,
+            TokenKind::Let => module_value_initializer_cursor(&self.tokens, self.cursor)
+                .is_some_and(|initializer| {
+                    matches!(
+                        self.module_value_suffixes
+                            .classify(&self.tokens, initializer),
+                        ModuleValueSuffixEvidence::TopLevelItem
+                            | ModuleValueSuffixEvidence::EndOfInput
+                    )
+                }),
+            TokenKind::Pub => matches!(
+                self.tokens.get(self.cursor + 1).map(|token| token.kind),
+                Some(
+                    TokenKind::Fn
+                        | TokenKind::Test
+                        | TokenKind::Type
+                        | TokenKind::Schema
+                        | TokenKind::Effect
+                        | TokenKind::Handler
+                        | TokenKind::Codec
+                        | TokenKind::Let
+                )
+            ),
+            _ => false,
+        }
     }
 
     pub(super) fn end_closes_enclosing_declaration(&self) -> bool {

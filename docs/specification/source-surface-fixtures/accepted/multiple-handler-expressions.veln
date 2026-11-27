@@ -14,3 +14,51 @@ fn block_body() -> Int
 		inner()
 	end
 end
+
+fn nested_block_body() -> Int
+	handle
+		begin
+			first()
+		end
+	with
+		outer(),
+		inner()
+	end
+end
+
+fn embedded_expression() -> Int
+	1 + handle value() with
+		outer(),
+		inner()
+	end
+end
+
+fn nested_short_handler() -> Int
+	handle handle value() with
+		outer(),
+		inner()
+	end with outer()
+end
+
+fn match_arm_handler() -> Int
+	match value()
+		_ => handle value() with
+			outer(),
+			inner()
+		end
+	end
+end
+
+fn spaced_entries() -> Int
+	handle value() with
+		# The outer context is established first.
+		outer(),
+
+		# The inner handler shadows matching operations.
+		inner(),
+	end
+end
+
+fn qualified_call_path() -> Int
+	handle::member()
+end

@@ -383,15 +383,20 @@ fn format_handle_expr(
         }
     }
     for (index, entry) in entries.iter().enumerate() {
-        push_indent(&mut text, indent + 1);
-        text.push_str(&entry.handler.join("::"));
-        text.push('(');
-        text.push_str(&format_expr_args(&entry.args, indent + 1, comments));
-        text.push(')');
+        let mut line = entry.handler.join("::");
+        line.push('(');
+        line.push_str(&format_expr_args(&entry.args, indent + 1, comments));
+        line.push(')');
         if index + 1 < entries.len() {
-            text.push(',');
+            line.push(',');
         }
-        text.push('\n');
+        if let Some(comments) = comments {
+            push_source_line(&mut text, comments, entry.span.start.line, indent + 1, line);
+        } else {
+            push_indent(&mut text, indent + 1);
+            text.push_str(&line);
+            text.push('\n');
+        }
     }
     push_indent(&mut text, indent);
     text.push_str("end");

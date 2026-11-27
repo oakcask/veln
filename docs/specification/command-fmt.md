@@ -53,13 +53,14 @@ effect path, followed by any retained-effect list. Reformatting that output is
 idempotent and preserves the same effect path and retained effects.
 
 A directly written terminated handler list keeps its body form and entry
-order. An expression body stays on the `handle` header before `with`. A block
-body begins on the next line. Body lines and handler entries use one additional
-tab; `with` for a block and the closing `end` align with `handle`. The formatter
-writes one entry per line, writes commas only between entries, and removes an
-input final comma. Formatting the result again produces identical bytes.
-Legacy nested short handler expressions are not flattened or converted by the
-current formatter.
+order. An expression body begins on the `handle` header and retains any of its
+own multiline delimiters before `with`. A block body begins on the next line.
+Body lines and handler entries use one additional tab; `with` for a block and
+the closing `end` align with `handle`. The formatter writes one entry per line,
+writes commas only between entries, removes an input final comma, and preserves
+comments attached to entries. Formatting the result again produces identical
+bytes. Legacy nested short handler expressions are not flattened or converted
+by the current formatter.
 
 In structurally recognized variant-refinement type text, the formatter writes
 one space on each side of `|`. It preserves the written alternative order,

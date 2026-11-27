@@ -437,6 +437,48 @@ fn parses_and_formats_terminated_multiple_handler_forms() {
 }
 
 #[test]
+fn formats_terminated_handler_entries_with_comments_canonically() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn commented() -> Int\n",
+            "  handle value() with\n",
+            "    # outer first\n",
+            "    outer( ), # retained entry comment\n",
+            "\n",
+            "    # inner shadows outer\n",
+            "    inner( ),\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn commented() -> Int\n",
+            "\thandle value() with\n",
+            "\t\t# outer first\n",
+            "\t\touter(),  # retained entry comment\n",
+            "\t\t# inner shadows outer\n",
+            "\t\tinner()\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
 fn terminated_handler_recovery_preserves_the_enclosing_function_end_and_next_item() {
     for invalid in [
         "handle value() with\nend",
@@ -463,6 +505,71 @@ fn terminated_handler_recovery_preserves_the_enclosing_function_end_and_next_ite
         };
         assert_eq!(survivor.name.as_deref(), Some("survivor"), "{invalid}");
     }
+}
+
+#[test]
+fn terminated_handlers_preserve_module_values_and_nested_cleanup_blocks() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "let answer: Int = handle 1 with\n",
+            "  outer()\n",
+            "end\n\n",
+            "fn embedded() -> Int\n",
+            "  consume(handle\n",
+            "    defer\n",
+            "      ()\n",
+            "    end\n",
+            "    1\n",
+            "  with\n",
+            "    outer()\n",
+            "  end)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(output.tree.items.len(), 2);
+}
+
+#[test]
+fn unterminated_handler_recovery_stops_before_the_next_top_level_item() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn broken() -> Int\n",
+            "  handle value() with\n",
+            "    outer()\n",
+            "fn survivor() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(!output.diagnostics.is_empty());
+    assert_eq!(output.tree.items.len(), 2, "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(survivor) = &output.tree.items[1] else {
+        panic!("expected following function");
+    };
+    assert_eq!(survivor.name.as_deref(), Some("survivor"));
+}
+
+#[test]
+fn qualified_handle_leaf_does_not_start_a_terminated_handler() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn qualified() -> Int\n",
+            "  let callable = namespace::handle\n",
+            "  callable()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
 }
 
 #[test]

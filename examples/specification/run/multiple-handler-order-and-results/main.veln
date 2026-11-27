@@ -11,6 +11,11 @@ fn context(label: String, value: Int) -> Int effects [stdio]
 	value
 end
 
+fn inner_context(label: String, offset: Int) -> Int effects [Ask, stdio]
+	stdio::println(label)
+	perform Ask::value() + offset
+end
+
 fn expression_value() -> Int effects [Ask, stdio]
 	stdio::println("expression body")
 	perform Ask::value()
@@ -19,7 +24,7 @@ end
 fn expression_body() -> Int effects [stdio]
 	handle expression_value() with
 		ask(context("expression outer", 1)),
-		ask(context("expression inner", 2))
+		ask(inner_context("expression inner", 1))
 	end
 end
 
@@ -30,7 +35,7 @@ fn block_body() -> Int effects [stdio]
 		value + 40
 	with
 		ask(context("block outer", 3)),
-		ask(context("block inner", 4))
+		ask(inner_context("block inner", 1))
 	end
 end
 
