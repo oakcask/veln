@@ -1418,6 +1418,18 @@ test write_all_invalid_success_count_retains_only_the_known_prefix() -> Result<(
 	end
 end
 
+test write_all_negative_success_count_retains_only_the_known_prefix() -> Result<(), String> effects [net, time, concurrency]
+	let writes = list_cons(net::Written(net::ByteCount(2)), list_cons(net::Written(net::ByteCount(-1)), list_cons(net::Written(net::ByteCount(1)), list_nil())))
+	match write_all_observation(net_write_all_test::Script(writes), byte_chunk_from_visible_ascii_string("abcdef")?, None, None)?
+		net_write_all_test::Observation(net::WriteAllOutcome::InvalidReply(net::ByteCount(2), net::NetError("write_all", None, None, net::Other, "write returned a negative count")), net_write_all_test::Snapshot(inputs, Cons(net::Written(_), Nil), true)) => if write_inputs_are_two(inputs, "cdef", "abcdef")
+			Ok(())
+		else
+			Err("negative successful reply changed the submitted suffix")
+		end
+		_ => Err("write_all sliced or retried after a negative successful count")
+	end
+end
+
 test write_all_invalid_failure_count_retains_only_the_known_prefix() -> Result<(), String> effects [net, time, concurrency]
 	let failure = observed_failure("scripted-write", "malformed failure")
 	let writes = list_cons(net::Written(net::ByteCount(1)), list_cons(net::WriteFailed(net::ByteCount(-1), failure), list_cons(net::Written(net::ByteCount(1)), list_nil())))
@@ -1428,6 +1440,19 @@ test write_all_invalid_failure_count_retains_only_the_known_prefix() -> Result<(
 			Err("invalid failed reply changed the submitted suffix")
 		end
 		_ => Err("write_all accepted malformed failed progress or retried it")
+	end
+end
+
+test write_all_oversized_failure_count_retains_only_the_known_prefix() -> Result<(), String> effects [net, time, concurrency]
+	let failure = observed_failure("scripted-write", "malformed failure")
+	let writes = list_cons(net::Written(net::ByteCount(2)), list_cons(net::WriteFailed(net::ByteCount(5), failure), list_cons(net::Written(net::ByteCount(1)), list_nil())))
+	match write_all_observation(net_write_all_test::Script(writes), byte_chunk_from_visible_ascii_string("abcdef")?, None, None)?
+		net_write_all_test::Observation(net::WriteAllOutcome::InvalidReply(net::ByteCount(2), net::NetError("write_all", None, None, net::Other, "write failure returned a committed count larger than its input")), net_write_all_test::Snapshot(inputs, Cons(net::Written(_), Nil), true)) => if write_inputs_are_two(inputs, "cdef", "abcdef")
+			Ok(())
+		else
+			Err("oversized failed reply changed the submitted suffix")
+		end
+		_ => Err("write_all retained the provider failure or retried an oversized failed count")
 	end
 end
 

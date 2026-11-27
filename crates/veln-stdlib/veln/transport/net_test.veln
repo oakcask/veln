@@ -207,6 +207,8 @@ fn scripted_write(stream: net::Stream, expected: net::Stream, mode: String, byte
 				let _ = trace_push(trace, string::concat("write:", text))
 				if mode == "write-failure"
 					net::WriteFailed(net::ByteCount(1), failure("scripted-write", "write failed"))
+				else if mode == "malformed-write"
+					net::Written(net::ByteCount(byte_count_to_int(byte_chunk_count(bytes)) + 1))
 				else if text == "abc"
 					net::Written(net::ByteCount(1))
 				else
@@ -351,6 +353,13 @@ end
 pub fn write_failure_matches(result: Result<(), net::NetError>, operation: String, message: String) -> Bool
 	match result
 		Err(net::NetError(observed_operation, Some(net::Tcp4), Some("192.0.2.1:443"), net::ConnectionReset, observed_message)) => observed_operation == operation and observed_message == message
+		_ => false
+	end
+end
+
+pub fn invalid_write_reply_matches(result: Result<(), net::NetError>) -> Bool
+	match result
+		Err(net::NetError("write_all", None, None, net::Other, "write returned a count larger than its input")) => true
 		_ => false
 	end
 end

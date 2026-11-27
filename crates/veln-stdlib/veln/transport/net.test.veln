@@ -99,3 +99,15 @@ test adapter_returns_first_write_failure_unchanged() -> Result<(), String> effec
 		_ => Err("adapter changed the first write failure or continued writing")
 	end
 end
+
+test adapter_returns_invalid_write_reply_unchanged_and_stops() -> Result<(), String> effects [net, time, concurrency]
+	let chunks = list_cons(byte_chunk_from_visible_ascii_string("bad")?, list_cons(byte_chunk_from_visible_ascii_string("later")?, list_nil()))
+	match transport::net_test::direct_write_result("malformed-write", chunks)?
+		{ result: result, trace: Cons("write:bad", Nil) } => if transport::net_test::invalid_write_reply_matches(result)
+			Ok(())
+		else
+			Err("adapter changed the invalid write reply")
+		end
+		_ => Err("adapter accepted the invalid write reply or continued writing")
+	end
+end
