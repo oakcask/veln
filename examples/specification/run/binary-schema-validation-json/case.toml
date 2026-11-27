@@ -32,7 +32,7 @@ equals = 3
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.field_path"
-equals = [{"kind":"schema","name":"SchemaValidationSample"},{"kind":"field","name":"padding_length"}]
+equals = [{"kind":"schema","name":"ValidationFixture"},{"kind":"field","name":"padding_length"}]
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.predicate"

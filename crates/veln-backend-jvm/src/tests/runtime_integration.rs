@@ -1671,7 +1671,27 @@ fn jvm_runtime_reads_and_writes_byte_views_when_java_is_available() {
         return;
     }
 
-    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let ir = lower_to_ir(concat!(
+        "schema WidthFixture\n",
+        "  format binary\n",
+        "  short_value: UInt16be\n",
+        "  wide_value: UInt32be\n",
+        "end\n",
+        "schema ValidationFixture\n",
+        "  format binary\n",
+        "  length: UInt24be\n",
+        "  padding_length: UInt8 where padding_length <= length\n",
+        "end\n",
+        "pub fn decode_width_fixture(view: ByteView) -> Result<{short_value: Int, wide_value: Int}, String>\n",
+        "  byte_decode_width_fixture(view)\n",
+        "end\n",
+        "pub fn decode_validation_fixture(view: ByteView) -> Result<{length: Int, padding_length: Int}, String>\n",
+        "  byte_decode_validation_fixture(view)\n",
+        "end\n",
+        "pub fn main() -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
     let program = generate_classfiles_with_entry(&ir, "main");
     let output = run_java_runtime_harness(
         "runtime-byte-view",

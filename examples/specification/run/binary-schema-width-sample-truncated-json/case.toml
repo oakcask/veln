@@ -32,7 +32,7 @@ equals = 5
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.field_path"
-equals = [{"kind":"schema","name":"SchemaWidthSample"},{"kind":"field","name":"wide_value"}]
+equals = [{"kind":"schema","name":"WidthFixture"},{"kind":"field","name":"wide_value"}]
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.expected_count"

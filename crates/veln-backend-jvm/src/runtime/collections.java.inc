@@ -2976,39 +2976,6 @@
         ));
     }
 
-    public static Object byteDecodeSchemaWidthSample(Object view) {
-        return byteDecodeBinarySchema(
-            view,
-            new BinarySchemaSpec(
-                "SchemaWidthSample",
-                new SchemaFieldSpec[] {
-                    unsignedSchemaField("short_value", 2, null),
-                    unsignedSchemaField("wide_value", 4, null)
-                }
-            )
-        );
-    }
-
-    public static Object byteDecodeSchemaValidationSample(Object view) {
-        return byteDecodeBinarySchema(
-            view,
-            new BinarySchemaSpec(
-                "SchemaValidationSample",
-                new SchemaFieldSpec[] {
-                    unsignedSchemaField("length", 3, null),
-                    unsignedSchemaField(
-                        "padding_length",
-                        1,
-                        schemaPredicate(
-                            "padding_length <= length",
-                            schemaCompare("<=", schemaRef("padding_length"), schemaRef("length"))
-                        )
-                    )
-                }
-            )
-        );
-    }
-
     public static Object byteDecodeDeclaredBinarySchema(
         Object view,
         Object schemaName,

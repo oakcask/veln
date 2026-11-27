@@ -455,7 +455,7 @@ fn byte_result_failure_diagnostic_projects_validation_context() {
             JsonValue::array([
                 JsonValue::object([
                     ("kind", JsonValue::string("schema")),
-                    ("name", JsonValue::string("SchemaValidationSample")),
+                    ("name", JsonValue::string("ValidationFixture")),
                 ]),
                 JsonValue::object([
                     ("kind", JsonValue::string("field")),
@@ -507,7 +507,7 @@ fn byte_result_failure_diagnostic_projects_validation_context() {
     assert!(
         diagnostic.related[3]
             .to_json()
-            .contains("schema `SchemaValidationSample` / field `padding_length`")
+            .contains("schema `ValidationFixture` / field `padding_length`")
     );
 }
 

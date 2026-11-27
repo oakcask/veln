@@ -1,7 +1,7 @@
 # Binary schema UInt16be and UInt32be primitives decode mapped Int fields.
 use stdio
 
-schema SchemaWidthSample
+schema WidthFixture
 	format binary
 
 	short_value: UInt16be
@@ -19,7 +19,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let offset = byte_offset(0)?
 	let count = byte_count(6)?
 	let view = byte_view(bytes, offset, count)?
-	let sample = byte_decode_schema_width_sample(view)?
+	let sample = byte_decode_width_fixture(view)?
 	emit_sample(sample)
 	Ok(())
 end

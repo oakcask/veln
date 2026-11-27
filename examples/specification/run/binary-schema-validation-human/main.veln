@@ -1,5 +1,5 @@
 # Binary schema field-local validation reports a focused human diagnostic.
-schema SchemaValidationSample
+schema ValidationFixture
 	format binary
 
 	length: UInt24be
@@ -11,6 +11,6 @@ pub fn main() -> Result<(), String>
 	let offset: ByteOffset = byte_offset(0)?
 	let count: ByteCount = byte_count(4)?
 	let view: ByteView = byte_view(bytes, offset, count)?
-	let ignored: {length: Int, padding_length: Int} = byte_decode_schema_validation_sample(view)?
+	let ignored: {length: Int, padding_length: Int} = byte_decode_validation_fixture(view)?
 	Ok(())
 end

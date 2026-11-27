@@ -1,0 +1,60 @@
+# Compiler integration contract: public lookup rejects both retired names in
+# bare, qualified, explicitly imported, and function-value positions while
+# unrelated byte helpers and a schema-owned generated decoder still typecheck.
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["byte_decode_schema_width_sample", "byte_decode_schema_validation_sample"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 8
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved call_target `byte_decode_schema_width_sample`"
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved call_target `byte_decode_schema_validation_sample`"
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved call_target `prelude::byte_decode_schema_width_sample`"
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved call_target `prelude::byte_decode_schema_validation_sample`"
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved call_target `standard::byte_decode_schema_width_sample`"
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved call_target `standard::byte_decode_schema_validation_sample`"
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved value `byte_decode_schema_width_sample`"
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved value `byte_decode_schema_validation_sample`"

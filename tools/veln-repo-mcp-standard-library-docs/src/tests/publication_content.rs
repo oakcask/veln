@@ -189,16 +189,18 @@ fn checked_bundle_preserves_standard_library_documentation_content() {
             );
         }
     }
-    for private in [
+    for unpublished in [
         "prelude_builtin::net_system_",
         "net_system_resolve",
         "NoopSpanRequest",
         "NoopSpanFinish",
         "NoopSpan",
+        "byte_decode_schema_width_sample",
+        "byte_decode_schema_validation_sample",
     ] {
         assert!(
-            !checked_artifact_bytes().contains(private),
-            "published private detail {private}"
+            !checked_artifact_bytes().contains(unpublished),
+            "published excluded detail {unpublished}"
         );
     }
 }

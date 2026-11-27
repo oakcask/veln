@@ -232,6 +232,38 @@ fn chunk_count_text(chunk: ByteChunk) -> String
 	int_to_string(byte_count_to_int(byte_chunk_count(chunk)))
 end
 
+schema WidthFixture
+	format binary
+
+	short_value: UInt16be
+	wide_value: UInt32be
+end
+
+schema ValidationFixture
+	format binary
+
+	length: UInt24be
+	padding_length: UInt8 where padding_length <= length
+end
+
+test generated_schema_decoder_preserves_independent_field_widths() -> Result<(), String>
+	let bytes = byte_chunk_from_hex("1234deadbeef")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
+	let decoded = byte_decode_width_fixture(view)?
+	expect_prelude(decoded.short_value == 4660 and decoded.wide_value == 3735928559, "generated schema decoder changed field widths")
+end
+
+test generated_schema_decoder_preserves_field_validation() -> Result<(), String>
+	let valid = byte_view(byte_chunk_from_hex("00000504")?, byte_offset(0)?, byte_count(4)?)?
+	let invalid = byte_view(byte_chunk_from_hex("00000506")?, byte_offset(0)?, byte_count(4)?)?
+	let accepted = byte_decode_validation_fixture(valid)?
+	let rejected = match byte_decode_validation_fixture(invalid)
+		Err("schema validation failed at byte offset 3") => true
+		_ => false
+	end
+	expect_prelude(accepted.length == 5 and accepted.padding_length == 4 and rejected, "generated schema validation changed")
+end
+
 test byte_vocabulary() -> Result<(), String>
 	let first = byte(1)?
 	let second = byte(2)?

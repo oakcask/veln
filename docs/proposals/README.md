@@ -16,8 +16,6 @@ also states it.
 
 ## Ready
 
-- [Retire Sample-specific Prelude APIs](stdlib-sample-api-retirement.md): remove
-  fixed-schema sample decoders from public source and compiler-known lookup.
 - [Preserve Callback Results Through Tracing](tracing-result-polymorphism.md):
   generalize tracing wrappers after ordinary generic-function support; preserve
   callback values, typed errors, effects, and cleanup behavior.

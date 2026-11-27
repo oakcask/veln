@@ -128,7 +128,7 @@ fn byte_prelude_signature<T: BytePreludeType>(name: &str) -> Option<ByteSignatur
         .or_else(|| byte_chunk_signature(name, &types))
         .or_else(|| byte_view_signature(name, &types))
         .or_else(|| byte_chunk_list_signature(name, &types))
-        .or_else(|| byte_decode_sample_signature(name, &types))
+        .or_else(|| byte_decode_signature(name, &types))
         .or_else(|| runtime_diagnostic_signature(name, &types))
         .or_else(|| byte_numeric_signature(name, &types))
 }
@@ -345,7 +345,7 @@ fn byte_chunk_list_signature<T: BytePreludeType>(
     }
 }
 
-fn byte_decode_sample_signature<T: BytePreludeType>(
+fn byte_decode_signature<T: BytePreludeType>(
     name: &str,
     types: &BytePreludeTypes<T>,
 ) -> Option<ByteSignature<T>> {
@@ -357,14 +357,6 @@ fn byte_decode_sample_signature<T: BytePreludeType>(
         "byte_decode_http2_frame" => Some((
             vec![types.byte_view.clone()],
             result_string(http2_frame_type()),
-        )),
-        "byte_decode_schema_width_sample" => Some((
-            vec![types.byte_view.clone()],
-            result_string(schema_width_sample_type()),
-        )),
-        "byte_decode_schema_validation_sample" => Some((
-            vec![types.byte_view.clone()],
-            result_string(schema_validation_sample_type()),
         )),
         _ => None,
     }
@@ -401,12 +393,4 @@ fn http2_frame_type<T: BytePreludeType>() -> T {
         ("stream_id", T::int()),
         ("payload", T::named("ByteView")),
     ])
-}
-
-fn schema_width_sample_type<T: BytePreludeType>() -> T {
-    T::record(vec![("short_value", T::int()), ("wide_value", T::int())])
-}
-
-fn schema_validation_sample_type<T: BytePreludeType>() -> T {
-    T::record(vec![("length", T::int()), ("padding_length", T::int())])
 }

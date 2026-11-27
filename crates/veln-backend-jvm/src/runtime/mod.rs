@@ -115,8 +115,6 @@ runtime_method_table!(prelude_method, "vecLen", {
     "byte_read_u8_be" => "byteReadU8Be",
     "byte_expect_fixed_u8_be" => "byteExpectFixedU8Be",
     "byte_decode_http2_frame" => "byteDecodeHttp2Frame",
-    "byte_decode_schema_width_sample" => "byteDecodeSchemaWidthSample",
-    "byte_decode_schema_validation_sample" => "byteDecodeSchemaValidationSample",
     "http2_protocol_closed_with_pending" => "http2ProtocolClosedWithPending",
     "http2_protocol_partial_preface" => "http2ProtocolPartialPreface",
     "http2_protocol_invalid_preface" => "http2ProtocolInvalidPreface",
