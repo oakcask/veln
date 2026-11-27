@@ -72,7 +72,7 @@ pub(super) fn push_indent(out: &mut String, level: usize) {
 pub(super) struct LineComments {
     before: std::cell::RefCell<std::collections::BTreeMap<usize, Vec<String>>>,
     after: std::cell::RefCell<std::collections::BTreeMap<usize, Vec<String>>>,
-    original_lines: std::collections::BTreeSet<usize>,
+    owner_offsets: std::collections::BTreeSet<usize>,
     pub(super) requires_lossless_preservation: bool,
 }
 
@@ -83,6 +83,8 @@ impl LineComments {
         let mut pending = Vec::new();
         let mut before = std::collections::BTreeMap::<usize, Vec<String>>::new();
         let mut after = std::collections::BTreeMap::<usize, Vec<String>>::new();
+        let mut owner_offsets = std::collections::BTreeSet::new();
+        let mut last_code_offset = None;
         let mut requires_lossless_preservation = false;
 
         for token in tree.lossless_tokens() {
@@ -90,10 +92,14 @@ impl LineComments {
                 TokenKind::Newline => {
                     line += 1;
                     seen_code_on_line = false;
+                    last_code_offset = None;
                 }
                 TokenKind::Whitespace => {}
                 TokenKind::Comment => {
                     if seen_code_on_line {
+                        if let Some(offset) = last_code_offset {
+                            owner_offsets.insert(offset);
+                        }
                         after
                             .entry(line)
                             .or_default()
@@ -105,9 +111,11 @@ impl LineComments {
                 TokenKind::Eof => {}
                 _ => {
                     if !seen_code_on_line && !pending.is_empty() {
+                        owner_offsets.insert(token.range.start);
                         before.entry(line).or_default().append(&mut pending);
                     }
                     seen_code_on_line = true;
+                    last_code_offset = Some(token.range.start);
                 }
             }
         }
@@ -116,12 +124,10 @@ impl LineComments {
             requires_lossless_preservation = true;
         }
 
-        let original_lines = before.keys().chain(after.keys()).copied().collect();
-
         Self {
             before: std::cell::RefCell::new(before),
             after: std::cell::RefCell::new(after),
-            original_lines,
+            owner_offsets,
             requires_lossless_preservation,
         }
     }
@@ -174,13 +180,7 @@ impl LineComments {
     }
 
     pub(super) fn has_comment_in_span(&self, span: &veln_source::SourceSpan) -> bool {
-        let start = span.start.line;
-        let end = if span.end.column == 1 {
-            span.end.line.saturating_sub(1)
-        } else {
-            span.end.line
-        };
-        set_has_key_in_range(&self.original_lines, start, end)
+        set_has_key_in_range(&self.owner_offsets, span.start.offset, span.end.offset)
     }
 
     pub(super) fn all_emitted(&self) -> bool {
@@ -189,12 +189,12 @@ impl LineComments {
 }
 
 fn set_has_key_in_range(set: &std::collections::BTreeSet<usize>, start: usize, end: usize) -> bool {
-    if start > end {
+    if start >= end {
         return false;
     }
     #[cfg(test)]
     super::record_comment_range_query();
-    let found = set.range(start..=end).next().is_some();
+    let found = set.range(start..end).next().is_some();
     #[cfg(test)]
     if found {
         super::record_comment_range_key_inspected();
