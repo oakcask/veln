@@ -339,21 +339,43 @@ fn format_handle_expr(
     comments: Option<&LineComments>,
 ) -> String {
     if !terminated {
-        let HandleBody::Expression(body) = body else {
-            unreachable!("unterminated handle must have an expression body");
-        };
-        let entry = entries
-            .first()
-            .expect("unterminated handle must have one handler entry");
-        let args = format_expr_args(&entry.args, indent, comments);
-        return format!(
-            "handle {} with {}({args})",
-            format_expr_at_indent_ctx(body, indent, comments),
-            entry.handler.join("::")
-        );
+        return format_unterminated_handle(body, entries, indent, comments);
     }
 
     let mut text = String::from("handle");
+    format_terminated_handle_body(&mut text, body, indent, comments);
+    format_terminated_handler_entries(&mut text, entries, indent, comments);
+    push_indent(&mut text, indent);
+    text.push_str("end");
+    text
+}
+
+fn format_unterminated_handle(
+    body: &HandleBody,
+    entries: &[HandlerEntry],
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    let HandleBody::Expression(body) = body else {
+        unreachable!("unterminated handle must have an expression body");
+    };
+    let entry = entries
+        .first()
+        .expect("unterminated handle must have one handler entry");
+    let args = format_expr_args(&entry.args, indent, comments);
+    format!(
+        "handle {} with {}({args})",
+        format_expr_at_indent_ctx(body, indent, comments),
+        entry.handler.join("::")
+    )
+}
+
+fn format_terminated_handle_body(
+    text: &mut String,
+    body: &HandleBody,
+    indent: usize,
+    comments: Option<&LineComments>,
+) {
     match body {
         HandleBody::Expression(body) => {
             text.push(' ');
@@ -373,10 +395,10 @@ fn format_handle_expr(
                                 format_expr_at_indent_with_comments(expr, child_indent, comments)
                             },
                         );
-                        push_source_line(&mut text, comments, source_line, indent + 1, content);
+                        push_source_line(text, comments, source_line, indent + 1, content);
                     }
                     None => {
-                        push_indent(&mut text, indent + 1);
+                        push_indent(text, indent + 1);
                         text.push_str(&format_cleanup_body_line(
                             line,
                             indent + 1,
@@ -386,22 +408,21 @@ fn format_handle_expr(
                     }
                 }
             }
-            push_indent(&mut text, indent);
+            push_indent(text, indent);
             text.push_str("with\n");
         }
     }
+}
+
+fn format_terminated_handler_entries(
+    text: &mut String,
+    entries: &[HandlerEntry],
+    indent: usize,
+    comments: Option<&LineComments>,
+) {
     for (index, entry) in entries.iter().enumerate() {
-        let mut trailing_comments = Vec::new();
-        if let Some(comments) = comments {
-            for arg in &entry.args {
-                take_continued_begin_comments(arg, true, comments, &mut trailing_comments);
-            }
-            trailing_comments.extend(comments.take_after(entry.span.end.line));
-        }
-        let mut line = entry.handler.join("::");
-        line.push('(');
-        line.push_str(&format_expr_args(&entry.args, indent + 1, comments));
-        line.push(')');
+        let trailing_comments = take_handler_entry_trailing_comments(entry, comments);
+        let mut line = format_handler_entry(entry, indent, comments);
         if index + 1 < entries.len() {
             line.push(',');
         }
@@ -410,16 +431,39 @@ fn format_handle_expr(
             line.push_str(&comment);
         }
         if let Some(comments) = comments {
-            push_source_line(&mut text, comments, entry.span.start.line, indent + 1, line);
+            push_source_line(text, comments, entry.span.start.line, indent + 1, line);
         } else {
-            push_indent(&mut text, indent + 1);
+            push_indent(text, indent + 1);
             text.push_str(&line);
             text.push('\n');
         }
     }
-    push_indent(&mut text, indent);
-    text.push_str("end");
-    text
+}
+
+fn take_handler_entry_trailing_comments(
+    entry: &HandlerEntry,
+    comments: Option<&LineComments>,
+) -> Vec<String> {
+    let mut trailing_comments = Vec::new();
+    if let Some(comments) = comments {
+        for arg in &entry.args {
+            take_continued_begin_comments(arg, true, comments, &mut trailing_comments);
+        }
+        trailing_comments.extend(comments.take_after(entry.span.end.line));
+    }
+    trailing_comments
+}
+
+fn format_handler_entry(
+    entry: &HandlerEntry,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    let mut line = entry.handler.join("::");
+    line.push('(');
+    line.push_str(&format_expr_args(&entry.args, indent + 1, comments));
+    line.push(')');
+    line
 }
 
 fn format_collection_expr(

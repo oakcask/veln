@@ -13,6 +13,8 @@ struct SchemaOperationMetadata {
     unresolved_eligibility: &'static str,
 }
 
+type ResolvedHandler = Option<(String, Vec<String>, String)>;
+
 impl SchemaOperation {
     fn metadata(self) -> SchemaOperationMetadata {
         match self {
@@ -337,76 +339,107 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
     ) -> Type {
         let before_handle = self.inferred_effects.len();
+        let (resolved, argument_effects) = self.infer_handler_entries(expr, entries, before_handle);
+        let body_ty = self.infer_expr(body, expected);
+        let retained = self.inferred_effects.split_off(before_handle);
+        self.inferred_effects.extend(Self::retain_handler_effects(
+            expr,
+            entries,
+            resolved,
+            argument_effects,
+            retained,
+        ));
+        body_ty
+    }
+
+    fn infer_handler_entries(
+        &mut self,
+        expr: &Expr,
+        entries: &[veln_ast::HandlerApplication],
+        before_handle: usize,
+    ) -> (Vec<ResolvedHandler>, Vec<Vec<EffectUse>>) {
         let mut resolved = Vec::with_capacity(entries.len());
         let mut argument_effects = Vec::with_capacity(entries.len());
         for entry in entries {
-            let resolution = self.environment.handler_path_in_owner(
-                &entry.handler,
-                self.function.module_name.as_deref(),
-                self.function.package_name.as_deref(),
-            );
-            match resolution {
-                HandlerPathResolution::Found(handler) => {
-                    let handler = handler.clone();
-                    self.check_call_arguments(
-                        &entry.args,
-                        &handler.params,
-                        None,
-                        &CallOrigin {
-                            node_id: expr.node_id,
-                            span: entry.handler_span.clone(),
-                            declaration_span: None,
-                            symbol: handler.qualified_name.clone(),
-                            effects: handler.effects.clone(),
-                            schema_encode: false,
-                        },
-                    );
-                    resolved.push(Some((
-                        handler.effect,
-                        handler.effects,
-                        handler.qualified_name,
-                    )));
-                }
-                HandlerPathResolution::PrivateCompanionTargetMismatch { handler, access } => {
-                    for arg in &entry.args {
-                        self.infer_expr(arg, None);
-                    }
-                    self.diagnostics
-                        .push(private_companion_handler_target_diagnostic(
-                            expr.node_id.display("expr"),
-                            "handle_expression",
-                            &entry.handler.join("::"),
-                            handler,
-                            access,
-                            entry.handler_span.clone(),
-                        ));
-                    resolved.push(None);
-                }
-                HandlerPathResolution::QuarantinedImportTarget => {
-                    for arg in &entry.args {
-                        self.infer_expr(arg, None);
-                    }
-                    resolved.push(None);
-                }
-                HandlerPathResolution::Missing => {
-                    for arg in &entry.args {
-                        self.infer_expr(arg, None);
-                    }
-                    self.diagnostics.push(Diagnostic::new(
-                        "handler.unknown",
-                        Severity::Error,
-                        DiagnosticKind::Effect,
-                        format!("handler `{}` is not known", entry.handler.join("::")),
-                        Some(entry.handler_span.clone()),
-                        effect_details(expr.node_id.display("expr"), "handle_expression"),
-                    ));
-                    resolved.push(None);
-                }
-            }
+            resolved.push(self.infer_handler_entry(expr, entry));
             argument_effects.push(self.inferred_effects.split_off(before_handle));
         }
-        let body_ty = self.infer_expr(body, expected);
-        let mut retained = self.inferred_effects.split_off(before_handle);
+        (resolved, argument_effects)
+    }
+
+    fn infer_handler_entry(
+        &mut self,
+        expr: &Expr,
+        entry: &veln_ast::HandlerApplication,
+    ) -> ResolvedHandler {
+        let resolution = self.environment.handler_path_in_owner(
+            &entry.handler,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        );
+        match resolution {
+            HandlerPathResolution::Found(handler) => {
+                let handler = handler.clone();
+                self.check_call_arguments(
+                    &entry.args,
+                    &handler.params,
+                    None,
+                    &CallOrigin {
+                        node_id: expr.node_id,
+                        span: entry.handler_span.clone(),
+                        declaration_span: None,
+                        symbol: handler.qualified_name.clone(),
+                        effects: handler.effects.clone(),
+                        schema_encode: false,
+                    },
+                );
+                Some((handler.effect, handler.effects, handler.qualified_name))
+            }
+            HandlerPathResolution::PrivateCompanionTargetMismatch { handler, access } => {
+                for arg in &entry.args {
+                    self.infer_expr(arg, None);
+                }
+                self.diagnostics
+                    .push(private_companion_handler_target_diagnostic(
+                        expr.node_id.display("expr"),
+                        "handle_expression",
+                        &entry.handler.join("::"),
+                        handler,
+                        access,
+                        entry.handler_span.clone(),
+                    ));
+                None
+            }
+            HandlerPathResolution::QuarantinedImportTarget => {
+                for arg in &entry.args {
+                    self.infer_expr(arg, None);
+                }
+                None
+            }
+            HandlerPathResolution::Missing => {
+                for arg in &entry.args {
+                    self.infer_expr(arg, None);
+                }
+                self.diagnostics.push(Diagnostic::new(
+                    "handler.unknown",
+                    Severity::Error,
+                    DiagnosticKind::Effect,
+                    format!("handler `{}` is not known", entry.handler.join("::")),
+                    Some(entry.handler_span.clone()),
+                    effect_details(expr.node_id.display("expr"), "handle_expression"),
+                ));
+                None
+            }
+        }
+    }
+
+    fn retain_handler_effects(
+        expr: &Expr,
+        entries: &[veln_ast::HandlerApplication],
+        resolved: Vec<ResolvedHandler>,
+        argument_effects: Vec<Vec<EffectUse>>,
+        mut retained: Vec<EffectUse>,
+    ) -> Vec<EffectUse> {
         for ((resolution, mut args), entry) in resolved
             .into_iter()
             .zip(argument_effects)
@@ -429,8 +462,7 @@ impl<'a> FunctionChecker<'a> {
                 retained = args;
             }
         }
-        self.inferred_effects.extend(retained);
-        body_ty
+        retained
     }
 
     pub(super) fn infer_schema_decode(

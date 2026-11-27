@@ -183,6 +183,28 @@ impl<'a> ExprParser<'a> {
     }
 
     fn parse_terminated_handle(&mut self, start: TextRange, body: HandleBody) -> Expr {
+        let entries = self.parse_terminated_handler_entries();
+        if entries.is_empty() {
+            self.error_current(
+                "parse.handle_entry_required",
+                "multiple-handler expression requires at least one handler entry",
+                vec!["handler application"],
+                RecoveryStrategy::InsertToken,
+                Some("end"),
+            );
+        }
+        let end = self.parse_terminated_handle_end(&entries, start);
+        Expr {
+            span: self.source.span(start.cover(end)),
+            kind: ExprKind::Handle {
+                body,
+                entries,
+                terminated: true,
+            },
+        }
+    }
+
+    fn parse_terminated_handler_entries(&mut self) -> Vec<HandlerEntry> {
         let mut entries = Vec::new();
         let mut previous_had_comma = true;
         self.eat_newlines();
@@ -199,31 +221,34 @@ impl<'a> ExprParser<'a> {
             let entry = self.parse_handler_entry();
             previous_had_comma = self.eat(TokenKind::Comma).is_some();
             entries.push(entry);
-            if self.eat(TokenKind::Newline).is_none() {
-                self.error_current(
-                    "parse.handle_entry",
-                    "handler entries must occupy separate lines",
-                    vec!["newline"],
-                    RecoveryStrategy::InsertToken,
-                    Some("newline"),
-                );
-                while !self.at(TokenKind::Newline) && !self.at(TokenKind::End) && !self.is_at_end()
-                {
-                    self.bump();
-                }
-                self.eat(TokenKind::Newline);
-            }
+            self.parse_terminated_handler_entry_end();
             self.eat_newlines();
         }
-        if entries.is_empty() {
-            self.error_current(
-                "parse.handle_entry_required",
-                "multiple-handler expression requires at least one handler entry",
-                vec!["handler application"],
-                RecoveryStrategy::InsertToken,
-                Some("end"),
-            );
+        entries
+    }
+
+    fn parse_terminated_handler_entry_end(&mut self) {
+        if self.eat(TokenKind::Newline).is_some() {
+            return;
         }
+        self.error_current(
+            "parse.handle_entry",
+            "handler entries must occupy separate lines",
+            vec!["newline"],
+            RecoveryStrategy::InsertToken,
+            Some("newline"),
+        );
+        while !self.at(TokenKind::Newline) && !self.at(TokenKind::End) && !self.is_at_end() {
+            self.bump();
+        }
+        self.eat(TokenKind::Newline);
+    }
+
+    fn parse_terminated_handle_end(
+        &mut self,
+        entries: &[HandlerEntry],
+        fallback: TextRange,
+    ) -> TextRange {
         let close = self.eat(TokenKind::End);
         if close.is_none() {
             self.error_current(
@@ -234,22 +259,14 @@ impl<'a> ExprParser<'a> {
                 Some("end"),
             );
         }
-        let end = close
+        close
             .map(|token| token.range)
             .or_else(|| {
                 entries
                     .last()
                     .map(|entry| TextRange::new(entry.span.start.offset, entry.span.end.offset))
             })
-            .unwrap_or(start);
-        Expr {
-            span: self.source.span(start.cover(end)),
-            kind: ExprKind::Handle {
-                body,
-                entries,
-                terminated: true,
-            },
-        }
+            .unwrap_or(fallback)
     }
 
     fn parse_handler_entry(&mut self) -> HandlerEntry {

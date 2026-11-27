@@ -341,6 +341,14 @@ fn collect_invalid_expr_names(
     invalid: &mut Vec<InvalidName>,
     enclosing: Option<SourceSpan>,
 ) {
+    collect_invalid_first_expr_names(expr, invalid, enclosing);
+}
+
+fn collect_invalid_first_expr_names(
+    expr: &SyntaxExpr,
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
     match &expr.kind {
         SyntaxExprKind::Hole {
             satisfy: Some(clause),
@@ -391,6 +399,16 @@ fn collect_invalid_expr_names(
             collect_invalid_expr_names(value, invalid, enclosing.clone());
             collect_invalid_expr_names(base, invalid, enclosing);
         }
+        _ => collect_invalid_remaining_expr_names(expr, invalid, enclosing),
+    }
+}
+
+fn collect_invalid_remaining_expr_names(
+    expr: &SyntaxExpr,
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    match &expr.kind {
         SyntaxExprKind::Record(fields) => {
             collect_invalid_record_field_expr_names(fields, invalid, enclosing);
         }
@@ -437,12 +455,22 @@ fn collect_invalid_expr_names(
                 NameClass::ValueBinding,
             );
         }
-        SyntaxExprKind::StringLiteral(_)
+        SyntaxExprKind::Hole { .. }
+        | SyntaxExprKind::TypeApply { .. }
+        | SyntaxExprKind::FieldAccess { .. }
+        | SyntaxExprKind::Try { .. }
+        | SyntaxExprKind::Prefix { .. }
+        | SyntaxExprKind::Call { .. }
+        | SyntaxExprKind::Perform { .. }
+        | SyntaxExprKind::Handle { .. }
+        | SyntaxExprKind::SchemaDecode { .. }
+        | SyntaxExprKind::SchemaEncode { .. }
+        | SyntaxExprKind::SchemaValidate { .. }
+        | SyntaxExprKind::StringLiteral(_)
         | SyntaxExprKind::IntLiteral(_)
         | SyntaxExprKind::FloatLiteral(_)
         | SyntaxExprKind::BoolLiteral(_)
         | SyntaxExprKind::Missing
-        | SyntaxExprKind::Hole { .. }
         | SyntaxExprKind::Unit => {}
     }
 }
