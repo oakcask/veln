@@ -14,6 +14,17 @@ pub(super) fn push_source_line(
     indent: usize,
     content: String,
 ) {
+    push_source_lines_through(out, comments, source_line, usize::MAX, indent, content);
+}
+
+pub(super) fn push_source_lines_through(
+    out: &mut String,
+    comments: &LineComments,
+    source_line: usize,
+    through_line: usize,
+    indent: usize,
+    content: String,
+) {
     comments.emit_before(source_line, out, indent);
     push_indent(out, indent);
     for (index, line) in content.split('\n').enumerate() {
@@ -21,9 +32,20 @@ pub(super) fn push_source_line(
             out.push('\n');
         }
         out.push_str(line);
-        comments.emit_after(source_line + index, out);
+        let rendered_source_line = source_line.saturating_add(index);
+        if rendered_source_line <= through_line {
+            comments.emit_after(rendered_source_line, out);
+        }
     }
     out.push('\n');
+}
+
+pub(super) fn span_end_line(span: &veln_source::SourceSpan) -> usize {
+    if span.end.column == 1 {
+        span.end.line.saturating_sub(1)
+    } else {
+        span.end.line
+    }
 }
 
 pub(super) fn push_indent(out: &mut String, level: usize) {

@@ -528,6 +528,56 @@ fn formatter_migrates_mixed_handler_chains_in_both_directions() {
 }
 
 #[test]
+fn formatter_preserves_following_mixed_chain_comment_ownership() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn adjacent_mixed_chains() -> Int\n",
+            "  handle (handle first() with\n",
+            "    first_inner()\n",
+            "  end) with first_outer()\n",
+            "  handle (handle second() with # next header\n",
+            "    second_inner()\n",
+            "  end) with second_outer()\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn adjacent_mixed_chains() -> Int\n",
+            "\thandle first() with\n",
+            "\t\tfirst_outer(),\n",
+            "\t\tfirst_inner()\n",
+            "\tend\n",
+            "\thandle handle second() with  # next header\n",
+            "\t\tsecond_inner()\n",
+            "\tend with second_outer()\n",
+            "end\n",
+        )
+    );
+
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    let reformatted = format_tree(&reparsed.tree);
+    let reparsed_again = parse(&SourceFile::new("reformatted.veln", reformatted.clone()));
+    assert!(
+        reparsed_again.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed_again.diagnostics
+    );
+    assert_eq!(reformatted, formatted);
+}
+
+#[test]
 fn formatter_keeps_mixed_handler_chains_across_excluded_boundaries() {
     let cases = [
         (

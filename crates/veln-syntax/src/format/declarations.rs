@@ -93,7 +93,14 @@ fn format_module_value(out: &mut String, comments: &LineComments, value: &crate:
         0,
         comments,
     ));
-    push_source_line(out, comments, value.span.start.line, 0, line);
+    push_source_lines_through(
+        out,
+        comments,
+        value.span.start.line,
+        span_end_line(&value.span),
+        0,
+        line,
+    );
 }
 
 fn format_effect_decl(out: &mut String, comments: &LineComments, effect: &crate::EffectDecl) {
@@ -175,10 +182,11 @@ fn format_handler_decl(out: &mut String, comments: &LineComments, handler: &Hand
             .map(|param| param.name.clone())
             .collect::<Vec<_>>()
             .join(", ");
-        push_source_line(
+        push_source_lines_through(
             out,
             comments,
             clause.span.start.line,
+            span_end_line(&clause.span),
             1,
             format!(
                 "{}({}) => {}",
@@ -519,12 +527,16 @@ fn format_function_contracts(out: &mut String, comments: &LineComments, function
 
 fn format_function_body(out: &mut String, comments: &LineComments, function: &FunctionDecl) {
     for line in &function.body {
-        let (source_line, content) = format_body_line(line, 1, comments);
-        push_source_line(out, comments, source_line, 1, content);
+        let (source_line, through_line, content) = format_body_line(line, 1, comments);
+        push_source_lines_through(out, comments, source_line, through_line, 1, content);
     }
 }
 
-fn format_body_line(line: &BodyLine, indent: usize, comments: &LineComments) -> (usize, String) {
+fn format_body_line(
+    line: &BodyLine,
+    indent: usize,
+    comments: &LineComments,
+) -> (usize, usize, String) {
     match line {
         BodyLine::Let {
             pattern,
@@ -541,14 +553,16 @@ fn format_body_line(line: &BodyLine, indent: usize, comments: &LineComments) -> 
             }
             content.push_str(" = ");
             content.push_str(&format_expr_at_indent_with_comments(expr, indent, comments));
-            (span.start.line, content)
+            (span.start.line, span_end_line(span), content)
         }
         BodyLine::Expr { expr, span } => (
             span.start.line,
+            span_end_line(span),
             format_expr_at_indent_with_comments(expr, indent, comments),
         ),
         BodyLine::Defer { body, span, .. } => (
             span.start.line,
+            span_end_line(span),
             format_defer_statement_with_comments(body, span, indent, comments),
         ),
     }

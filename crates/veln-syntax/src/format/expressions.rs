@@ -636,15 +636,27 @@ fn format_terminated_handle_body(
             for line in body {
                 match comments {
                     Some(comments) => {
-                        let (source_line, content) = format_cleanup_body_line_with_comments(
-                            line,
-                            indent + 1,
+                        let (source_line, through_line, content) =
+                            format_cleanup_body_line_with_comments(
+                                line,
+                                indent + 1,
+                                comments,
+                                &|expr, child_indent| {
+                                    format_expr_at_indent_with_comments(
+                                        expr,
+                                        child_indent,
+                                        comments,
+                                    )
+                                },
+                            );
+                        push_source_lines_through(
+                            text,
                             comments,
-                            &|expr, child_indent| {
-                                format_expr_at_indent_with_comments(expr, child_indent, comments)
-                            },
+                            source_line,
+                            through_line,
+                            indent + 1,
+                            content,
                         );
-                        push_source_line(text, comments, source_line, indent + 1, content);
                     }
                     None => {
                         push_indent(text, indent + 1);
@@ -683,7 +695,14 @@ fn format_terminated_handler_entries(
             line.push_str(&comment);
         }
         if let Some(comments) = comments {
-            push_source_line(text, comments, entry.span.start.line, indent + 1, line);
+            push_source_lines_through(
+                text,
+                comments,
+                entry.span.start.line,
+                span_end_line(&entry.span),
+                indent + 1,
+                line,
+            );
         } else {
             push_indent(text, indent + 1);
             text.push_str(&line);
