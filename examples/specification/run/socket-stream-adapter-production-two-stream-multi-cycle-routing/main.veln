@@ -198,12 +198,13 @@ fn accept_optional(listener: net::Listener) -> Option<net::Stream> effects [net:
 	end
 end
 
-fn write_chunk_values(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
+fn write_chunk_values(stream: net::Stream, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net::IO]
 	match chunks
-		Nil => ()
-		Cons(bytes, tail) => begin
-			let _ = net::write_all(stream, bytes, None, None)
-			write_chunk_values(stream, tail)
+		Nil => Ok(())
+		Cons(bytes, tail) => match net::write_all(stream, bytes, None, None)
+			net::WriteAllOutcome::Complete(_) => write_chunk_values(stream, tail)
+			net::WriteAllOutcome::Failed(_, error) => Err(error)
+			net::WriteAllOutcome::InvalidReply(_, error) => Err(error)
 		end
 	end
 end

@@ -1247,7 +1247,9 @@ snapshot digests or resource-list positions. Together with the
 `tools/veln-repo-mcp-standard-library-docs/src/tests/publication_content.rs`
 bundle publication-content tests,
 it covers discovery and exact reads for the embedded package catalog,
-including the public `net::system()`, `observe::noop()`, and
+including the public `net::WriteAllOutcome` declaration, the
+progress-preserving `net::write_all` resource, the public `net::system()`
+handler declaration resource, the public `observe::noop()` and
 `observe::recording(Recording)` handler declaration resources, the production
 policy and health types, the production constructor and health snapshot
 functions, the `observe::production(Production)` handler declaration resource,

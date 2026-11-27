@@ -30,6 +30,7 @@ fn checked_bundle_preserves_standard_library_documentation_content() {
                 "[alias ByteCount](",
                 "[type ReadOutcome](",
                 "[type WriteOutcome](",
+                "[type WriteAllOutcome](",
                 "fn split_host_port(address: String)",
                 "fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>)",
                 "type Address",
@@ -81,6 +82,17 @@ fn checked_bundle_preserves_standard_library_documentation_content() {
         ),
         (
             "net",
+            "type WriteAllOutcome",
+            &[
+                "# Type WriteAllOutcome",
+                "A complete-write result reports the cumulative prefix committed across all",
+                "Complete { count: ByteCount }",
+                "Failed { committed: ByteCount, error: NetError }",
+                "InvalidReply { known_prefix: ByteCount, error: NetError }",
+            ],
+        ),
+        (
+            "net",
             "function split_host_port",
             &[
                 "fn split_host_port(address: String) -> Result<{ host : String, port : Int }, NetError>",
@@ -111,7 +123,9 @@ fn checked_bundle_preserves_standard_library_documentation_content() {
             "function write_all",
             &[
                 "# Function write_all",
+                "fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> WriteAllOutcome effects [IO]",
                 "Write the complete byte chunk through the active IO handler.",
+                "Failures retain exact cumulative progress. An invalid",
             ],
         ),
         (

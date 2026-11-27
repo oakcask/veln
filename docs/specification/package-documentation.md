@@ -376,8 +376,10 @@ follows the listed index and exact module/declaration links without pinning
 snapshot digests or resource-list positions. Together with the
 `tools/veln-repo-mcp-standard-library-docs/src/tests/publication_content.rs`
 bundle publication-content tests,
-it covers the public `net::system()` handler resource, its canonical
-signature and visible examples, the public `observe::noop()` and
+it covers the public `net::WriteAllOutcome` declaration, the
+progress-preserving `net::write_all` resource, the public `net::system()`
+handler resource and its canonical signature and visible examples, the public
+`observe::noop()` and
 `observe::recording(Recording)` handler resources, the production policy and
 health types, the production constructor and health snapshot functions, the
 `observe::production(Production)` handler resource, the buffered handler,

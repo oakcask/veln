@@ -107,7 +107,7 @@ fn accepted_lifecycle(stream: net::Stream, adapter_route: { stream : String, lan
 	let summary = collect_stream_failure(stream, adapter_route)
 	let _ = match failure_count(summary.actions)
 		0 => write_chunk_values(stream, ordered_send_chunks(summary.actions))
-		_ => ()
+		_ => Ok(())
 	end
 	close_stream_value(stream)
 	Ok(summary)
@@ -202,12 +202,13 @@ fn accept_optional(listener: net::Listener) -> Option<net::Stream> effects [net:
 	end
 end
 
-fn write_chunk_values(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
+fn write_chunk_values(stream: net::Stream, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net::IO]
 	match chunks
-		Nil => ()
-		Cons(bytes, tail) => begin
-			let _ = net::write_all(stream, bytes, None, None)
-			write_chunk_values(stream, tail)
+		Nil => Ok(())
+		Cons(bytes, tail) => match net::write_all(stream, bytes, None, None)
+			net::WriteAllOutcome::Complete(_) => write_chunk_values(stream, tail)
+			net::WriteAllOutcome::Failed(_, error) => Err(error)
+			net::WriteAllOutcome::InvalidReply(_, error) => Err(error)
 		end
 	end
 end

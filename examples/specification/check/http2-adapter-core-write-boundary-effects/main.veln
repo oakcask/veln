@@ -32,7 +32,7 @@ pub fn handler_response() -> Result<List<ResponseAction>, String>
 	Ok(list_cons(SendHeaders(headers, false), list_cons(SendData(body, true), list_nil())))
 end
 
-fn write_core_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
+fn write_core_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net::IO]
 	write_stream_chunks(stream, chunks)
 end
 
@@ -44,20 +44,27 @@ end
 
 fn adapter_project_and_write(stream: net::Stream) -> Result<(), String> effects [net::IO]
 	let ignored_actions: List<ResponseAction> = handler_response()?
-	write_core_chunks(stream, core_headers_and_data()?)
-	Ok(())
+	project_write_result(write_core_chunks(stream, core_headers_and_data()?))
 end
 
 pub fn adapter_missing_net(stream: net::Stream) -> Result<(), String>
 	adapter_project_and_write(stream)
 end
 
-fn write_stream_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
+fn project_write_result(result: Result<(), net::NetError>) -> Result<(), String>
+	match result
+		Ok(()) => Ok(())
+		Err(net::NetError(_, _, _, _, message)) => Err(message)
+	end
+end
+
+fn write_stream_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net::IO]
 	match chunks
-		Nil => ()
-		Cons(bytes, tail) => begin
-			let _ = net::write_all(stream, bytes, None, None)
-			write_stream_chunks(stream, tail)
+		Nil => Ok(())
+		Cons(bytes, tail) => match net::write_all(stream, bytes, None, None)
+			net::WriteAllOutcome::Complete(_) => write_stream_chunks(stream, tail)
+			net::WriteAllOutcome::Failed(_, error) => Err(error)
+			net::WriteAllOutcome::InvalidReply(_, error) => Err(error)
 		end
 	end
 end

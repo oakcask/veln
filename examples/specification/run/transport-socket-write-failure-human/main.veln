@@ -14,11 +14,19 @@ fn fixture_body() -> Result<(), net::NetError> effects [net::IO]
 	let listener: net::Listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
 	let stream: net::Stream = net::accept(listener)?
 	let outgoing = bytes("0a0b")?
-	let _ = net::write_all(stream, outgoing, None, None)?
+	let _ = match net::write_all(stream, outgoing, None, None)
+		net::WriteAllOutcome::Complete(_) => Ok(())
+		net::WriteAllOutcome::Failed(_, error) => Err(error)
+		net::WriteAllOutcome::InvalidReply(_, error) => Err(error)
+	end?
 	Ok(())
 end
 
 pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, time]
 	let state = fixture_effects::create_fixture()
-	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
+	handle fixture_body() with
+		fake_effects::clock(state),
+		fake_effects::network(state),
+		net::system()
+	end
 end

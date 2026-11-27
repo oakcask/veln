@@ -23,7 +23,11 @@ fn fixture_body() -> Result<(), net::NetError> effects [net::IO, time, stdio]
 	let incoming = read_chunk(stream)?
 	let outgoing = bytes("0a0b")?
 	let deadline = time::deadline_after_ms(0)
-	let _ = net::write_all(stream, outgoing, None, None)?
+	let _ = match net::write_all(stream, outgoing, None, None)
+		net::WriteAllOutcome::Complete(_) => Ok(())
+		net::WriteAllOutcome::Failed(_, error) => Err(error)
+		net::WriteAllOutcome::InvalidReply(_, error) => Err(error)
+	end?
 	time::timeout_ms(0)
 	time::wait_until(deadline)
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
@@ -37,5 +41,9 @@ end
 
 pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
+	handle fixture_body() with
+		fake_effects::clock(state),
+		fake_effects::network(state),
+		net::system()
+	end
 end
