@@ -23,8 +23,6 @@ also states it.
   use `CancelOwner` for cancellation and observation-only `CancelToken` for waits.
 - [Return Cancellable Wait Outcomes Directly](cancellable-wait-outcomes.md):
   consolidate timer wait reporting and distinguish interruption from cancellation.
-- [Preserve Progress in Network Write-all Results](network-write-progress.md):
-  retain cumulative committed bytes and invalid-provider uncertainty on failure.
 - [Multiple-handler Migration and Acceptance](multiple-handler-syntax.md):
   expand migration beyond comment-free single-line short chains and complete
   the remaining failure, cleanup, task, provider-capture, and acceptance

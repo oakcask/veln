@@ -1149,35 +1149,6 @@ public final class NetworkSystemLifecycleHarness {
                     "real write failure did not retain its committed prefix: " + rendered
                 );
             }
-
-            Object selectedResult = VelnProgram.fn_write_all_selected(stream, chunk, outcome);
-            if (((VelnRuntime.Result) selectedResult).isOk()) {
-                throw new AssertionError("write_all discarded the real partial-write failure");
-            }
-            VelnRuntime.recordResultFailure(selectedResult);
-            String formatted = VelnRuntime.formatResultFailure(selectedResult);
-            if (!formatted.contains("NetError(write")) {
-                throw new AssertionError(
-                    "selected result did not retain the typed write failure: " + formatted
-                );
-            }
-            java.nio.file.Path resultTrace = java.nio.file.Paths.get(
-                System.getenv("VELN_RESULT_ERRORS")
-            );
-            java.nio.file.Path transportTrace = java.nio.file.Paths.get(
-                System.getenv("VELN_TRANSPORT_ERRORS")
-            );
-            if (!java.nio.file.Files.exists(resultTrace)
-                || !java.nio.file.Files.readString(resultTrace).startsWith("result\t")) {
-                throw new AssertionError("selected write failure did not produce a result record");
-            }
-            if (java.nio.file.Files.exists(transportTrace)
-                && !java.nio.file.Files.readString(transportTrace).isEmpty()) {
-                throw new AssertionError(
-                    "selected write failure fabricated transport commit facts: "
-                        + java.nio.file.Files.readString(transportTrace)
-                );
-            }
         } finally {
             if (resetter != null && resetter.isAlive()) resetter.interrupt();
             CLEANUP.invoke(null, owner);

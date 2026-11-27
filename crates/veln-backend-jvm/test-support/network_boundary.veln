@@ -1,11 +1,8 @@
 # These observations target JVM nominal-handler dispatch, opaque resource
 # ownership, and host reply translation. API value permutations belong in
 # the standard net companion tests.
-fn boundary_reply(status: String, value: String, bytes: ByteChunk, committed: Int) -> { status: String, value: String, local: String, peer: String, bytes: ByteChunk, resolved_endpoints: List<{ network: String, address: String }>, bytes_committed: Int, category: String, phase: String, input_committed: Int, output_committed: Int, ownership_committed: Int, cause: String }
-	{ status: status, value: value, local: "127.0.0.1:8002", peer: "192.0.2.1:443", bytes: bytes,
-	  resolved_endpoints: list_cons({ network: "tcp4", address: "192.0.2.1" }, list_nil()), bytes_committed: committed,
-	  category: "permission_denied", phase: "during_operation", input_committed: 0, output_committed: 0,
-	  ownership_committed: 0, cause: "scripted boundary failure" }
+fn boundary_reply(status: String, value: String, bytes: ByteChunk, committed: Int) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: status, value: value, local: "127.0.0.1:8002", peer: "192.0.2.1:443", bytes: bytes, resolved_endpoints: list_cons({ network: "tcp4", address: "192.0.2.1" }, list_nil()), bytes_committed: committed, category: "permission_denied", phase: "during_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "scripted boundary failure" }
 end
 
 fn boundary_event_matches(step: Int, operation: String, subject: String, remaining: Int, cancelled: Bool, bytes: ByteChunk) -> Bool
@@ -50,7 +47,7 @@ fn boundary_event_matches(step: Int, operation: String, subject: String, remaini
 	end
 end
 
-fn boundary_step_reply(step: Int) -> { status: String, value: String, local: String, peer: String, bytes: ByteChunk, resolved_endpoints: List<{ network: String, address: String }>, bytes_committed: Int, category: String, phase: String, input_committed: Int, output_committed: Int, ownership_committed: Int, cause: String }
+fn boundary_step_reply(step: Int) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
 	if step == 1
 		boundary_reply("ok", "connected", byte_chunk([]), 0)
 	else if step == 3
@@ -83,12 +80,20 @@ fn boundary_read_bytes() -> ByteChunk
 	end
 end
 
-handler observed_system_boundary(state: { tx: Sender<Int>, rx: Receiver<Int> }) for host_effects::Network effects [concurrency]
+handler observed_system_boundary(state: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Network effects [concurrency]
 	request(operation, subject, bytes, remaining_ms, cancelled) => match channel::recv(state.rx)
 		Some(step) => begin
 			let valid = boundary_event_matches(step, operation, subject, remaining_ms, cancelled, bytes)
-			let _ = channel::send(state.tx, if valid step + 1 else -100 end)
-			if valid boundary_step_reply(step) else boundary_reply("error", "", byte_chunk([]), 0) end
+			let _ = channel::send(state.tx, if valid
+				step + 1
+			else
+				-100
+			end)
+			if valid
+				boundary_step_reply(step)
+			else
+				boundary_reply("error", "", byte_chunk([]), 0)
+			end
 		end
 		None => boundary_reply("error", "", byte_chunk([]), 0)
 	end
@@ -142,20 +147,39 @@ fn exercise_owned_network_boundary() -> Result<(), String> effects [net::IO, tim
 		Ok(net::Endpoint(net::Tcp4, "192.0.2.1:443")) => true
 		_ => false
 	end, "peer endpoint changed across the host boundary")?
-	let _ = match net::shutdown_read(accepted) Ok(()) => Ok(()) Err(_) => Err("read shutdown failed") end?
+	let _ = match net::shutdown_read(accepted)
+		Ok(()) => Ok(())
+		Err(_) => Err("read shutdown failed")
+	end?
 	let _ = boundary_expect_failure(net::shutdown_write(accepted), "shutdown_write")?
-	let _ = match net::shutdown_write(accepted) Ok(()) => Ok(()) Err(_) => Err("write shutdown retry failed") end?
+	let _ = match net::shutdown_write(accepted)
+		Ok(()) => Ok(())
+		Err(_) => Err("write shutdown retry failed")
+	end?
 	let _ = boundary_expect_failure(net::close_stream(accepted), "close_stream")?
-	let _ = match net::close_stream(accepted) Ok(()) => Ok(()) Err(_) => Err("stream close retry failed") end?
-	let _ = match net::close_stream(connected) Ok(()) => Ok(()) Err(_) => Err("connected close failed") end?
+	let _ = match net::close_stream(accepted)
+		Ok(()) => Ok(())
+		Err(_) => Err("stream close retry failed")
+	end?
+	let _ = match net::close_stream(connected)
+		Ok(()) => Ok(())
+		Err(_) => Err("connected close failed")
+	end?
 	let _ = boundary_expect_failure(net::close_listener(listener), "close_listener")?
-	match net::close_listener(listener) Ok(()) => Ok(()) Err(_) => Err("listener close retry failed") end
+	match net::close_listener(listener)
+		Ok(()) => Ok(())
+		Err(_) => Err("listener close retry failed")
+	end
 end
 
 pub fn verify_owned_network_boundary() -> Result<(), String> effects [net, time, concurrency]
 	let state = channel::bounded<Int>(1)
 	let _ = channel::send(state.tx, 0)
-	let result = handle handle handle exercise_owned_network_boundary() with net::system() with observed_system_boundary(state) with stable_network_clock(1000)
+	let result = handle exercise_owned_network_boundary() with
+		stable_network_clock(1000),
+		observed_system_boundary(state),
+		net::system()
+	end
 	let _ = result?
 	expect_write_all_calls(state, 21, "host operation order, resource identity, or options changed")
 end
@@ -164,7 +188,7 @@ fn write_all_with_original_token(token: CancelToken) -> Result<(), String> effec
 	let stream = facade_expect_stream(net::connect(net::Address(net::Tcp4, "write-all", 1)))?
 	let deadline = time::deadline_after_ms(47)
 	match net::write_all(stream, byte_chunk_from_visible_ascii_string("abcdef")?, Some(deadline), Some(token))
-		Err(net::NetError("write", _, _, net::Cancelled, _)) => Ok(())
+		net::WriteAllOutcome::Failed(net::ByteCount(2), net::NetError("write", _, _, net::Cancelled, _)) => Ok(())
 		_ => Err("write_all replaced its token after a partial host write")
 	end
 end
@@ -173,7 +197,11 @@ pub fn verify_write_all_token_identity() -> Result<(), String> effects [net, tim
 	let state = channel::bounded<Int>(1)
 	let _ = channel::send(state.tx, 0)
 	let token = time::cancel_token()
-	let result = handle handle handle write_all_with_original_token(token) with net::system() with scripted_system_write_network(state, Some(token)) with stable_network_clock(1000)
+	let result = handle write_all_with_original_token(token) with
+		stable_network_clock(1000),
+		scripted_system_write_network(state, Some(token)),
+		net::system()
+	end
 	let _ = result?
 	let _ = facade_expect(time::is_cancelled(token), "the host fake did not cancel the original token")?
 	expect_write_all_calls(state, 1, "write_all performed host I/O after its original token was cancelled")

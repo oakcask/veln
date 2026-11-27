@@ -90,7 +90,11 @@ end
 
 pub fn main() -> Result<(), String> effects [time, concurrency, fs, net, stdio]
 	let state = fixture_effects::create_fixture()
-	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
+	handle fixture_body() with
+		fake_effects::clock(state),
+		fake_effects::network(state),
+		net::system()
+	end
 end
 
 fn fixture_network_error(error: net::NetError) -> String
@@ -127,8 +131,9 @@ fn write_chunk_values(stream: net::Stream, chunks: List<ByteChunk>) -> Result<()
 	match chunks
 		Nil => Ok(())
 		Cons(bytes, tail) => match net::write_all(stream, bytes, None, None)
-			Ok(_) => write_chunk_values(stream, tail)
-			Err(error) => Err(fixture_network_error(error))
+			net::WriteAllOutcome::Complete(_) => write_chunk_values(stream, tail)
+			net::WriteAllOutcome::Failed(_, error) => Err(fixture_network_error(error))
+			net::WriteAllOutcome::InvalidReply(_, error) => Err(fixture_network_error(error))
 		end
 	end
 end

@@ -34,6 +34,7 @@ The module exports these public values and aliases:
 | `ByteCount` | Alias for `prelude::ByteCount` |
 | `ReadOutcome` | `Chunk(bytes: ByteChunk)` and `End` variants |
 | `WriteOutcome` | `Written(count: ByteCount)` and `WriteFailed(committed: ByteCount, error: NetError)` variants |
+| `WriteAllOutcome` | `Complete(count: ByteCount)`, `Failed(committed: ByteCount, error: NetError)`, and `InvalidReply(known_prefix: ByteCount, error: NetError)` variants |
 
 The algebraic value constructors and fields can be matched as ordinary public
 data. `Listener` and `Stream` are the opaque aliases described under
@@ -121,22 +122,31 @@ unchanged.
 The complete-write helper has this signature:
 
 ```veln
-pub fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<(), NetError> effects [IO]
+pub fn write_all(stream: Stream, bytes: ByteChunk, deadline: Option<Deadline>, token: Option<CancelToken>) -> WriteAllOutcome effects [IO]
 ```
 
 `write_all(stream, bytes, deadline, token)` writes the complete `ByteChunk`.
-It returns `Ok(())` without performing `IO::write` when the input is empty.
+It returns `Complete(ByteCount(0))` without performing `IO::write` when the
+input is empty.
 After `Written(count)` commits a proper prefix, it performs another write with
 only the uncommitted suffix. Every attempt receives the original stream,
-deadline, and cancellation token.
+deadline, and cancellation token. `Complete(count)` reports the original input
+length after all bytes commit.
 
-`write_all` returns the reported `NetError` immediately after `WriteFailed`,
-including an outcome with a non-zero committed count. It performs no later
-write after that failure. If `Written(0)` occurs while input remains,
-`write_all` returns a `NetError` whose operation is `write_all` and whose kind
-is `Other`; this prevents an unbounded retry. A `Written` count larger than the
-attempted chunk is also an `Other` failure because it violates the handler
-contract.
+`Failed(committed, error)` reports the exact cumulative prefix when a valid
+`WriteFailed` ends the operation. It retains both the prefix committed by
+earlier attempts and the final attempt's valid committed count, and returns the
+provider's original error. A `Written(0)` while input remains instead returns
+`Failed` with the already committed prefix and an `Other` error whose operation
+is `write_all`; this prevents an unbounded retry.
+
+A negative count or a count larger than the submitted suffix is an invalid
+provider reply. `write_all` does not slice with that count and does not retry.
+It returns `InvalidReply(known_prefix, error)`, where `known_prefix` contains
+only progress validated before the malformed reply. This count is a lower
+bound, not an exact total, because the provider might have produced side
+effects that its invalid reply cannot establish. Count accumulation is bounded
+by the original input length and cannot wrap.
 
 `ReadOutcome` has the `Chunk(ByteChunk)` and `End` shapes. The direct
 `read` and `read_with` functions return the handler's outcome unchanged,
@@ -333,7 +343,12 @@ behavior for callers that do not need the nominal duplex effect.
   `NetError("read", None, None, Other, "read returned an empty chunk without reaching end-of-stream")`.
 - An empty write list succeeds without a write. Otherwise the adapter calls
   `net::write_all` for each chunk in list order and returns the first
-  `NetError` unchanged.
+  `NetError` from `Failed` or `InvalidReply` unchanged.
+
+The multi-chunk adapter deliberately projects complete-write outcomes back to
+its terminal `Result<(), NetError>` contract. It does not expose byte progress
+for resumption across its chunk list. Call `net::write_all` directly when the
+exact committed prefix or invalid-reply lower bound is required.
 
 Every read and write targets the captured stream. The adapter does not resolve,
 listen, accept, connect, inspect addresses, shut down, or close a resource.
@@ -349,7 +364,8 @@ a source-less public `net::...` compatibility surface.
 The exported implementation and companion tests are in
 `crates/veln-stdlib/veln/net.veln` and
 `crates/veln-stdlib/veln/net.test.veln`. The companion tests cover the values
-that source code can construct, `write_all`, scoped resolution and failure
+that source code can construct, cumulative `write_all` outcomes, suffix-only
+retries, malformed reply bounds, preserved controls, scoped resolution and failure
 translation, exact write progress, concurrency, interruption decisions, and
 lifecycle uncertainty across retries.
 The adapter implementation is in
