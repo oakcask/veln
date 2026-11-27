@@ -168,20 +168,26 @@ pub(super) fn input_contains_response_directive(input: &str) -> bool {
     }
 }
 
+fn response_directive(entries: &[(String, JsonValue)]) -> Result<Option<&JsonValue>, String> {
+    let Some((_, reference)) = entries.iter().find(|(key, _)| key == "$response") else {
+        return Ok(None);
+    };
+    if entries.len() != 1 {
+        return Err("$response directive must contain no other members".into());
+    }
+    validate_response_reference(reference)?;
+    Ok(Some(reference))
+}
+
 pub(super) fn validate_response_directives(value: &JsonValue) -> Result<(), String> {
     match value {
         JsonValue::Object(entries) => {
-            if let Some((_, reference)) = entries.iter().find(|(key, _)| key == "$response") {
-                if entries.len() != 1 {
-                    return Err("$response directive must contain no other members".into());
-                }
-                validate_response_reference(reference)
-            } else {
+            if response_directive(entries)?.is_none() {
                 for (_, value) in entries {
                     validate_response_directives(value)?;
                 }
-                Ok(())
             }
+            Ok(())
         }
         JsonValue::Array(values) => {
             for value in values {
@@ -193,55 +199,65 @@ pub(super) fn validate_response_directives(value: &JsonValue) -> Result<(), Stri
     }
 }
 
+fn response_link(text: &str, label: &str) -> Result<JsonValue, String> {
+    let marker = format!("[{label}](");
+    let links: Vec<_> = text
+        .match_indices(&marker)
+        .filter_map(|(start, _)| {
+            text[start + marker.len()..]
+                .split_once(')')
+                .map(|(uri, _)| uri)
+        })
+        .collect();
+    if links.len() != 1 {
+        return Err(format!(
+            "link {label:?} matched {} entries; select one published link",
+            links.len()
+        ));
+    }
+    Ok(JsonValue::String(links[0].into()))
+}
+
+fn replace_response_text(replacement: JsonValue, replace: &JsonValue) -> Result<JsonValue, String> {
+    let pair = replace.as_array().expect("validated replacement");
+    let from = pair[0].as_str().unwrap();
+    let to = pair[1].as_str().unwrap();
+    let text = replacement
+        .as_str()
+        .ok_or("replace reference must select a string")?;
+    if text.matches(from).count() != 1 {
+        return Err(format!(
+            "replace source {from:?} must occur exactly once; inspect the published URI"
+        ));
+    }
+    Ok(JsonValue::String(text.replacen(from, to, 1)))
+}
+
+fn response_replacement(
+    messages: &[JsonValue],
+    reference: &JsonValue,
+) -> Result<JsonValue, String> {
+    let mut replacement = reference_value(messages, reference)?.clone();
+    if let Some(link) = reference.object_field("link") {
+        let text = replacement
+            .as_str()
+            .ok_or("link reference must select Markdown text")?;
+        replacement = response_link(text, link.as_str().expect("validated link"))?;
+    }
+    if let Some(replace) = reference.object_field("replace") {
+        replacement = replace_response_text(replacement, replace)?;
+    }
+    Ok(replacement)
+}
+
 pub(super) fn expand_response_directives(
     value: &mut JsonValue,
     messages: &[JsonValue],
 ) -> Result<(), String> {
     match value {
         JsonValue::Object(entries) => {
-            if let Some((_, reference)) = entries.iter().find(|(key, _)| key == "$response") {
-                if entries.len() != 1 {
-                    return Err("$response directive must contain no other members".into());
-                }
-                validate_response_reference(reference)?;
-                let mut replacement = reference_value(messages, reference)?.clone();
-                if reference.object_field("link").is_some() {
-                    let text = replacement
-                        .as_str()
-                        .ok_or("link reference must select Markdown text")?;
-                    let label = string_field(reference, "link")?;
-                    let marker = format!("[{label}](");
-                    let links: Vec<_> = text
-                        .match_indices(&marker)
-                        .filter_map(|(start, _)| {
-                            text[start + marker.len()..]
-                                .split_once(')')
-                                .map(|(uri, _)| uri)
-                        })
-                        .collect();
-                    if links.len() != 1 {
-                        return Err(format!(
-                            "link {label:?} matched {} entries; select one published link",
-                            links.len()
-                        ));
-                    }
-                    replacement = JsonValue::String(links[0].into());
-                }
-                if let Some(replace) = reference.object_field("replace") {
-                    let pair = replace.as_array().expect("validated replacement");
-                    let from = pair[0].as_str().unwrap();
-                    let to = pair[1].as_str().unwrap();
-                    let text = replacement
-                        .as_str()
-                        .ok_or("replace reference must select a string")?;
-                    if text.matches(from).count() != 1 {
-                        return Err(format!(
-                            "replace source {from:?} must occur exactly once; inspect the published URI"
-                        ));
-                    }
-                    replacement = JsonValue::String(text.replacen(from, to, 1));
-                }
-                *value = replacement;
+            if let Some(reference) = response_directive(entries)? {
+                *value = response_replacement(messages, reference)?;
             } else {
                 for (_, value) in entries {
                     expand_response_directives(value, messages)?;
@@ -445,6 +461,20 @@ mod tests {
                 "{directive}"
             );
         }
+    }
+
+    #[test]
+    fn response_directive_validation_and_expansion_reject_the_same_nested_envelope() {
+        let directive =
+            value(r#"{"request":{"params":[{"$response":{"id":1,"path":""},"extra":true}]}}"#);
+        let validation_error = validate_response_directives(&directive).unwrap_err();
+        let expansion_error = expand_response_directives(&mut directive.clone(), &[]).unwrap_err();
+
+        assert_eq!(
+            validation_error,
+            "$response directive must contain no other members"
+        );
+        assert_eq!(expansion_error, validation_error);
     }
 
     #[test]
