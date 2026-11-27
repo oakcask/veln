@@ -921,7 +921,9 @@ fn format_delimited_subjects<'a>(
             if let Some((_, next_span)) = subjects.get(index + 1) {
                 comments.take_after_in_range(span.start.offset, next_span.start.offset)
             } else {
-                comments.take_after_in_span(span)
+                let mut trailing = comments.take_after_in_range(span.start.offset, span.end.offset);
+                trailing.extend(comments.take_after_separator(span));
+                trailing
             }
         });
         if is_last && (!break_before_close_for_final_comment || trailing.is_empty()) {

@@ -1,4 +1,5 @@
 use super::*;
+use crate::Token;
 
 pub(super) fn lossless_text(tree: &SyntaxTree) -> String {
     tree.lossless_tokens()
@@ -75,13 +76,115 @@ pub(super) struct LineComments {
     owner_offsets: std::collections::BTreeSet<usize>,
     owner_start_by_end: std::collections::BTreeMap<usize, usize>,
     end_token_offsets: std::collections::BTreeSet<usize>,
-    separator_owner_offsets: std::collections::BTreeSet<usize>,
+    separator_owner_by_preceding_end: std::collections::BTreeMap<usize, usize>,
     pub(super) requires_lossless_preservation: bool,
 }
 
 struct OwnedTrailingComment {
     source_line: usize,
     text: String,
+}
+
+#[derive(Clone, Copy)]
+struct LineCodeToken {
+    kind: TokenKind,
+    start: usize,
+    end: usize,
+    preceding_end: Option<usize>,
+}
+
+struct LineCommentCollector {
+    line: usize,
+    pending: Vec<String>,
+    before: std::collections::BTreeMap<usize, Vec<String>>,
+    after: TrailingComments,
+    owner_offsets: std::collections::BTreeSet<usize>,
+    owner_start_by_end: std::collections::BTreeMap<usize, usize>,
+    end_token_offsets: std::collections::BTreeSet<usize>,
+    separator_owner_by_preceding_end: std::collections::BTreeMap<usize, usize>,
+    last_code: Option<LineCodeToken>,
+    previous_code_end: Option<usize>,
+}
+
+impl Default for LineCommentCollector {
+    fn default() -> Self {
+        Self {
+            line: 1,
+            pending: Vec::new(),
+            before: std::collections::BTreeMap::new(),
+            after: TrailingComments::default(),
+            owner_offsets: std::collections::BTreeSet::new(),
+            owner_start_by_end: std::collections::BTreeMap::new(),
+            end_token_offsets: std::collections::BTreeSet::new(),
+            separator_owner_by_preceding_end: std::collections::BTreeMap::new(),
+            last_code: None,
+            previous_code_end: None,
+        }
+    }
+}
+
+impl LineCommentCollector {
+    fn push(&mut self, token: &Token) {
+        match token.kind {
+            TokenKind::Newline => {
+                self.line += 1;
+                self.last_code = None;
+            }
+            TokenKind::Whitespace | TokenKind::Eof => {}
+            TokenKind::Comment => self.push_comment(token),
+            _ => self.push_code(token),
+        }
+    }
+
+    fn push_comment(&mut self, token: &Token) {
+        let text = token.text.trim_start().to_string();
+        let Some(owner) = self.last_code else {
+            self.pending.push(text);
+            return;
+        };
+
+        self.owner_offsets.insert(owner.start);
+        self.owner_start_by_end.insert(owner.end, owner.start);
+        if owner.kind == TokenKind::Comma
+            && let Some(preceding_end) = owner.preceding_end
+        {
+            self.separator_owner_by_preceding_end
+                .insert(preceding_end, owner.start);
+        }
+        self.after.insert(self.line, owner.start, text);
+    }
+
+    fn push_code(&mut self, token: &Token) {
+        if token.kind == TokenKind::End {
+            self.end_token_offsets.insert(token.range.start);
+        }
+        if self.last_code.is_none() && !self.pending.is_empty() {
+            self.owner_offsets.insert(token.range.start);
+            self.before
+                .entry(self.line)
+                .or_default()
+                .append(&mut self.pending);
+        }
+        self.last_code = Some(LineCodeToken {
+            kind: token.kind,
+            start: token.range.start,
+            end: token.range.end,
+            preceding_end: self.previous_code_end,
+        });
+        self.previous_code_end = Some(token.range.end);
+    }
+
+    fn finish(self) -> LineComments {
+        LineComments {
+            before: std::cell::RefCell::new(self.before),
+            after: std::cell::RefCell::new(self.after),
+            owner_offsets: self.owner_offsets,
+            owner_start_by_end: self.owner_start_by_end,
+            end_token_offsets: self.end_token_offsets,
+            separator_owner_by_preceding_end: self.separator_owner_by_preceding_end,
+            requires_lossless_preservation: !self.pending.is_empty(),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -159,76 +262,11 @@ impl TrailingComments {
 
 impl LineComments {
     pub(super) fn from_tree(tree: &SyntaxTree) -> Self {
-        let mut line = 1usize;
-        let mut seen_code_on_line = false;
-        let mut pending = Vec::new();
-        let mut before = std::collections::BTreeMap::<usize, Vec<String>>::new();
-        let mut after = TrailingComments::default();
-        let mut owner_offsets = std::collections::BTreeSet::new();
-        let mut owner_start_by_end = std::collections::BTreeMap::new();
-        let mut end_token_offsets = std::collections::BTreeSet::new();
-        let mut separator_owner_offsets = std::collections::BTreeSet::new();
-        let mut last_code_offset = None;
-        let mut last_code_end_offset = None;
-        let mut last_code_kind = None;
-        let mut requires_lossless_preservation = false;
-
+        let mut collector = LineCommentCollector::default();
         for token in tree.lossless_tokens() {
-            match token.kind {
-                TokenKind::Newline => {
-                    line += 1;
-                    seen_code_on_line = false;
-                    last_code_offset = None;
-                    last_code_end_offset = None;
-                    last_code_kind = None;
-                }
-                TokenKind::Whitespace => {}
-                TokenKind::Comment => {
-                    if seen_code_on_line {
-                        if let (Some(owner_offset), Some(owner_end_offset)) =
-                            (last_code_offset, last_code_end_offset)
-                        {
-                            owner_offsets.insert(owner_offset);
-                            owner_start_by_end.insert(owner_end_offset, owner_offset);
-                            if last_code_kind == Some(TokenKind::Comma) {
-                                separator_owner_offsets.insert(owner_offset);
-                            }
-                            after.insert(line, owner_offset, token.text.trim_start().to_string());
-                        }
-                    } else {
-                        pending.push(token.text.trim_start().to_string());
-                    }
-                }
-                TokenKind::Eof => {}
-                _ => {
-                    if token.kind == TokenKind::End {
-                        end_token_offsets.insert(token.range.start);
-                    }
-                    if !seen_code_on_line && !pending.is_empty() {
-                        owner_offsets.insert(token.range.start);
-                        before.entry(line).or_default().append(&mut pending);
-                    }
-                    seen_code_on_line = true;
-                    last_code_offset = Some(token.range.start);
-                    last_code_end_offset = Some(token.range.end);
-                    last_code_kind = Some(token.kind);
-                }
-            }
+            collector.push(token);
         }
-
-        if !pending.is_empty() {
-            requires_lossless_preservation = true;
-        }
-
-        Self {
-            before: std::cell::RefCell::new(before),
-            after: std::cell::RefCell::new(after),
-            owner_offsets,
-            owner_start_by_end,
-            end_token_offsets,
-            separator_owner_offsets,
-            requires_lossless_preservation,
-        }
+        collector.finish()
     }
 
     pub(super) fn emit_before(&self, source_line: usize, out: &mut String, indent: usize) {
@@ -272,19 +310,24 @@ impl LineComments {
         self.after.borrow_mut().take_line(source_line)
     }
 
-    pub(super) fn take_after_in_span(&self, span: &veln_source::SourceSpan) -> Vec<String> {
-        self.take_after_in_range(span.start.offset, span.end.offset)
-    }
-
     pub(super) fn take_after_in_span_or_separator(
         &self,
         span: &veln_source::SourceSpan,
     ) -> Vec<String> {
         let mut taken = self.take_after_owner_ending_at(span.end.offset);
-        if self.separator_owner_offsets.contains(&span.end.offset) {
-            taken.extend(self.after.borrow_mut().take_owner(span.end.offset));
-        }
+        taken.extend(self.take_after_separator(span));
         taken
+    }
+
+    pub(super) fn take_after_separator(&self, span: &veln_source::SourceSpan) -> Vec<String> {
+        if let Some(owner_offset) = self
+            .separator_owner_by_preceding_end
+            .get(&span.end.offset)
+            .copied()
+        {
+            return self.after.borrow_mut().take_owner(owner_offset);
+        }
+        Vec::new()
     }
 
     pub(super) fn take_after_owner_ending_at(&self, end_offset: usize) -> Vec<String> {
@@ -326,7 +369,10 @@ impl LineComments {
     }
 
     pub(super) fn has_comment_in_span_or_separator(&self, span: &veln_source::SourceSpan) -> bool {
-        self.has_comment_in_span(span) || self.separator_owner_offsets.contains(&span.end.offset)
+        self.has_comment_in_span(span)
+            || self
+                .separator_owner_by_preceding_end
+                .contains_key(&span.end.offset)
     }
 
     pub(super) fn all_emitted(&self) -> bool {

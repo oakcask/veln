@@ -763,6 +763,97 @@ fn formatter_preserves_delimited_mixed_chain_comment_ownership() {
                 "end\n",
             ),
         ),
+        (
+            concat!(
+                "fn spaced_separator_comment() -> Int\n",
+                "wrap(handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer() , # first argument\n",
+                "later())\n",
+                "end\n",
+            ),
+            concat!(
+                "fn spaced_separator_comment() -> Int\n",
+                "\twrap(handle handle value() with\n",
+                "\t\tinner()\n",
+                "\tend with outer(),  # first argument\n",
+                "\t\tlater())\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn final_argument_comment() -> Int\n",
+                "wrap(handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer(), # final argument\n",
+                ")\n",
+                "end\n",
+            ),
+            concat!(
+                "fn final_argument_comment() -> Int\n",
+                "\twrap(handle handle value() with\n",
+                "\t\tinner()\n",
+                "\tend with outer()  # final argument\n",
+                "\t)\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn next_line_separator_comment() -> Int\n",
+                "wrap(handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer()\n",
+                ", # first argument\n",
+                "later())\n",
+                "end\n",
+            ),
+            concat!(
+                "fn next_line_separator_comment() -> Int\n",
+                "\twrap(handle handle value() with\n",
+                "\t\tinner()\n",
+                "\tend with outer(),  # first argument\n",
+                "\t\tlater())\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn final_list_comment() -> Int\n",
+                "[handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer(), # final item\n",
+                "]\n",
+                "end\n",
+            ),
+            concat!(
+                "fn final_list_comment() -> Int\n",
+                "\t[handle handle value() with\n",
+                "\t\tinner()\n",
+                "\tend with outer()  # final item\n",
+                "\t]\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
+                "fn final_record_comment() -> Int\n",
+                "{ value: handle (handle value() with\n",
+                "inner()\n",
+                "end) with outer(), # final field\n",
+                "}.value\n",
+                "end\n",
+            ),
+            concat!(
+                "fn final_record_comment() -> Int\n",
+                "\t{ value: handle handle value() with\n",
+                "\t\tinner()\n",
+                "\tend with outer()  # final field\n",
+                "\t}.value\n",
+                "end\n",
+            ),
+        ),
     ];
 
     for (source_text, expected) in cases {
