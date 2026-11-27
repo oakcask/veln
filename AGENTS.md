@@ -24,6 +24,9 @@
   dates when its schema or freshness logic requires them.
 * Treat `docs/specification/` as the source of current implemented behavior.
   Use the documentation and proposal skills for placement and lifecycle rules.
+* When designing, changing, or reviewing source syntax or its canonical
+  formatting, follow `docs/reference/source-syntax-design.md` for expression
+  and block forms, token boundaries, scope semantics, and review evidence.
 * When selecting, implementing, completing, reviewing, or cleaning up proposal
   work, use `$proposal-implementation-audit`.
 * When adding, moving, classifying, or reorganizing documentation, or changing

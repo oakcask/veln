@@ -50,11 +50,11 @@ also states it.
 
 ## Design In Progress
 
-- [Bodies for Conditional Branches](control-flow-bodies.md): allow direct `if`
-  branch bodies and unit conditionals without `else`; retain single-expression
-  arrow clauses and explicit `begin` scopes so sequence boundaries remain
-  visible without indentation cues. Scope and formatting decisions require
-  review before Ready promotion.
+- [Consistent Expression and Block Forms](control-flow-bodies.md): apply a
+  common classification to conditional bodies, single-expression arrows,
+  explicit scopes, and paired `defer` forms; specify unit conditionals without
+  `else`, deferred evaluation timing, canonical source, and design guardrails.
+  Language decisions require review before Ready promotion.
 - [Typed HTTP/2 Decision Projections](http2-typed-decisions.md): expose typed
   decision payloads instead of status-string/getter sequences; requires a
   complete view and retirement map for the affected decision families.
