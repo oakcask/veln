@@ -10,6 +10,10 @@ handler inner(value: Int) for Ask
   value() => value
 end
 
+handler handler() for Ask
+  value() => 3
+end
+
 fn first() -> Int
   1
 end
@@ -36,5 +40,12 @@ fn block_body() -> Int
   with
     outer(),
     inner(),
+  end
+end
+
+fn contextual_entries() -> Int
+  handle value() with
+    handler(),
+    inner(second()),
   end
 end

@@ -263,9 +263,7 @@ pub enum CoreExprKind {
         args: Vec<CoreExpr>,
     },
     Handle {
-        effect: String,
-        providers: Vec<CoreHandlerProvider>,
-        context_args: Vec<CoreExpr>,
+        entries: Vec<CoreHandlerApplication>,
         body: Box<CoreExpr>,
     },
     FieldAccess {
@@ -298,6 +296,13 @@ pub enum CoreExprKind {
 pub struct CoreHandlerProvider {
     pub operation: String,
     pub function: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoreHandlerApplication {
+    pub effect: String,
+    pub providers: Vec<CoreHandlerProvider>,
+    pub context_args: Vec<CoreExpr>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

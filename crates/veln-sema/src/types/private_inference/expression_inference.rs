@@ -243,9 +243,11 @@ fn infer_private_value_type(
             }
             Some(PrivateExprInference::successful(Type::Unknown))
         }
-        ExprKind::Handle { body, args, .. } => {
-            for arg in args {
-                context.infer(arg, None);
+        ExprKind::Handle { body, entries } => {
+            for entry in entries {
+                for arg in &entry.args {
+                    context.infer(arg, None);
+                }
             }
             Some(PrivateExprInference::successful(
                 context.infer(body, expected),

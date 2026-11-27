@@ -120,17 +120,14 @@ impl Writer {
                 self.span(operation_span);
                 self.vec(args, Self::expr);
             }
-            ExprKind::Handle {
-                body,
-                handler,
-                handler_span,
-                args,
-            } => {
+            ExprKind::Handle { body, entries } => {
                 self.u8(11);
                 self.expr(body);
-                self.vec(handler, |writer, value| writer.string(value));
-                self.span(handler_span);
-                self.vec(args, Self::expr);
+                self.vec(entries, |writer, entry| {
+                    writer.vec(&entry.handler, |writer, value| writer.string(value));
+                    writer.span(&entry.handler_span);
+                    writer.vec(&entry.args, Self::expr);
+                });
             }
             _ => unreachable!("non-effect expression passed to effect wire encoder"),
         }

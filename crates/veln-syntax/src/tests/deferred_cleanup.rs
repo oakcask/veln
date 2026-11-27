@@ -1315,6 +1315,119 @@ fn shares_cleanup_nesting_limit_across_defer_and_begin_parsers() {
 }
 
 #[test]
+fn shares_cleanup_nesting_limit_with_handled_blocks() {
+    for (total_forms, expect_limit) in [(128, false), (129, true)] {
+        let mut text = String::from("fn handled_cleanup() -> ()\n");
+        for _ in 0..total_forms {
+            text.push_str(" handle\n");
+        }
+        text.push_str(" ()\n");
+        for _ in 0..total_forms {
+            text.push_str(" with\n  handler()\n end\n");
+        }
+        text.push_str("end\n");
+
+        let source = SourceFile::new("handled-cleanup.veln", text);
+        let expected_token_count = lex(&source).tokens.len();
+        let output = parse(&source);
+        let has_limit = output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.cleanup_nesting_limit");
+
+        assert_eq!(has_limit, expect_limit, "{:#?}", output.diagnostics);
+        if !expect_limit {
+            assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+        }
+        assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+    }
+}
+
+#[test]
+fn shares_cleanup_nesting_limit_across_begin_defer_and_handled_blocks() {
+    for (total_forms, expect_limit) in [(128, false), (129, true)] {
+        let mut text = String::from("fn mixed_handled_cleanup() -> ()\n");
+        let mut forms = Vec::with_capacity(total_forms);
+        for index in 0..total_forms {
+            let form = match index % 3 {
+                0 => "begin",
+                1 => "defer",
+                _ => "handle",
+            };
+            forms.push(form);
+            text.push(' ');
+            text.push_str(form);
+            text.push('\n');
+        }
+        text.push_str(" ()\n");
+        for form in forms.into_iter().rev() {
+            if form == "handle" {
+                text.push_str(" with\n  handler()\n");
+            }
+            text.push_str(" end\n");
+        }
+        text.push_str("end\n");
+
+        let source = SourceFile::new("mixed-handled-cleanup.veln", text);
+        let expected_token_count = lex(&source).tokens.len();
+        let output = parse(&source);
+        let has_limit = output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.cleanup_nesting_limit");
+
+        assert_eq!(has_limit, expect_limit, "{:#?}", output.diagnostics);
+        if !expect_limit {
+            assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+        }
+        assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+    }
+}
+
+#[test]
+fn rejects_deep_and_mixed_handled_cleanup_without_aborting() {
+    for mixed in [false, true] {
+        let total_forms = 800;
+        let mut text = String::from("fn handled_cleanup() -> ()\n");
+        let mut forms = Vec::with_capacity(total_forms);
+        for index in 0..total_forms {
+            let form = if mixed && index % 3 == 0 {
+                "begin"
+            } else if mixed && index % 3 == 1 {
+                "defer"
+            } else {
+                "handle"
+            };
+            forms.push(form);
+            text.push(' ');
+            text.push_str(form);
+            text.push('\n');
+        }
+        text.push_str(" ()\n");
+        for form in forms.into_iter().rev() {
+            if form == "handle" {
+                text.push_str(" with\n  handler()\n");
+            }
+            text.push_str(" end\n");
+        }
+        text.push_str("end\n");
+
+        let source = SourceFile::new("deep-handled-cleanup.veln", text);
+        let expected_token_count = lex(&source).tokens.len();
+        let output = parse(&source);
+        assert!(
+            output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.cleanup_nesting_limit"),
+            "{:#?}",
+            output.diagnostics
+        );
+        assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+    }
+}
+
+#[test]
 fn rejects_excessive_alternating_cleanup_nesting_without_aborting() {
     let total_forms = 129;
     let mut text = String::from("fn alternating_cleanup() -> ()\n defer\n");

@@ -431,9 +431,10 @@ join reports cancellation. The effect boundary during unwinding is specified by
 [effects.md](effects.md#effect-labels). The backend transfers a successful
 `begin` value only after that region's cleanup completes.
 
-Terminated multiple-handler expressions reach checked core and typed IR as
-the equivalent nested single-handler expressions. The first source entry is
-the outermost runtime frame. The JVM therefore evaluates outer context
+Terminated multiple-handler expressions retain one ordered handler-entry list
+through checked core and typed IR. Their runtime behavior is equivalent to
+nested single-handler expressions. The first source entry is the outermost
+runtime frame. The JVM therefore evaluates outer context
 arguments before inner context arguments, enters every frame before the body,
 preserves the expression or handled-block result, and unwinds inner frames
 before outer frames. The checked

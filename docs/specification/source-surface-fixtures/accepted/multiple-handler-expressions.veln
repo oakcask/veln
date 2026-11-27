@@ -62,3 +62,10 @@ end
 fn qualified_call_path() -> Int
 	handle::member()
 end
+
+fn contextual_handler_entries() -> Int
+	handle value() with
+		handler(),
+		handler::qualified()
+	end
+end

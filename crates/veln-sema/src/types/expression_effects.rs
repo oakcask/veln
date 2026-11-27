@@ -79,12 +79,7 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
                 left,
                 right,
             } => self.collect_pipeline(left, right),
-            ExprKind::Handle {
-                body,
-                handler,
-                args,
-                ..
-            } => self.collect_handle(body, handler, args),
+            ExprKind::Handle { body, entries } => self.collect_handle(body, entries),
             ExprKind::NamePath { segments, .. } => self.collect_name_path(segments),
             ExprKind::Begin { .. } => {}
             _ => expr.for_each_child(&mut |child| self.collect(child)),
@@ -123,17 +118,19 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
         self.collect_call(callee, &piped_args);
     }
 
-    fn collect_handle(&mut self, body: &Expr, handler: &[String], args: &[Expr]) {
-        self.collect_all(args);
-        if let Some(handler) = handler_for_path(handler, self.context)
-            && handler.visibility != Visibility::Public
-        {
-            self.dependencies
-                .insert(EffectDependencyNode::PrivateHandler((
-                    handler.package_name.clone(),
-                    handler.module_name.clone(),
-                    handler.name.clone(),
-                )));
+    fn collect_handle(&mut self, body: &Expr, entries: &[veln_ast::HandlerApplication]) {
+        for entry in entries {
+            self.collect_all(&entry.args);
+            if let Some(handler) = handler_for_path(&entry.handler, self.context)
+                && handler.visibility != Visibility::Public
+            {
+                self.dependencies
+                    .insert(EffectDependencyNode::PrivateHandler((
+                        handler.package_name.clone(),
+                        handler.module_name.clone(),
+                        handler.name.clone(),
+                    )));
+            }
         }
         self.collect(body);
     }
@@ -189,12 +186,7 @@ impl ExprEffectCollector<'_, '_, '_> {
                 right,
             } => self.collect_pipeline(left, right),
             ExprKind::Perform { effect, args, .. } => self.collect_perform(effect, args),
-            ExprKind::Handle {
-                body,
-                handler,
-                args,
-                ..
-            } => self.collect_handle(body, handler, args),
+            ExprKind::Handle { body, entries } => self.collect_handle(body, entries),
             ExprKind::Begin { .. } => {}
             _ => expr.for_each_child(&mut |child| self.collect(child)),
         }
@@ -304,23 +296,32 @@ impl ExprEffectCollector<'_, '_, '_> {
         self.collect_all(args);
     }
 
-    fn collect_handle(&mut self, body: &Expr, handler: &[String], args: &[Expr]) {
-        self.collect_all(args);
-        let Some((handled_effect, handler_effects)) = handler_for_path(handler, self.context)
-            .map(|handler| (handler.effect.clone(), handler.effects.clone()))
-        else {
-            self.collect(body);
-            return;
-        };
-        let before_body = self.inferred.len();
+    fn collect_handle(&mut self, body: &Expr, entries: &[veln_ast::HandlerApplication]) {
+        let before_handle = self.inferred.len();
+        let mut argument_effects = Vec::with_capacity(entries.len());
+        for entry in entries {
+            self.collect_all(&entry.args);
+            argument_effects.push(self.inferred.split_off(before_handle));
+        }
         self.collect(body);
-        let retained_body_effects = self
-            .inferred
-            .drain(before_body..)
-            .filter(|effect| effect != &handled_effect)
-            .collect::<Vec<_>>();
-        self.inferred.extend(retained_body_effects);
-        self.push_all(&handler_effects);
+        let mut retained = self.inferred.split_off(before_handle);
+        for (entry, mut args) in entries.iter().zip(argument_effects).rev() {
+            if let Some(handler) = handler_for_path(&entry.handler, self.context) {
+                retained.retain(|effect| effect != &handler.effect);
+                for effect in retained {
+                    push_unique_effect(&mut args, &effect);
+                }
+                for effect in &handler.effects {
+                    push_unique_effect(&mut args, effect);
+                }
+            } else {
+                for effect in retained {
+                    push_unique_effect(&mut args, &effect);
+                }
+            }
+            retained = args;
+        }
+        self.push_all(&retained);
     }
 
     fn push_all(&mut self, effects: &[String]) {

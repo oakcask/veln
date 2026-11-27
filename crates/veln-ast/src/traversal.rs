@@ -18,13 +18,18 @@ impl Expr {
         visitor: &mut impl FnMut(&'a Expr) -> ControlFlow<B>,
     ) -> ControlFlow<B> {
         match &self.kind {
-            ExprKind::Call { callee, args }
-            | ExprKind::Handle {
-                body: callee, args, ..
-            } => {
+            ExprKind::Call { callee, args } => {
                 visitor(callee)?;
                 for arg in args {
                     visitor(arg)?;
+                }
+            }
+            ExprKind::Handle { body, entries } => {
+                visitor(body)?;
+                for entry in entries {
+                    for arg in &entry.args {
+                        visitor(arg)?;
+                    }
                 }
             }
             ExprKind::TypeApply { callee: expr, .. }

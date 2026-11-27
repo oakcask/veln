@@ -6,8 +6,9 @@ use veln_ast::{BinaryOp, ContractKind, PredicateRemainder, PrefixOp};
 use veln_ir::{
     ContractObligationStatus, CoreContractCall, CoreModuleValueIdentity, CoreType, IrCallTarget,
     IrCallbackTarget, IrContract, IrDeferredBlock, IrDictEntry, IrExpr, IrExprKind, IrFunction,
-    IrHandlerProvider, IrMatchArm, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
-    IrSchemaDecodeDispatchCase, IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
+    IrHandlerApplication, IrHandlerProvider, IrMatchArm, IrPattern, IrPatternField, IrPatternKind,
+    IrRecordField, IrSchemaDecodeDispatchCase, IrSchemaDecodeSpec, IrStmt, IrStmtKind,
+    TypedProgram,
 };
 use veln_literals::parse_integer_literal;
 

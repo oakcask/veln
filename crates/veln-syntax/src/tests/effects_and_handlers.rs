@@ -557,6 +557,136 @@ fn unterminated_handler_recovery_stops_before_the_next_top_level_item() {
 }
 
 #[test]
+fn contextual_handler_names_remain_terminated_handler_entries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn contextual() -> Int\n",
+            "  handle 1 with\n",
+            "    handler(),\n",
+            "    handler::qualified()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(function) = &output.tree.items[0] else {
+        panic!("expected function");
+    };
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected handle expression");
+    };
+    let ExprKind::Handle { entries, .. } = &expr.kind else {
+        panic!("expected handle expression");
+    };
+    assert_eq!(entries[0].handler, ["handler"]);
+    assert_eq!(entries[1].handler, ["handler", "qualified"]);
+}
+
+#[test]
+fn malformed_terminated_handler_stops_before_handler_declaration() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn broken() -> Int\n",
+            "  handle 1 with\n",
+            "    outer()\n",
+            "handler declared() for Example\n",
+            "  value() => 1\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(!output.diagnostics.is_empty());
+    assert_eq!(output.tree.items.len(), 2, "{:#?}", output.diagnostics);
+    let SyntaxItem::Handler(handler) = &output.tree.items[1] else {
+        panic!("expected following handler declaration");
+    };
+    assert_eq!(handler.name.as_deref(), Some("declared"));
+}
+
+#[test]
+fn terminated_handler_entries_and_arguments_have_exact_spans() {
+    let cases = [
+        (
+            concat!(
+                "fn spans() -> Int\n",
+                "  handle body() with\n",
+                "    outer(first(), second()),\n",
+                "    ns::inner(third())\n",
+                "  end\n",
+                "end\n",
+            ),
+            [(43, 67, 3, 5, 3, 29), (73, 91, 4, 5, 4, 23)],
+            [(43, 48, 3, 5, 3, 10), (73, 82, 4, 5, 4, 14)],
+            [
+                vec![(49, 56, 3, 11, 3, 18), (58, 66, 3, 20, 3, 28)],
+                vec![(83, 90, 4, 15, 4, 22)],
+            ],
+        ),
+        (
+            concat!(
+                "fn block() -> Int\n",
+                "  handle\n",
+                "    value()\n",
+                "  with\n",
+                "    outer(first(), second()),\n",
+                "    ns::inner(third())\n",
+                "  end\n",
+                "end\n",
+            ),
+            [(50, 74, 5, 5, 5, 29), (80, 98, 6, 5, 6, 23)],
+            [(50, 55, 5, 5, 5, 10), (80, 89, 6, 5, 6, 14)],
+            [
+                vec![(56, 63, 5, 11, 5, 18), (65, 73, 5, 20, 5, 28)],
+                vec![(90, 97, 6, 15, 6, 22)],
+            ],
+        ),
+    ];
+
+    for (source_text, entry_spans, handler_spans, argument_spans) in cases {
+        let output = parse(&SourceFile::new("spans.veln", source_text));
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+        let SyntaxItem::Function(function) = &output.tree.items[0] else {
+            panic!("expected function");
+        };
+        let BodyLine::Expr { expr, .. } = &function.body[0] else {
+            panic!("expected handle expression");
+        };
+        let ExprKind::Handle { entries, .. } = &expr.kind else {
+            panic!("expected handle expression");
+        };
+        for (index, entry) in entries.iter().enumerate() {
+            assert_source_span(&entry.span, entry_spans[index]);
+            assert_source_span(&entry.handler_span, handler_spans[index]);
+            for (argument, expected) in entry.args.iter().zip(&argument_spans[index]) {
+                assert_source_span(&argument.span, *expected);
+            }
+        }
+    }
+}
+
+fn assert_source_span(
+    span: &veln_source::SourceSpan,
+    expected: (usize, usize, usize, usize, usize, usize),
+) {
+    assert_eq!(
+        (
+            span.start.offset,
+            span.end.offset,
+            span.start.line,
+            span.start.column,
+            span.end.line,
+            span.end.column,
+        ),
+        expected,
+    );
+}
+
+#[test]
 fn qualified_handle_leaf_does_not_start_a_terminated_handler() {
     let source = SourceFile::new(
         "main.veln",

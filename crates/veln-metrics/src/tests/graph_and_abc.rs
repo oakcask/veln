@@ -148,6 +148,24 @@ fn counts_abc_constructs_from_function_bodies() {
             },
         ),
         (
+            "terminated expression handler applications",
+            "fn subject() -> Int\n  handle body_call() with\n    outer(argument_call()),\n    inner()\n  end\nend\n",
+            AbcVector {
+                assignments: 0,
+                branches: 4,
+                conditionals: 0,
+            },
+        ),
+        (
+            "terminated block handler applications",
+            "fn subject() -> Int\n  handle\n    let value = body_call()\n    value\n  with\n    outer(first_argument()),\n    middle(),\n    inner(second_argument())\n  end\nend\n",
+            AbcVector {
+                assignments: 1,
+                branches: 6,
+                conditionals: 0,
+            },
+        ),
+        (
             "schema decode and try",
             "fn subject() -> DecodeStep<{value: Int}>\n  decode Packet from view()? at offset()?\nend\n",
             AbcVector {

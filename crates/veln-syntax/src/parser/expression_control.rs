@@ -253,7 +253,7 @@ impl<'a> ExprParser<'a> {
         }
     }
 
-    fn report_cleanup_nesting_limit(&mut self) {
+    pub(super) fn report_cleanup_nesting_limit(&mut self) {
         self.error_current(
             "parse.cleanup_nesting_limit",
             "cleanup regions are nested too deeply",
@@ -263,7 +263,7 @@ impl<'a> ExprParser<'a> {
         );
     }
 
-    fn skip_cleanup_region(&mut self, fallback: TextRange) -> TextRange {
+    pub(super) fn skip_cleanup_region(&mut self, fallback: TextRange) -> TextRange {
         let mut depth = 1usize;
         let mut end = fallback;
         let mut previous_kind = None;
@@ -280,6 +280,11 @@ impl<'a> ExprParser<'a> {
                     delimiter_depth = delimiter_depth.saturating_sub(1);
                 }
                 TokenKind::Match | TokenKind::Begin => depth += 1,
+                TokenKind::Handle
+                    if at_line_start && delimiter_depth == 0 && self.at(TokenKind::Newline) =>
+                {
+                    depth += 1;
+                }
                 TokenKind::Defer if at_line_start && delimiter_depth == 0 => depth += 1,
                 TokenKind::If if previous_kind != Some(TokenKind::Else) => depth += 1,
                 TokenKind::End => {

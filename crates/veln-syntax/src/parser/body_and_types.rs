@@ -93,6 +93,11 @@ impl ExpressionLineCollector {
         self.at_line_start
             && self.block_stack.contains(&TokenKind::Handle)
             && parser.at_top_level_item_start()
+            && !(parser.at(TokenKind::Handler)
+                && matches!(
+                    parser.tokens.get(parser.cursor + 1).map(|token| token.kind),
+                    Some(TokenKind::LParen | TokenKind::DoubleColon)
+                ))
     }
 
     fn continues_terminated_handle(&self) -> bool {

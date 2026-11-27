@@ -131,12 +131,7 @@ impl<'a> FunctionChecker<'a> {
                 operation_span,
                 args,
             } => self.infer_perform(expr, effect, effect_span, operation, operation_span, args),
-            ExprKind::Handle {
-                body,
-                handler,
-                handler_span,
-                args,
-            } => self.infer_handle(expr, body, handler, handler_span, args, expected),
+            ExprKind::Handle { body, entries } => self.infer_handle(expr, body, entries, expected),
             ExprKind::SchemaDecode {
                 schema,
                 input,
@@ -338,88 +333,103 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         expr: &Expr,
         body: &Expr,
-        handler_path: &[String],
-        handler_span: &SourceSpan,
-        args: &[Expr],
+        entries: &[veln_ast::HandlerApplication],
         expected: Option<&ExpectedType>,
     ) -> Type {
-        let handler = match self.environment.handler_path_in_owner(
-            handler_path,
-            self.function.module_name.as_deref(),
-            self.function.package_name.as_deref(),
-        ) {
-            HandlerPathResolution::Found(handler) => handler.clone(),
-            HandlerPathResolution::PrivateCompanionTargetMismatch { handler, access } => {
-                for arg in args {
-                    self.infer_expr(arg, None);
+        let before_handle = self.inferred_effects.len();
+        let mut resolved = Vec::with_capacity(entries.len());
+        let mut argument_effects = Vec::with_capacity(entries.len());
+        for entry in entries {
+            let resolution = self.environment.handler_path_in_owner(
+                &entry.handler,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            );
+            match resolution {
+                HandlerPathResolution::Found(handler) => {
+                    let handler = handler.clone();
+                    self.check_call_arguments(
+                        &entry.args,
+                        &handler.params,
+                        None,
+                        &CallOrigin {
+                            node_id: expr.node_id,
+                            span: entry.handler_span.clone(),
+                            declaration_span: None,
+                            symbol: handler.qualified_name.clone(),
+                            effects: handler.effects.clone(),
+                            schema_encode: false,
+                        },
+                    );
+                    resolved.push(Some((
+                        handler.effect,
+                        handler.effects,
+                        handler.qualified_name,
+                    )));
                 }
-                let body_ty = self.infer_expr(body, expected);
-                self.diagnostics
-                    .push(private_companion_handler_target_diagnostic(
-                        expr.node_id.display("expr"),
-                        "handle_expression",
-                        &handler_path.join("::"),
-                        handler,
-                        access,
-                        handler_span.clone(),
+                HandlerPathResolution::PrivateCompanionTargetMismatch { handler, access } => {
+                    for arg in &entry.args {
+                        self.infer_expr(arg, None);
+                    }
+                    self.diagnostics
+                        .push(private_companion_handler_target_diagnostic(
+                            expr.node_id.display("expr"),
+                            "handle_expression",
+                            &entry.handler.join("::"),
+                            handler,
+                            access,
+                            entry.handler_span.clone(),
+                        ));
+                    resolved.push(None);
+                }
+                HandlerPathResolution::QuarantinedImportTarget => {
+                    for arg in &entry.args {
+                        self.infer_expr(arg, None);
+                    }
+                    resolved.push(None);
+                }
+                HandlerPathResolution::Missing => {
+                    for arg in &entry.args {
+                        self.infer_expr(arg, None);
+                    }
+                    self.diagnostics.push(Diagnostic::new(
+                        "handler.unknown",
+                        Severity::Error,
+                        DiagnosticKind::Effect,
+                        format!("handler `{}` is not known", entry.handler.join("::")),
+                        Some(entry.handler_span.clone()),
+                        effect_details(expr.node_id.display("expr"), "handle_expression"),
                     ));
-                return body_ty;
-            }
-            HandlerPathResolution::QuarantinedImportTarget => {
-                for arg in args {
-                    self.infer_expr(arg, None);
+                    resolved.push(None);
                 }
-                return self.infer_expr(body, expected);
             }
-            HandlerPathResolution::Missing => {
-                for arg in args {
-                    self.infer_expr(arg, None);
-                }
-                let body_ty = self.infer_expr(body, expected);
-                self.diagnostics.push(Diagnostic::new(
-                    "handler.unknown",
-                    Severity::Error,
-                    DiagnosticKind::Effect,
-                    format!("handler `{}` is not known", handler_path.join("::")),
-                    Some(handler_span.clone()),
-                    effect_details(expr.node_id.display("expr"), "handle_expression"),
-                ));
-                return body_ty;
-            }
-        };
-
-        self.check_call_arguments(
-            args,
-            &handler.params,
-            None,
-            &CallOrigin {
-                node_id: expr.node_id,
-                span: handler_span.clone(),
-                declaration_span: None,
-                symbol: handler.qualified_name.clone(),
-                effects: handler.effects.clone(),
-                schema_encode: false,
-            },
-        );
-        let before_body = self.inferred_effects.len();
-        let body_ty = self.infer_expr(body, expected);
-        let mut retained = self.inferred_effects[..before_body].to_vec();
-        retained.extend(
-            self.inferred_effects[before_body..]
-                .iter()
-                .filter(|effect_use| effect_use.effect != handler.effect)
-                .cloned(),
-        );
-        self.inferred_effects = retained;
-        for effect in &handler.effects {
-            self.inferred_effects.push(EffectUse {
-                effect: effect.clone(),
-                node_id: expr.node_id,
-                span: expr.span.clone(),
-                kind: "handle_expression",
-                symbol: handler.qualified_name.clone(),
-            });
+            argument_effects.push(self.inferred_effects.split_off(before_handle));
         }
+        let body_ty = self.infer_expr(body, expected);
+        let mut retained = self.inferred_effects.split_off(before_handle);
+        for ((resolution, mut args), entry) in resolved
+            .into_iter()
+            .zip(argument_effects)
+            .zip(entries)
+            .rev()
+        {
+            if let Some((handled_effect, handler_effects, symbol)) = resolution {
+                retained.retain(|effect_use| effect_use.effect != handled_effect);
+                args.append(&mut retained);
+                args.extend(handler_effects.into_iter().map(|effect| EffectUse {
+                    effect,
+                    node_id: expr.node_id,
+                    span: entry.handler_span.clone(),
+                    kind: "handle_expression",
+                    symbol: symbol.clone(),
+                }));
+                retained = args;
+            } else {
+                args.append(&mut retained);
+                retained = args;
+            }
+        }
+        self.inferred_effects.extend(retained);
         body_ty
     }
 

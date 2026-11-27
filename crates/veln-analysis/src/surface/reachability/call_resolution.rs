@@ -212,67 +212,70 @@ pub(super) fn collect_handler_operation_clause_callees(
     outer_context: &FunctionCalleeContext<'_>,
     callees: &mut ReachableCallees,
 ) {
-    let ExprKind::Handle { handler, .. } = &expr.kind else {
+    let ExprKind::Handle { entries, .. } = &expr.kind else {
         return;
     };
-    let selected_target = match handler.as_slice() {
-        [_, .., _] => imported_use_for_path(
-            outer_context.import_selections,
-            &handler[..handler.len() - 1],
-            outer_context.current_module,
-            outer_context.current_package,
-        )
-        .map(UseDecl::resolved_target),
-        _ => None,
-    };
-    let matching_handlers = outer_context.handlers.iter().filter(|candidate| {
-        let Some(name) = &candidate.name else {
-            return false;
+    for entry in entries {
+        let handler = &entry.handler;
+        let selected_target = match handler.as_slice() {
+            [_, .., _] => imported_use_for_path(
+                outer_context.import_selections,
+                &handler[..handler.len() - 1],
+                outer_context.current_module,
+                outer_context.current_package,
+            )
+            .map(UseDecl::resolved_target),
+            _ => None,
         };
-        match handler.as_slice() {
-            [segment] => {
-                name == segment
-                    && candidate.module_name.as_deref() == outer_context.current_module
-                    && candidate.package_name.as_deref() == outer_context.current_package
+        let matching_handlers = outer_context.handlers.iter().filter(|candidate| {
+            let Some(name) = &candidate.name else {
+                return false;
+            };
+            match handler.as_slice() {
+                [segment] => {
+                    name == segment
+                        && candidate.module_name.as_deref() == outer_context.current_module
+                        && candidate.package_name.as_deref() == outer_context.current_package
+                }
+                [_, .., segment] => {
+                    let Some(target) = &selected_target else {
+                        return false;
+                    };
+                    name == segment
+                        && candidate.module_name.as_deref() == Some(target.module.as_str())
+                        && candidate.package_name == target.package
+                }
+                _ => false,
             }
-            [_, .., segment] => {
-                let Some(target) = &selected_target else {
-                    return false;
-                };
-                name == segment
-                    && candidate.module_name.as_deref() == Some(target.module.as_str())
-                    && candidate.package_name == target.package
+        });
+        for handler in matching_handlers {
+            let context = FunctionCalleeContext {
+                current_module: handler.module_name.as_deref(),
+                current_package: handler.package_name.as_deref(),
+                uses: outer_context.uses,
+                import_selections: outer_context.import_selections,
+                function_targets: outer_context.function_targets,
+                companion_access_targets: outer_context.companion_access_targets,
+                handlers: outer_context.handlers,
+                types: &[],
+            };
+            let mut local_bindings = handler
+                .params
+                .iter()
+                .map(|param| LocalBinding {
+                    name: param.name.clone(),
+                    function_shape: param.ty.as_deref().and_then(function_type_shape),
+                })
+                .collect::<Vec<_>>();
+            for clause in &handler.operation_clauses {
+                let binding_count = local_bindings.len();
+                local_bindings.extend(clause.params.iter().map(|param| LocalBinding {
+                    name: param.name.clone(),
+                    function_shape: None,
+                }));
+                collect_function_callees(&clause.body, &context, &mut local_bindings, callees);
+                local_bindings.truncate(binding_count);
             }
-            _ => false,
-        }
-    });
-    for handler in matching_handlers {
-        let context = FunctionCalleeContext {
-            current_module: handler.module_name.as_deref(),
-            current_package: handler.package_name.as_deref(),
-            uses: outer_context.uses,
-            import_selections: outer_context.import_selections,
-            function_targets: outer_context.function_targets,
-            companion_access_targets: outer_context.companion_access_targets,
-            handlers: outer_context.handlers,
-            types: &[],
-        };
-        let mut local_bindings = handler
-            .params
-            .iter()
-            .map(|param| LocalBinding {
-                name: param.name.clone(),
-                function_shape: param.ty.as_deref().and_then(function_type_shape),
-            })
-            .collect::<Vec<_>>();
-        for clause in &handler.operation_clauses {
-            let binding_count = local_bindings.len();
-            local_bindings.extend(clause.params.iter().map(|param| LocalBinding {
-                name: param.name.clone(),
-                function_shape: None,
-            }));
-            collect_function_callees(&clause.body, &context, &mut local_bindings, callees);
-            local_bindings.truncate(binding_count);
         }
     }
 }

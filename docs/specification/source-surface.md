@@ -269,9 +269,11 @@ closing `end` available to that declaration. Within an `if` or `match`, it also
 leaves the following `else` branch or match arm available to the enclosing
 expression. It preserves the next top-level declaration as a separate item,
 including when nested cleanup forms are both unterminated. The lossless tree
-retains every source token. At most 128 `begin` and `defer` cleanup forms may be
-nested in total; both forms share this limit. The next level reports
-`parse.cleanup_nesting_limit` without aborting lossless-tree construction.
+retains every source token. At most 128 `begin`, `defer`, and handled-block
+cleanup forms may be nested in total; all three forms share this limit. The
+next level reports `parse.cleanup_nesting_limit` without aborting lossless-tree
+construction. Formatting a file that exceeds this limit reports the parse
+failure and leaves the file unchanged.
 
 After a missing cleanup `end`, recovery preserves a following private typed
 module `let` as a separate item regardless of indentation when its initializer
@@ -667,7 +669,10 @@ separated by commas; the final comma is optional. The list form rejects an
 empty list, a missing comma, a handler application without parentheses, or a
 missing closing `end`. Recovery leaves an enclosing declaration's `end` and
 the following top-level item available to their owners. `handle::member()`
-remains a qualified call path rather than a handler expression.
+remains a qualified call path rather than a handler expression. The contextual
+name `handler` remains available as a bare or qualified handler application in
+a terminated list; a following handler declaration remains a top-level
+recovery boundary.
 
 <!-- source-surface-grammar:start -->
 ```text

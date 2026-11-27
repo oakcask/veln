@@ -1,4 +1,5 @@
 use super::*;
+use crate::HandlerApplication;
 
 impl AstBuilder {
     pub(super) fn lower_expr(&mut self, expr: &SyntaxExpr) -> Expr {
@@ -18,7 +19,7 @@ impl AstBuilder {
         body: &veln_syntax::HandleBody,
         entries: &[veln_syntax::HandlerEntry],
     ) -> Expr {
-        let mut lowered = match body {
+        let lowered = match body {
             veln_syntax::HandleBody::Expression(expr) => self.lower_expr(expr),
             veln_syntax::HandleBody::Block { body, block_span } => Expr {
                 node_id: self.alloc(),
@@ -29,20 +30,21 @@ impl AstBuilder {
                 span: block_span.clone(),
             },
         };
-        for entry in entries.iter().rev() {
-            lowered = Expr {
-                node_id: self.alloc(),
-                kind: ExprKind::Handle {
-                    body: Box::new(lowered),
-                    handler: entry.handler.clone(),
-                    handler_span: entry.handler_span.clone(),
-                    args: self.lower_exprs(&entry.args),
-                },
-                span: entry.span.clone(),
-            };
+        Expr {
+            node_id: self.alloc(),
+            kind: ExprKind::Handle {
+                body: Box::new(lowered),
+                entries: entries
+                    .iter()
+                    .map(|entry| HandlerApplication {
+                        handler: entry.handler.clone(),
+                        handler_span: entry.handler_span.clone(),
+                        args: self.lower_exprs(&entry.args),
+                    })
+                    .collect(),
+            },
+            span: source.span.clone(),
         }
-        lowered.span = source.span.clone();
-        lowered
     }
 
     fn lower_expr_kind(&mut self, expr: &SyntaxExpr) -> ExprKind {

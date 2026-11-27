@@ -271,26 +271,27 @@ fn lower_perform_preserves_effect_operation_and_arguments() {
 #[test]
 fn lower_handle_preserves_providers_context_and_body() {
     let handle = lower_fixture_expr(CoreType::unit(), |anchor| CoreExprKind::Handle {
-        effect: "console".to_string(),
-        providers: vec![veln_core::CoreHandlerProvider {
-            operation: "write".to_string(),
-            function: "capture".to_string(),
+        entries: vec![veln_core::CoreHandlerApplication {
+            effect: "console".to_string(),
+            providers: vec![veln_core::CoreHandlerProvider {
+                operation: "write".to_string(),
+                function: "capture".to_string(),
+            }],
+            context_args: vec![unit_at(anchor)],
         }],
-        context_args: vec![unit_at(anchor)],
         body: Box::new(unit_at(anchor)),
     })
     .expect("handle should lower");
     assert!(matches!(
         handle.kind,
         IrExprKind::Handle {
-            effect,
-            providers,
-            context_args,
+            entries,
             body,
-        } if effect == "console"
+        } if matches!(entries.as_slice(), [IrHandlerApplication { effect, providers, context_args }]
+            if effect == "console"
             && matches!(providers.as_slice(), [IrHandlerProvider { operation, function }]
                 if operation == "write" && function == "capture")
-            && matches!(context_args.as_slice(), [IrExpr { kind: IrExprKind::Unit, .. }])
+            && matches!(context_args.as_slice(), [IrExpr { kind: IrExprKind::Unit, .. }]))
             && matches!(body.kind, IrExprKind::Unit)
     ));
 }

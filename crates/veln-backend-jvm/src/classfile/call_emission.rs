@@ -155,13 +155,34 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     pub(super) fn emit_handle(
         &mut self,
         code: &mut MethodCode,
-        effect: &str,
-        providers: &[IrHandlerProvider],
-        context_args: &[IrExpr],
+        entries: &[IrHandlerApplication],
         body: &IrExpr,
     ) {
-        self.emit_handler_registration(code, effect, providers, context_args);
-        self.emit_handled_body(code, body);
+        let mut scopes = Vec::with_capacity(entries.len());
+        for entry in entries {
+            self.emit_handler_registration(
+                code,
+                &entry.effect,
+                &entry.providers,
+                &entry.context_args,
+            );
+            let try_start = code.mark();
+            let parent_unwind = self.push_handler_unwind(code);
+            scopes.push((try_start, parent_unwind));
+        }
+        self.emit_expr(code, body);
+        for (try_start, parent_unwind) in scopes.into_iter().rev() {
+            self.restore_unwind(parent_unwind);
+            let try_end = code.mark();
+            let result_slot = self.alloc_local();
+            code.astore(result_slot);
+            self.emit_pop_handler(code);
+            let done = code.new_label();
+            code.branch_to(0xa7, done);
+            self.emit_handler_unwind(code, try_start, try_end);
+            code.bind(done);
+            code.aload(result_slot);
+        }
     }
 
     fn emit_handler_registration(
@@ -188,22 +209,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             "(Ljava/lang/String;[Ljava/lang/Object;[Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
         );
         code.op(0x57);
-    }
-
-    fn emit_handled_body(&mut self, code: &mut MethodCode, body: &IrExpr) {
-        let try_start = code.mark();
-        let parent_unwind = self.push_handler_unwind(code);
-        self.emit_expr(code, body);
-        self.restore_unwind(parent_unwind);
-        let try_end = code.mark();
-        let result_slot = self.alloc_local();
-        code.astore(result_slot);
-        self.emit_pop_handler(code);
-        let done = code.new_label();
-        code.branch_to(0xa7, done);
-        self.emit_handler_unwind(code, try_start, try_end);
-        code.bind(done);
-        code.aload(result_slot);
     }
 
     fn emit_handler_unwind(&mut self, code: &mut MethodCode, try_start: usize, try_end: usize) {

@@ -765,8 +765,8 @@ fn reachable_project_lowering_with_reusable_standard_environment_keeps_standard_
                         CoreStmtKind::Let { expr, .. }
                             if matches!(
                                 &expr.kind,
-                                CoreExprKind::Handle { providers, .. }
-                                    if providers.iter().any(|provider| {
+                                CoreExprKind::Handle { entries, .. }
+                                    if entries.iter().flat_map(|entry| &entry.providers).any(|provider| {
                                         provider.function
                                             == "__veln_std$prelude$__handler_3$ask_5$value"
                                     })

@@ -132,6 +132,22 @@ impl<'a> ExprParser<'a> {
 
     fn parse_block_handle(&mut self, start: TextRange) -> Expr {
         let header_end = self.bump().range;
+        if self.cleanup_depth >= MAX_CLEANUP_NESTING {
+            self.report_cleanup_nesting_limit();
+            let end = self.skip_cleanup_region(header_end);
+            return Expr {
+                span: self.source.span(start.cover(end)),
+                kind: ExprKind::Handle {
+                    body: HandleBody::Block {
+                        body: Vec::new(),
+                        block_span: self.source.span(TextRange::new(header_end.end, end.start)),
+                    },
+                    entries: Vec::new(),
+                    terminated: true,
+                },
+            };
+        }
+        self.cleanup_depth += 1;
         let mut body = Vec::new();
         self.eat_newlines();
         while !self.at(TokenKind::With) && !self.at(TokenKind::End) && !self.is_at_end() {
@@ -151,13 +167,15 @@ impl<'a> ExprParser<'a> {
             "handled block requires a newline after `with`",
             vec!["newline"],
         );
-        self.parse_terminated_handle(
+        let handle = self.parse_terminated_handle(
             start,
             HandleBody::Block {
                 body,
                 block_span: self.source.span(TextRange::new(header_end.end, block_end)),
             },
-        )
+        );
+        self.cleanup_depth -= 1;
+        handle
     }
 
     fn parse_terminated_handle(&mut self, start: TextRange, body: HandleBody) -> Expr {

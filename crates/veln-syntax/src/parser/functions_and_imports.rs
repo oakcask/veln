@@ -661,6 +661,11 @@ impl<'a> Parser<'a> {
                     delimiter_depth = delimiter_depth.saturating_sub(1);
                 }
                 TokenKind::Match | TokenKind::Begin => depth += 1,
+                TokenKind::Handle
+                    if at_line_start && delimiter_depth == 0 && self.at(TokenKind::Newline) =>
+                {
+                    depth += 1;
+                }
                 TokenKind::Defer if at_line_start && delimiter_depth == 0 => depth += 1,
                 TokenKind::If if previous_kind != Some(TokenKind::Else) => depth += 1,
                 TokenKind::End => {

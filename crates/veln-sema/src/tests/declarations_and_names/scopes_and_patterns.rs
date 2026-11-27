@@ -174,11 +174,12 @@ fn lexical_handler_lowers_through_checked_core_and_typed_ir() {
     };
     assert!(matches!(
         &expr.kind,
-        CoreExprKind::Handle { effect, providers, context_args, body }
-            if effect == "Ask"
-                && providers.len() == 1
-                && providers[0].operation == "value"
-                && context_args.len() == 1
+        CoreExprKind::Handle { entries, body }
+            if entries.len() == 1
+                && entries[0].effect == "Ask"
+                && entries[0].providers.len() == 1
+                && entries[0].providers[0].operation == "value"
+                && entries[0].context_args.len() == 1
                 && matches!(&body.kind, CoreExprKind::Perform { operation, .. } if operation == "value")
     ));
     let ir = lowered.ir.as_ref().expect("typed IR should be built");
@@ -192,12 +193,68 @@ fn lexical_handler_lowers_through_checked_core_and_typed_ir() {
     };
     assert!(matches!(
         &expr.kind,
-        IrExprKind::Handle { effect, providers, context_args, body }
-            if effect == "Ask"
-                && providers.len() == 1
-                && providers[0].operation == "value"
-                && context_args.len() == 1
+        IrExprKind::Handle { entries, body }
+            if entries.len() == 1
+                && entries[0].effect == "Ask"
+                && entries[0].providers.len() == 1
+                && entries[0].providers[0].operation == "value"
+                && entries[0].context_args.len() == 1
                 && matches!(&body.kind, IrExprKind::Perform { operation, .. } if operation == "value")
+    ));
+}
+
+#[test]
+fn terminated_handler_list_stays_flat_through_checked_core_and_typed_ir() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n  value() -> Int\nend\n\n",
+            "handler outer() for Ask\n  value() => 1\nend\n\n",
+            "handler inner() for Ask\n  value() => 2\nend\n\n",
+            "pub fn main() -> Int\n",
+            "  handle perform Ask::value() with\n",
+            "    outer(),\n",
+            "    inner()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should lower to checked core");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Handle { entries, body }
+            if entries.len() == 2
+                && entries[0].effect == "Ask"
+                && entries[1].effect == "Ask"
+                && matches!(body.kind, CoreExprKind::Perform { .. })
+    ));
+
+    let ir = lowered.ir.as_ref().expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should lower to typed IR");
+    let IrStmtKind::Return { value: expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        IrExprKind::Handle { entries, body }
+            if entries.len() == 2 && matches!(body.kind, IrExprKind::Perform { .. })
     ));
 }
 

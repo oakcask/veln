@@ -7,9 +7,9 @@ use veln_core::{
     CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreCallbackTarget,
     CoreCleanupRegion, CoreContract, CoreContractCall, CoreDeferredBlock, CoreDeferredCapture,
     CoreDictEntry, CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction,
-    CoreHandlerProvider, CoreMatchArm, CoreModuleValueDecl, CoreModuleValueIdentity, CoreParam,
-    CorePattern, CorePatternField, CorePatternKind, CoreReadiness, CoreRecordField, CoreStmt,
-    CoreStmtKind, CoreType,
+    CoreHandlerApplication, CoreHandlerProvider, CoreMatchArm, CoreModuleValueDecl,
+    CoreModuleValueIdentity, CoreParam, CorePattern, CorePatternField, CorePatternKind,
+    CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_literals::parse_integer_literal;

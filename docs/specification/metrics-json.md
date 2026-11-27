@@ -157,10 +157,10 @@ string. Human output rounds that magnitude to one decimal place and labels the
 measurement `ABC size`.
 
 ABC counts only function and test bodies. Each `let` body line increments
-`assignments`. Each call, effect performance, `handle` expression, schema
+`assignments`. Each call, effect performance, handler application, schema
 decode expression, and schema encode expression increments `branches`. A
-short or terminated `handle` expression adds one branch regardless of its
-handler-entry count. Expressions in its handled body and handler arguments
+terminated `handle` expression contributes one branch for each entry.
+Expressions in its handled body and handler arguments
 contribute recursively. Body lines in its block body follow the ordinary body
 rules. Each `if` condition, `else if` condition, `match` expression, match arm,
 short-circuit `and` or `or`, and `?` expression increments `conditionals`.

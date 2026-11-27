@@ -119,48 +119,55 @@ impl<'a> CoreLowerer<'a> {
         &mut self,
         expr: &Expr,
         body: &Expr,
-        handler_path: &[String],
-        args: &[Expr],
+        entries: &[veln_ast::HandlerApplication],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
-        let handler = match self.environment.handler_path_in_owner(
-            handler_path,
-            self.function.module_name.as_deref(),
-            self.function.package_name.as_deref(),
-        ) {
-            HandlerPathResolution::Found(handler) => handler.clone(),
-            HandlerPathResolution::PrivateCompanionTargetMismatch { .. }
-            | HandlerPathResolution::QuarantinedImportTarget
-            | HandlerPathResolution::Missing => {
-                for arg in args {
-                    self.lower_expr(arg, None);
+        let mut lowered_entries = Vec::with_capacity(entries.len());
+        for entry in entries {
+            let handler = match self.environment.handler_path_in_owner(
+                &entry.handler,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            ) {
+                HandlerPathResolution::Found(handler) => handler.clone(),
+                HandlerPathResolution::PrivateCompanionTargetMismatch { .. }
+                | HandlerPathResolution::QuarantinedImportTarget
+                | HandlerPathResolution::Missing => {
+                    for arg in &entry.args {
+                        self.lower_expr(arg, None);
+                    }
+                    continue;
                 }
-                return self.lower_expr(body, expected);
-            }
-        };
-        let context_args = args
-            .iter()
-            .enumerate()
-            .map(|(index, arg)| {
-                self.lower_expr(arg, handler.params.get(index).map(core_type).as_ref())
-            })
-            .collect::<Vec<_>>();
-        let operation_clauses = handler
-            .operation_clauses
-            .iter()
-            .map(|clause| CoreHandlerProvider {
-                operation: clause.operation.clone(),
-                function: clause.target_name.clone(),
-            })
-            .collect::<Vec<_>>();
+            };
+            lowered_entries.push(CoreHandlerApplication {
+                effect: handler.effect,
+                providers: handler
+                    .operation_clauses
+                    .iter()
+                    .map(|clause| CoreHandlerProvider {
+                        operation: clause.operation.clone(),
+                        function: clause.target_name.clone(),
+                    })
+                    .collect(),
+                context_args: entry
+                    .args
+                    .iter()
+                    .enumerate()
+                    .map(|(index, arg)| {
+                        self.lower_expr(arg, handler.params.get(index).map(core_type).as_ref())
+                    })
+                    .collect(),
+            });
+        }
         let lowered = self.lower_expr(body, expected);
+        if lowered_entries.is_empty() {
+            return lowered;
+        }
         self.core_expr(
             expr,
             lowered.ty.clone(),
             CoreExprKind::Handle {
-                effect: handler.effect,
-                providers: operation_clauses,
-                context_args,
+                entries: lowered_entries,
                 body: Box::new(lowered),
             },
         )

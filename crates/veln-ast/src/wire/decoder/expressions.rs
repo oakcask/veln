@@ -73,9 +73,13 @@ impl<'a> Reader<'a> {
             }),
             11 => Ok(ExprKind::Handle {
                 body: Box::new(self.expr()?),
-                handler: self.vec(Self::string)?,
-                handler_span: self.span()?,
-                args: self.vec(Self::expr)?,
+                entries: self.vec(|reader| {
+                    Ok(crate::HandlerApplication {
+                        handler: reader.vec(Self::string)?,
+                        handler_span: reader.span()?,
+                        args: reader.vec(Self::expr)?,
+                    })
+                })?,
             }),
             _ => unreachable!("non-effect tag passed to effect wire decoder"),
         }

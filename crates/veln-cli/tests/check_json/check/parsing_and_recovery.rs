@@ -167,6 +167,37 @@ fn check_json_enforces_mixed_cleanup_nesting_limit() {
 }
 
 #[test]
+fn check_accepts_two_thousand_flat_handler_entries_without_input_depth_recursion() {
+    let mut text = String::from(
+        "effect Example\n  value() -> Int\nend\n\nhandler example() for Example\n  value() => 1\nend\n\nfn checked() -> Int\n  handle 1 with\n",
+    );
+    for index in 0..2_000 {
+        text.push_str("    example()");
+        if index + 1 != 2_000 {
+            text.push(',');
+        }
+        text.push('\n');
+    }
+    text.push_str("  end\nend\n");
+
+    let project = TestProject::new("flat-handler-list");
+    project.write(
+        "veln.toml",
+        "[package]\nname = \"flat-handler-list\"\nversion = \"0.1.0\"\n\n[lib]\nexports = [\"main.veln\"]\n",
+    );
+    project.write("main.veln", &text);
+    let output = project.check_json(&["main.veln"]);
+
+    assert!(
+        output.status.success(),
+        "{}\n{}",
+        stdout(&output),
+        stderr(&output)
+    );
+    assert!(stdout(&output).contains("\"status\":\"ok\""));
+}
+
+#[test]
 fn check_json_orders_diagnostics_by_source_discovery_order() {
     let project = TestProject::new("ordering");
     project.write("b.veln", "fn b() -> ()\n  _\n");

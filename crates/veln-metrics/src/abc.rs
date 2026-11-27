@@ -68,9 +68,12 @@ struct ExprContribution {
 
 fn expr_contribution(expr: &Expr) -> ExprContribution {
     match &expr.kind {
+        ExprKind::Handle { entries, .. } => ExprContribution {
+            branches: entries.len(),
+            ..ExprContribution::default()
+        },
         ExprKind::Call { .. }
         | ExprKind::Perform { .. }
-        | ExprKind::Handle { .. }
         | ExprKind::SchemaDecode { .. }
         | ExprKind::SchemaEncode { .. } => ExprContribution {
             branches: 1,

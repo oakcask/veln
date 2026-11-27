@@ -66,12 +66,7 @@ impl<'a> CoreLowerer<'a> {
                 args,
                 ..
             } => self.lower_perform(expr, effect, operation, args),
-            ExprKind::Handle {
-                body,
-                handler,
-                args,
-                ..
-            } => self.lower_handle(expr, body, handler, args, expected),
+            ExprKind::Handle { body, entries } => self.lower_handle(expr, body, entries, expected),
             ExprKind::SchemaDecode {
                 schema,
                 input,
