@@ -401,7 +401,15 @@ impl<'a> CoreLowerer<'a> {
     }
 
     fn joined_state_initializer_type(&self, expr: &Expr, callee: &Expr) -> Option<CoreType> {
-        if self.declared_io_provider_state_operation(callee) != Some("state") {
+        if crate::call_resolution::io_provider_state_operation(
+            callee,
+            crate::call_resolution::CallResolutionContext {
+                environment: self.environment,
+                current_module: self.function.module_name.as_deref(),
+                current_package: self.function.package_name.as_deref(),
+            },
+        ) != Some("state")
+        {
             return None;
         }
         let Type::Named { args, .. } = self.state_call_types.get(&expr.node_id)? else {
@@ -414,31 +422,6 @@ impl<'a> CoreLowerer<'a> {
             work.materialized_type_nodes += core_type_node_count(&item);
         });
         Some(item)
-    }
-
-    fn declared_io_provider_state_operation(&self, callee: &Expr) -> Option<&str> {
-        let ExprKind::NamePath { segments, .. } = &callee.kind else {
-            return None;
-        };
-        let function = match segments.as_slice() {
-            [name] => self
-                .environment
-                .unqualified_function_in_owner(
-                    name,
-                    self.function.module_name.as_deref(),
-                    self.function.package_name.as_deref(),
-                )
-                .found(),
-            _ => self.environment.function_path_in_owner(
-                segments,
-                self.function.module_name.as_deref(),
-                self.function.package_name.as_deref(),
-            ),
-        }?;
-        (function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-            && function.module_name.as_deref() == Some("std::io_provider")
-            && matches!(function.name.as_str(), "state" | "update"))
-        .then_some(function.name.as_str())
     }
 
     fn call_target_with_context(
