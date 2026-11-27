@@ -15,6 +15,28 @@ struct SchemaOperationMetadata {
 
 type ResolvedHandler = Option<(String, Vec<String>, String)>;
 
+struct ResolvedPerformedOperation {
+    effect: String,
+    operation: EffectOperationSignature,
+}
+
+fn find_performed_operation(
+    effect: &EffectSignature,
+    operation_name: &str,
+) -> Result<ResolvedPerformedOperation, String> {
+    let effect_name = effect.qualified_name.clone();
+    effect
+        .operations
+        .iter()
+        .find(|operation| operation.name == operation_name)
+        .cloned()
+        .map(|operation| ResolvedPerformedOperation {
+            effect: effect_name.clone(),
+            operation,
+        })
+        .ok_or(effect_name)
+}
+
 impl SchemaOperation {
     fn metadata(self) -> SchemaOperationMetadata {
         match self {
@@ -239,7 +261,7 @@ impl<'a> FunctionChecker<'a> {
         self.infer_try(expr, inner, expected)
     }
 
-    pub(super) fn infer_perform(
+    fn resolve_performed_operation(
         &mut self,
         expr: &Expr,
         effect_path: &[String],
@@ -247,17 +269,31 @@ impl<'a> FunctionChecker<'a> {
         operation_name: &str,
         operation_span: &SourceSpan,
         args: &[Expr],
-    ) -> Type {
-        let effect = match self.environment.resolve_user_effect_path_in_owner(
+    ) -> Option<ResolvedPerformedOperation> {
+        match self.environment.resolve_user_effect_path_in_owner(
             effect_path,
             self.function.module_name.as_deref(),
             self.function.package_name.as_deref(),
         ) {
-            UserEffectPathResolution::Found(effect) => effect,
-            UserEffectPathResolution::PrivateCompanionTargetMismatch { effect, access } => {
-                for arg in args {
-                    self.infer_expr(arg, None);
+            UserEffectPathResolution::Found(effect) => {
+                match find_performed_operation(effect, operation_name) {
+                    Ok(resolved) => Some(resolved),
+                    Err(effect_name) => {
+                        self.infer_unconstrained_arguments(args);
+                        self.diagnostics.push(Diagnostic::new(
+                            "effect.unknown_operation",
+                            Severity::Error,
+                            DiagnosticKind::Effect,
+                            format!("effect `{effect_name}` has no operation `{operation_name}`"),
+                            Some(operation_span.clone()),
+                            effect_details(expr.node_id.display("expr"), "perform_expression"),
+                        ));
+                        None
+                    }
                 }
+            }
+            UserEffectPathResolution::PrivateCompanionTargetMismatch { effect, access } => {
+                self.infer_unconstrained_arguments(args);
                 self.diagnostics
                     .push(private_companion_effect_target_diagnostic(
                         expr.node_id.display("expr"),
@@ -267,18 +303,14 @@ impl<'a> FunctionChecker<'a> {
                         access,
                         effect_span.clone(),
                     ));
-                return Type::Unknown;
+                None
             }
             UserEffectPathResolution::QuarantinedImportTarget => {
-                for arg in args {
-                    self.infer_expr(arg, None);
-                }
-                return Type::Unknown;
+                self.infer_unconstrained_arguments(args);
+                None
             }
             UserEffectPathResolution::Missing => {
-                for arg in args {
-                    self.infer_expr(arg, None);
-                }
+                self.infer_unconstrained_arguments(args);
                 self.diagnostics.push(Diagnostic::new(
                     "effect.unknown",
                     Severity::Error,
@@ -287,42 +319,44 @@ impl<'a> FunctionChecker<'a> {
                     Some(effect_span.clone()),
                     effect_details(expr.node_id.display("expr"), "perform_expression"),
                 ));
-                return Type::Unknown;
+                None
             }
-        };
-        let Some(operation) = effect
-            .operations
-            .iter()
-            .find(|operation| operation.name == operation_name)
-        else {
-            for arg in args {
-                self.infer_expr(arg, None);
-            }
-            self.diagnostics.push(Diagnostic::new(
-                "effect.unknown_operation",
-                Severity::Error,
-                DiagnosticKind::Effect,
-                format!(
-                    "effect `{}` has no operation `{operation_name}`",
-                    effect.qualified_name
-                ),
-                Some(operation_span.clone()),
-                effect_details(expr.node_id.display("expr"), "perform_expression"),
-            ));
+        }
+    }
+
+    pub(super) fn infer_perform(
+        &mut self,
+        expr: &Expr,
+        effect_path: &[String],
+        effect_span: &SourceSpan,
+        operation_name: &str,
+        operation_span: &SourceSpan,
+        args: &[Expr],
+    ) -> Type {
+        let Some(resolved) = self.resolve_performed_operation(
+            expr,
+            effect_path,
+            effect_span,
+            operation_name,
+            operation_span,
+            args,
+        ) else {
             return Type::Unknown;
         };
+        let effect_name = resolved.effect;
+        let operation = resolved.operation;
 
         let origin = CallOrigin {
             node_id: operation.node_id,
             span: operation.name_span.clone(),
             declaration_span: Some(operation.name_span.clone()),
-            symbol: format!("{}::{operation_name}", effect.qualified_name),
-            effects: vec![effect.qualified_name.clone()],
+            symbol: format!("{effect_name}::{operation_name}"),
+            effects: vec![effect_name.clone()],
             schema_encode: false,
         };
         self.check_call_arguments(args, &operation.params, None, &origin);
         self.inferred_effects.push(EffectUse {
-            effect: effect.qualified_name.clone(),
+            effect: effect_name,
             node_id: expr.node_id,
             span: expr.span.clone(),
             kind: "perform_expression",
@@ -396,9 +430,7 @@ impl<'a> FunctionChecker<'a> {
                 Some((handler.effect, handler.effects, handler.qualified_name))
             }
             HandlerPathResolution::PrivateCompanionTargetMismatch { handler, access } => {
-                for arg in &entry.args {
-                    self.infer_expr(arg, None);
-                }
+                self.infer_unconstrained_arguments(&entry.args);
                 self.diagnostics
                     .push(private_companion_handler_target_diagnostic(
                         expr.node_id.display("expr"),
@@ -411,15 +443,11 @@ impl<'a> FunctionChecker<'a> {
                 None
             }
             HandlerPathResolution::QuarantinedImportTarget => {
-                for arg in &entry.args {
-                    self.infer_expr(arg, None);
-                }
+                self.infer_unconstrained_arguments(&entry.args);
                 None
             }
             HandlerPathResolution::Missing => {
-                for arg in &entry.args {
-                    self.infer_expr(arg, None);
-                }
+                self.infer_unconstrained_arguments(&entry.args);
                 self.diagnostics.push(Diagnostic::new(
                     "handler.unknown",
                     Severity::Error,

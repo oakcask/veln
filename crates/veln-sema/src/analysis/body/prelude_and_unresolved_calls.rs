@@ -125,9 +125,7 @@ impl<'a> FunctionChecker<'a> {
         } = &callee.kind
         {
             self.infer_expr(base, None);
-            for arg in args {
-                self.infer_expr(arg, None);
-            }
+            self.infer_unconstrained_arguments(args);
             let mut diagnostic = Diagnostic::new(
                 "type.method_call",
                 Severity::Error,
@@ -203,9 +201,7 @@ impl<'a> FunctionChecker<'a> {
                 );
             }
         }
-        for arg in args {
-            self.infer_expr(arg, None);
-        }
+        self.infer_unconstrained_arguments(args);
         Type::Unknown
     }
 
