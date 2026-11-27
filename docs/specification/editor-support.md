@@ -1260,8 +1260,9 @@ as [`veln fmt`](command-fmt.md#formatting-rules), including preservation of an
 explicit import's `as alias` clause before its optional package source and the
 same eligible migration of nested short-handler chains and chains that mix
 short and terminated expression-body forms. The shared formatter also
-preserves whether a trailing comment belongs to a handler argument or to its
-enclosing call when a migrated handler expands across lines.
+preserves whether a trailing comment belongs to an inner handler's closing
+`end`, a handler argument, or the enclosing call when a handler expands across
+lines.
 
 ## References
 

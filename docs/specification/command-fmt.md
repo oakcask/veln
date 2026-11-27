@@ -121,6 +121,9 @@ inside that argument. Expanding a multiline handler expression does not
 consume a trailing comment from a later sibling expression, including the next
 function-body expression, call argument, list item, record field, or dictionary
 entry. A comment owned by the enclosing call remains outside its argument.
+When a terminated inner handler's closing `end` owns a trailing comment, the
+formatter groups that inner handler so the comment remains immediately after
+the `end` before the outer handler or enclosing expression continues.
 Slash-prefixed comment-like text is not migrated.
 
 ## Limits and errors
