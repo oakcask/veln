@@ -264,29 +264,39 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.op(0x01);
         code.astore(primary_failure);
         for cleanup in cleanups {
-            let cleanup_start = code.mark();
-            self.emit_registered_cleanup(code, cleanup);
-            let cleanup_end = code.mark();
-            let next_cleanup = code.new_label();
-            let failure_handler = code.new_label();
-            code.branch_wide_to(next_cleanup);
-            code.bind(failure_handler);
-            code.astore(cleanup_failure);
-            code.aload(primary_failure);
-            let has_primary_failure = code.branch(0xc7);
-            code.aload(cleanup_failure);
-            code.astore(primary_failure);
-            code.branch_wide_to(next_cleanup);
-            code.bind(has_primary_failure);
-            self.emit_attach_cleanup_failure(code, primary_failure, cleanup_failure);
-            code.bind(next_cleanup);
-            code.add_exception_handler_to_label(cleanup_start, cleanup_end, failure_handler);
+            self.emit_cleanup_attempt(code, cleanup, primary_failure, cleanup_failure);
         }
         code.aload(primary_failure);
         let completed = code.branch(0xc6);
         code.aload(primary_failure);
         code.op(0xbf);
         code.bind(completed);
+    }
+
+    fn emit_cleanup_attempt(
+        &mut self,
+        code: &mut MethodCode,
+        cleanup: &RegisteredCleanup,
+        primary_failure: u16,
+        cleanup_failure: u16,
+    ) {
+        let cleanup_start = code.mark();
+        self.emit_registered_cleanup(code, cleanup);
+        let cleanup_end = code.mark();
+        let next_cleanup = code.new_label();
+        let failure_handler = code.new_label();
+        code.branch_wide_to(next_cleanup);
+        code.bind(failure_handler);
+        code.astore(cleanup_failure);
+        code.aload(primary_failure);
+        let has_primary_failure = code.branch(0xc7);
+        code.aload(cleanup_failure);
+        code.astore(primary_failure);
+        code.branch_wide_to(next_cleanup);
+        code.bind(has_primary_failure);
+        self.emit_attach_cleanup_failure(code, primary_failure, cleanup_failure);
+        code.bind(next_cleanup);
+        code.add_exception_handler_to_label(cleanup_start, cleanup_end, failure_handler);
     }
 
     pub(super) fn emit_attach_cleanup_failure(
