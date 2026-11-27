@@ -451,6 +451,7 @@ version = "0.1.0"
 dependencies = [
  "veln-ast",
  "veln-core",
+ "veln-literals",
  "veln-source",
  "veln-syntax",
 ]

@@ -756,7 +756,10 @@ normally. Cancellation, interruption, contract failure, and another
 non-runtime task failure return `Err(JoinError)`. An ordinary runtime failure
 from the task crosses the join boundary as that runtime failure instead of
 becoming a join error. Failure message text does not change this
-classification.
+classification. An `Int` division-by-zero failure is a host arithmetic failure
+at this boundary and returns `Err(JoinError)`, including when closed scalar
+folding leaves a located division operation executable. Remainder-by-zero and
+invalid-shift failures use the ordinary runtime-failure boundary.
 `task::join_error_is_cancelled` returns `true` only for the classified
 cancelled join outcome and does not change the error or task. `task::cancel`
 requests cancellation by interrupting the task and returns `()`. The first

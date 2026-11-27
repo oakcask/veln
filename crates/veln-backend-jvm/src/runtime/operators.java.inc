@@ -76,6 +76,48 @@
         return Long.valueOf(asLong(left) / asLong(right));
     }
 
+    public static Object divideLocated(
+        Object left,
+        Object right,
+        String sourceFile,
+        int divisorStartLine,
+        int divisorStartColumn,
+        int divisorStartOffset,
+        int divisorEndLine,
+        int divisorEndColumn,
+        int divisorEndOffset,
+        int operationStartLine,
+        int operationStartColumn,
+        int operationStartOffset,
+        int operationEndLine,
+        int operationEndColumn,
+        int operationEndOffset
+    ) {
+        long divisor = asLong(right);
+        if (divisor == 0L) {
+            throw new LocatedDivisionFailure(
+                "runtime.division_by_zero",
+                "division divisor is zero",
+                "/",
+                divisor,
+                sourceFile,
+                divisorStartLine,
+                divisorStartColumn,
+                divisorStartOffset,
+                divisorEndLine,
+                divisorEndColumn,
+                divisorEndOffset,
+                operationStartLine,
+                operationStartColumn,
+                operationStartOffset,
+                operationEndLine,
+                operationEndColumn,
+                operationEndOffset
+            );
+        }
+        return Long.valueOf(asLong(left) / divisor);
+    }
+
     public static Object remainder(
         Object left,
         Object right,
@@ -187,16 +229,116 @@
         return (int) count;
     }
 
+    private static int checkedShiftCountLocated(
+        Object value,
+        String operator,
+        String sourceFile,
+        int countStartLine,
+        int countStartColumn,
+        int countStartOffset,
+        int countEndLine,
+        int countEndColumn,
+        int countEndOffset,
+        int operationStartLine,
+        int operationStartColumn,
+        int operationStartOffset,
+        int operationEndLine,
+        int operationEndColumn,
+        int operationEndOffset
+    ) {
+        long count = asLong(value);
+        if (count < 0 || count > 63) {
+            throw new LocatedOperatorFailure(
+                "runtime.invalid_shift_count",
+                "invalid shift count " + count + " for operator `" + operator
+                    + "`; expected a value between 0 and 63",
+                operator,
+                count,
+                sourceFile,
+                countStartLine,
+                countStartColumn,
+                countStartOffset,
+                countEndLine,
+                countEndColumn,
+                countEndOffset,
+                operationStartLine,
+                operationStartColumn,
+                operationStartOffset,
+                operationEndLine,
+                operationEndColumn,
+                operationEndOffset
+            );
+        }
+        return (int) count;
+    }
+
     public static Object shiftLeft(Object left, Object right) {
         return Long.valueOf(asLong(left) << checkedShiftCount(right, "<<"));
+    }
+
+    public static Object shiftLeftLocated(
+        Object left,
+        Object right,
+        String sourceFile,
+        int countStartLine, int countStartColumn, int countStartOffset,
+        int countEndLine, int countEndColumn, int countEndOffset,
+        int operationStartLine, int operationStartColumn, int operationStartOffset,
+        int operationEndLine, int operationEndColumn, int operationEndOffset
+    ) {
+        int count = checkedShiftCountLocated(
+            right, "<<", sourceFile,
+            countStartLine, countStartColumn, countStartOffset,
+            countEndLine, countEndColumn, countEndOffset,
+            operationStartLine, operationStartColumn, operationStartOffset,
+            operationEndLine, operationEndColumn, operationEndOffset
+        );
+        return Long.valueOf(asLong(left) << count);
     }
 
     public static Object shiftRight(Object left, Object right) {
         return Long.valueOf(asLong(left) >> checkedShiftCount(right, ">>"));
     }
 
+    public static Object shiftRightLocated(
+        Object left,
+        Object right,
+        String sourceFile,
+        int countStartLine, int countStartColumn, int countStartOffset,
+        int countEndLine, int countEndColumn, int countEndOffset,
+        int operationStartLine, int operationStartColumn, int operationStartOffset,
+        int operationEndLine, int operationEndColumn, int operationEndOffset
+    ) {
+        int count = checkedShiftCountLocated(
+            right, ">>", sourceFile,
+            countStartLine, countStartColumn, countStartOffset,
+            countEndLine, countEndColumn, countEndOffset,
+            operationStartLine, operationStartColumn, operationStartOffset,
+            operationEndLine, operationEndColumn, operationEndOffset
+        );
+        return Long.valueOf(asLong(left) >> count);
+    }
+
     public static Object shiftRightLogical(Object left, Object right) {
         return Long.valueOf(asLong(left) >>> checkedShiftCount(right, ">>>"));
+    }
+
+    public static Object shiftRightLogicalLocated(
+        Object left,
+        Object right,
+        String sourceFile,
+        int countStartLine, int countStartColumn, int countStartOffset,
+        int countEndLine, int countEndColumn, int countEndOffset,
+        int operationStartLine, int operationStartColumn, int operationStartOffset,
+        int operationEndLine, int operationEndColumn, int operationEndOffset
+    ) {
+        int count = checkedShiftCountLocated(
+            right, ">>>", sourceFile,
+            countStartLine, countStartColumn, countStartOffset,
+            countEndLine, countEndColumn, countEndOffset,
+            operationStartLine, operationStartColumn, operationStartOffset,
+            operationEndLine, operationEndColumn, operationEndOffset
+        );
+        return Long.valueOf(asLong(left) >>> count);
     }
 
     public static Object pipe(Object left, Object right) {

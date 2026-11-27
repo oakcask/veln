@@ -7,6 +7,7 @@ publish = false
 [dependencies]
 veln-ast.workspace = true
 veln-core.workspace = true
+veln-literals.workspace = true
 veln-source.workspace = true
 
 [dev-dependencies]

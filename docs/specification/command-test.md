@@ -113,8 +113,13 @@ is specified by
 Runtime contract failures use contract failure details; returned `Err(value)`
 uses result failure details. A computed zero divisor inside a runtime contract
 predicate terminates the selected case as a general runtime failure rather than
-as a contract failure. The test command does not project the structured
-`runtime.remainder_by_zero` record provided by `run --json`.
+as a contract failure. Closed scalar expressions use the shared
+[typed-IR folding boundary](types.md#closed-scalar-expression-folding). A
+division or remainder by a computed zero and a shift by a computed count
+outside `0..63` remain executable and terminate the selected case as general
+runtime failures. The test command does not project the structured
+`runtime.division_by_zero`, `runtime.remainder_by_zero`, or
+`runtime.invalid_shift_count` records provided by `run --json`.
 A runtime expectation passes only when the actual structured failure matches.
 A different failure or successful execution fails with
 `reason: "expected_runtime_failure"`. Missing Java is a case error with

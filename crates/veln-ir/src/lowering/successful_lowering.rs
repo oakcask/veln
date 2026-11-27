@@ -86,8 +86,12 @@ fn assert_callback_target_lowering(
         target: core_target,
         callsite: Box::new(core_expr(callsite, CoreType::unit(), CoreExprKind::Unit)),
     };
-    let lowered =
-        lower_call_target(callsite.node_id, &target).expect("callback boundary should lower");
+    let lowered = lower_call_target(
+        callsite.node_id,
+        &target,
+        ExpressionLowering::ExecutableBody,
+    )
+    .expect("callback boundary should lower");
     let IrCallTarget::CallbackBoundary {
         target,
         callsite: lowered_callsite,

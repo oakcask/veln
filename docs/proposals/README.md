@@ -52,10 +52,6 @@ also states it.
   direct conditional bodies, unit conditionals without `else`, and paired
   `defer` forms with the specified token boundaries, cleanup timing, and
   canonical formatting; parser/backend/formatter checks establish completion.
-- [Literal-expression Constant Folding](constant-folding.md): fold closed
-  `Int` and `Bool` executable expressions while preserving diagnostics and
-  runtime failures; full-range materialization and residual spans are
-  implementation acceptance, not prototype prerequisites.
 - [Standard-library Numeric Constants](numeric-constants.md): implement typed
   module values for `Int` bounds and `Float` limits and special values through
   the specified narrow scalar-data boundary; construction and non-finite

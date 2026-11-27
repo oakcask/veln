@@ -70,6 +70,7 @@ fn collect_owned_module_value_children(kind: IrExprKind, expressions: &mut Vec<I
         | IrExprKind::BoolLiteral(_)
         | IrExprKind::StringLiteral(_)
         | IrExprKind::IntLiteral(_)
+        | IrExprKind::IntConstant(_)
         | IrExprKind::Unit
         | IrExprKind::OptionNone
         | IrExprKind::ListNil => {}
@@ -321,6 +322,8 @@ pub enum IrExprKind {
     BoolLiteral(bool),
     StringLiteral(String),
     IntLiteral(String),
+    /// An optimizer-produced integer that is not subject to source-literal admission.
+    IntConstant(i64),
     FloatLiteral(String),
     Unit,
     FunctionValue {

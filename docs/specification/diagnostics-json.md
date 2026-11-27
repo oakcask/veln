@@ -1614,8 +1614,9 @@ diagnostics use `boundary: "handler_operation_clause"` and do not emit a
 Advisory hole diagnostic fields, candidate eligibility, type-match ranking,
 and `satisfy` behavior are specified by [holes.md](holes.md). Candidate
 application-policy fields are specified by
-[repair-candidates.md](repair-candidates.md). Runtime result projections are
-specified by [run-json.md](run-json.md).
+[repair-candidates.md](repair-candidates.md). Runtime result projections,
+including located division, remainder, and shift failures that remain after
+constant folding, are specified by [run-json.md](run-json.md).
 
 ## Limits
 

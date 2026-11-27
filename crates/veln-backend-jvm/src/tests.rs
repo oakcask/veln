@@ -32,6 +32,7 @@ static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 mod basic_backend;
 mod collections_and_tail_recursion;
 mod concurrency;
+mod constant_folding;
 mod deferred_cleanup;
 mod effect_boundary_policy;
 mod effect_injection;

@@ -1,0 +1,7 @@
+fn main() -> Int
+	if 1 + 2 == 3
+		7
+	else
+		_
+	end
+end

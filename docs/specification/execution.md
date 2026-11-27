@@ -281,6 +281,31 @@ command-specific execution or write policy. Holes, missing expressions,
 constructor or call arity failures, and recognized concurrency blockers
 prevent execution.
 
+Typed-IR lowering replaces each successfully evaluated closed `Int` or `Bool`
+operator subtree in a function or test body with one scalar constant before
+JVM emission. An executable function method whose result is entirely closed
+loads that constant without calling runtime operator helpers. Module immutable
+value initializer methods retain their operator execution. A dynamic parent
+remains executable and evaluates its operands once from left to right; folding
+does not short-circuit Boolean operands, remove calls, or change cleanup and
+failure ordering. Folded integer results follow the
+[executable integer rules](types.md#executable-integer-evaluation). The backend
+materializes them directly across the full signed 64-bit range rather than
+admitting them again as source literals. Focused IR and emitted-method evidence is in
+[`expression_variants.rs`](../../crates/veln-ir/src/lowering/expression_variants.rs)
+and
+[`constant_folding.rs`](../../crates/veln-backend-jvm/src/tests/constant_folding.rs).
+
+If a computed zero divisor or invalid computed shift count prevents folding,
+the residual operation executes after any earlier output and unwinds registered
+cleanup on failure. Run JSON retains the computed operand span and complete
+operation span, and reports the operation as related context. The checked
+[`division`](../../examples/specification/run/literal-constant-folding-division-failure-json/),
+[`remainder`](../../examples/specification/run/literal-constant-folding-remainder-failure-json/),
+and
+[`shift`](../../examples/specification/run/literal-constant-folding-shift-failure-json/)
+cases cover these projections and preserved output and cleanup.
+
 An accepted module immutable value declaration reaches checked core and typed
 IR. Both representations retain its package, module, and name identity, its
 written annotation and checked type, visibility, declaration span, and finite

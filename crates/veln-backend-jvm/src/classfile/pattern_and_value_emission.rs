@@ -11,23 +11,34 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_expr(code, left);
         self.emit_expr(code, right);
         if op == BinaryOp::Remainder {
-            let operation_span = &left.span;
-            code.ldc_string(right.span.file.as_str());
-            code.push_i32(right.span.start.line as i32);
-            code.push_i32(right.span.start.column as i32);
-            code.push_i32(right.span.start.offset as i32);
-            code.push_i32(right.span.end.line as i32);
-            code.push_i32(right.span.end.column as i32);
-            code.push_i32(right.span.end.offset as i32);
-            code.push_i32(operation_span.start.line as i32);
-            code.push_i32(operation_span.start.column as i32);
-            code.push_i32(operation_span.start.offset as i32);
-            code.push_i32(right.span.end.line as i32);
-            code.push_i32(right.span.end.column as i32);
-            code.push_i32(right.span.end.offset as i32);
+            Self::emit_operator_spans(code, left, right);
             code.invokestatic(
                 &self.program.options.runtime_class,
                 "remainder",
+                "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/String;IIIIIIIIIIII)Ljava/lang/Object;",
+            );
+            return;
+        }
+        let located_method = match (op, &right.kind) {
+            (BinaryOp::Divide, IrExprKind::IntConstant(0)) => Some("divideLocated"),
+            (BinaryOp::ShiftLeft, IrExprKind::IntConstant(count)) if !(0..64).contains(count) => {
+                Some("shiftLeftLocated")
+            }
+            (BinaryOp::ShiftRight, IrExprKind::IntConstant(count)) if !(0..64).contains(count) => {
+                Some("shiftRightLocated")
+            }
+            (BinaryOp::ShiftRightLogical, IrExprKind::IntConstant(count))
+                if !(0..64).contains(count) =>
+            {
+                Some("shiftRightLogicalLocated")
+            }
+            _ => None,
+        };
+        if let Some(method) = located_method {
+            Self::emit_operator_spans(code, left, right);
+            code.invokestatic(
+                &self.program.options.runtime_class,
+                method,
                 "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/String;IIIIIIIIIIII)Ljava/lang/Object;",
             );
             return;
@@ -37,6 +48,22 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             binary_method(op),
             "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
         );
+    }
+
+    fn emit_operator_spans(code: &mut MethodCode, left: &IrExpr, right: &IrExpr) {
+        code.ldc_string(right.span.file.as_str());
+        code.push_i32(right.span.start.line as i32);
+        code.push_i32(right.span.start.column as i32);
+        code.push_i32(right.span.start.offset as i32);
+        code.push_i32(right.span.end.line as i32);
+        code.push_i32(right.span.end.column as i32);
+        code.push_i32(right.span.end.offset as i32);
+        code.push_i32(left.span.start.line as i32);
+        code.push_i32(left.span.start.column as i32);
+        code.push_i32(left.span.start.offset as i32);
+        code.push_i32(right.span.end.line as i32);
+        code.push_i32(right.span.end.column as i32);
+        code.push_i32(right.span.end.offset as i32);
     }
 
     pub(super) fn emit_record(&mut self, code: &mut MethodCode, fields: &[IrRecordField]) {

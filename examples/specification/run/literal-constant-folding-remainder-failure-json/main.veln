@@ -1,0 +1,9 @@
+pub fn main() -> Int effects [stdio]
+	defer
+		stdio::println("cleanup")
+	end
+	stdio::println("before")
+	let value = 7 % (1 - 1)
+	stdio::println("after")
+	value
+end

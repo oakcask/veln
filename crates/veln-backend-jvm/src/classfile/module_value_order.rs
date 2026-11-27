@@ -26,6 +26,7 @@ fn collect_dependencies(expr: &IrExpr, dependencies: &mut BTreeSet<CoreModuleVal
             IrExprKind::BoolLiteral(_)
             | IrExprKind::StringLiteral(_)
             | IrExprKind::IntLiteral(_)
+            | IrExprKind::IntConstant(_)
             | IrExprKind::OptionNone
             | IrExprKind::ListNil
             | IrExprKind::Unit => {}

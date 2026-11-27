@@ -149,6 +149,10 @@ fn emit_module_value_leaf(
             code.aload(0);
             emitter.emit_int_literal(code, value);
         }
+        IrExprKind::IntConstant(value) => {
+            code.aload(0);
+            emitter.emit_int_constant(code, *value);
+        }
         IrExprKind::Unit => {
             code.aload(0);
             emitter.emit_unit(code);
@@ -373,6 +377,7 @@ fn emit_module_value_initializer(
         IrExprKind::ModuleValue(_)
             | IrExprKind::BoolLiteral(_)
             | IrExprKind::IntLiteral(_)
+            | IrExprKind::IntConstant(_)
             | IrExprKind::Unit
             | IrExprKind::OptionNone
             | IrExprKind::ListNil
@@ -1226,7 +1231,11 @@ impl<'a> ClassfileEmitter<'a> {
         try_end: usize,
     ) {
         let handler = code.mark();
-        code.invokevirtual("java/lang/Throwable", "printStackTrace", "()V");
+        code.invokestatic(
+            &self.options.runtime_class,
+            "printHostFailure",
+            "(Ljava/lang/Throwable;)V",
+        );
         code.push_i32(1);
         code.invokestatic("java/lang/System", "exit", "(I)V");
         code.op(0xb1);

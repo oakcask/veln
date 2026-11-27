@@ -2478,6 +2478,61 @@ contract reasoning evaluates literal-only bitwise expressions. Repair
 reasoning leaves nonliteral bitwise predicates runtime-checked instead of
 inventing an arithmetic rewrite.
 
+### Executable integer evaluation
+
+An `Int` is a signed 64-bit two's-complement value. Executable integer
+operators use these rules on every backend:
+
+| Operation | Result |
+| --- | --- |
+| `+`, `-`, `*`, unary `-` | Retain the low 64 bits and interpret those bits as a signed value. |
+| `/` with a nonzero divisor | Truncate toward zero. Minimum `Int` divided by `-1` produces minimum `Int`. |
+| `%` with a nonzero divisor | Produce the signed remainder with the dividend's sign. Minimum `Int` remainder by `-1` is `0`. |
+| `&`, `^`, `\|`, `~` | Operate on all 64 bits. |
+| `<<` | Accept a count from `0` through `63`, discard shifted-out high bits, and fill low bits with zero. |
+| `>>` | Accept a count from `0` through `63`, discard shifted-out low bits, and extend the sign bit. |
+| `>>>` | Accept a count from `0` through `63`, discard shifted-out low bits, and fill high bits with zero. |
+| `<`, `<=`, `>`, `>=` | Compare the signed values. |
+| `==`, `!=` | Compare the operand values and produce the corresponding Boolean value. |
+
+A computed zero divisor remains a runtime division or remainder failure. A
+computed shift count outside `0..63` remains a runtime invalid-shift failure.
+The operator-specific source diagnostics described above run before execution.
+
+### Closed scalar expression folding
+
+Folding is automatic after the original source passes semantic checking; it
+does not require a command flag or a `const` declaration. It applies to local
+initializers, arguments, returned values, control-flow expressions, and cleanup
+regions in function and test bodies. These executable bodies fold closed `Int`
+expressions formed from literals, unary `-` or `~`, and the arithmetic,
+remainder, bitwise, shift, equality, and ordering operators listed above. They
+also fold closed `Bool` expressions formed from literals, `not`, `and`, `or`,
+and same-type equality. Parentheses do not change eligibility.
+The result uses the [executable integer evaluation](#executable-integer-evaluation)
+rules. Every signed result, including minimum `Int`, remains exact.
+
+The compiler folds each successful closed subtree. A reference, call, field
+access, aggregate, or other dynamic operand prevents folding its containing
+operation but does not prevent an independent closed child from folding.
+Float and mixed-type operations are not in this folding domain. The compiler
+does not propagate constants through bindings, apply algebraic identities,
+remove branches, or execute functions.
+
+Module immutable-value initializers, schema expressions, and textual contract
+predicates do not use this executable folding pass. Their existing lowering or
+static reasoning remains independent.
+
+A division or remainder by a computed zero and a shift by a computed count
+outside `0..63` remain runtime operations. Their successful children can fold,
+but the failing operation retains its operand and operation spans. Literal
+source errors are diagnosed before folding, and all source in either branch of
+a closed condition is still checked. The checked
+[`literal-constant-folding-source-checking`](../../examples/specification/check/literal-constant-folding-source-checking/)
+case exercises that source-checking boundary.
+
+### Schema predicate operators
+
 Schema field `where` predicates and schema-level `validate` predicates accept
 decoded `Int` and `Bool` references. A `Bool` reference can form the predicate
 directly or participate in Boolean equality and Boolean operators. An `Int`

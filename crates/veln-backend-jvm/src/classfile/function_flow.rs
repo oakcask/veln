@@ -264,29 +264,39 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.op(0x01);
         code.astore(primary_failure);
         for cleanup in cleanups {
-            let cleanup_start = code.mark();
-            self.emit_registered_cleanup(code, cleanup);
-            let cleanup_end = code.mark();
-            let next_cleanup = code.new_label();
-            let failure_handler = code.new_label();
-            code.branch_wide_to(next_cleanup);
-            code.bind(failure_handler);
-            code.astore(cleanup_failure);
-            code.aload(primary_failure);
-            let has_primary_failure = code.branch(0xc7);
-            code.aload(cleanup_failure);
-            code.astore(primary_failure);
-            code.branch_wide_to(next_cleanup);
-            code.bind(has_primary_failure);
-            self.emit_attach_cleanup_failure(code, primary_failure, cleanup_failure);
-            code.bind(next_cleanup);
-            code.add_exception_handler_to_label(cleanup_start, cleanup_end, failure_handler);
+            self.emit_cleanup_attempt(code, cleanup, primary_failure, cleanup_failure);
         }
         code.aload(primary_failure);
         let completed = code.branch(0xc6);
         code.aload(primary_failure);
         code.op(0xbf);
         code.bind(completed);
+    }
+
+    fn emit_cleanup_attempt(
+        &mut self,
+        code: &mut MethodCode,
+        cleanup: &RegisteredCleanup,
+        primary_failure: u16,
+        cleanup_failure: u16,
+    ) {
+        let cleanup_start = code.mark();
+        self.emit_registered_cleanup(code, cleanup);
+        let cleanup_end = code.mark();
+        let next_cleanup = code.new_label();
+        let failure_handler = code.new_label();
+        code.branch_wide_to(next_cleanup);
+        code.bind(failure_handler);
+        code.astore(cleanup_failure);
+        code.aload(primary_failure);
+        let has_primary_failure = code.branch(0xc7);
+        code.aload(cleanup_failure);
+        code.astore(primary_failure);
+        code.branch_wide_to(next_cleanup);
+        code.bind(has_primary_failure);
+        self.emit_attach_cleanup_failure(code, primary_failure, cleanup_failure);
+        code.bind(next_cleanup);
+        code.add_exception_handler_to_label(cleanup_start, cleanup_end, failure_handler);
     }
 
     pub(super) fn emit_attach_cleanup_failure(
@@ -633,21 +643,22 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
 
     pub(super) fn emit_expr(&mut self, code: &mut MethodCode, expr: &IrExpr) {
         match &expr.kind {
-            IrExprKind::Local(name) => self.emit_local(code, name),
-            IrExprKind::ModuleValue(identity) => self.emit_module_value(code, identity),
-            IrExprKind::BoolLiteral(value) => self.emit_bool_literal(code, *value),
-            IrExprKind::StringLiteral(value) => self.emit_string_literal(code, value),
-            IrExprKind::IntLiteral(value) => self.emit_int_literal(code, value),
-            IrExprKind::FloatLiteral(value) => self.emit_float_literal(code, value),
-            IrExprKind::Unit => self.emit_unit(code),
+            IrExprKind::Local(_)
+            | IrExprKind::ModuleValue(_)
+            | IrExprKind::BoolLiteral(_)
+            | IrExprKind::StringLiteral(_)
+            | IrExprKind::IntLiteral(_)
+            | IrExprKind::IntConstant(_)
+            | IrExprKind::FloatLiteral(_)
+            | IrExprKind::Unit
+            | IrExprKind::OptionNone
+            | IrExprKind::ListNil => self.emit_leaf_expr(code, expr),
             IrExprKind::FunctionValue { name, callsite } => {
                 self.emit_function_value(code, name, *callsite)
             }
             IrExprKind::ResultOk(value) => self.emit_result_constructor(code, "ok", value),
             IrExprKind::ResultErr(value) => self.emit_result_constructor(code, "err", value),
             IrExprKind::OptionSome(value) => self.emit_option_some(code, value),
-            IrExprKind::OptionNone => self.emit_option_none(code),
-            IrExprKind::ListNil => self.emit_list_nil(code),
             IrExprKind::ListCons { head, tail } => self.emit_list_cons(code, head, tail),
             IrExprKind::AdtVariant { name, payloads } => {
                 self.emit_adt_variant(code, name, payloads)
@@ -668,6 +679,22 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrExprKind::CleanupRegion { region } => self.emit_cleanup_region(code, region),
             IrExprKind::Prefix { op, expr } => self.emit_prefix(code, *op, expr),
             IrExprKind::Binary { op, left, right } => self.emit_binary(code, *op, left, right),
+        }
+    }
+
+    fn emit_leaf_expr(&mut self, code: &mut MethodCode, expr: &IrExpr) {
+        match &expr.kind {
+            IrExprKind::Local(name) => self.emit_local(code, name),
+            IrExprKind::ModuleValue(identity) => self.emit_module_value(code, identity),
+            IrExprKind::BoolLiteral(value) => self.emit_bool_literal(code, *value),
+            IrExprKind::StringLiteral(value) => self.emit_string_literal(code, value),
+            IrExprKind::IntLiteral(value) => self.emit_int_literal(code, value),
+            IrExprKind::IntConstant(value) => self.emit_int_constant(code, *value),
+            IrExprKind::FloatLiteral(value) => self.emit_float_literal(code, value),
+            IrExprKind::Unit => self.emit_unit(code),
+            IrExprKind::OptionNone => self.emit_option_none(code),
+            IrExprKind::ListNil => self.emit_list_nil(code),
+            _ => unreachable!("leaf expression dispatch requires a leaf expression"),
         }
     }
 
@@ -701,6 +728,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 .map(|literal| literal.value)
                 .unwrap_or(0),
         );
+        code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
+    }
+
+    pub(super) fn emit_int_constant(&mut self, code: &mut MethodCode, value: i64) {
+        code.ldc_long(value);
         code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
     }
 

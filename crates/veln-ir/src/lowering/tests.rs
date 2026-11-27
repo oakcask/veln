@@ -15,6 +15,7 @@ use veln_syntax::parse;
 
 mod expression_variants;
 mod failures;
+mod module_initializer_folding;
 mod successful_lowering;
 
 fn lower_source(text: &str) -> SurfaceModule {
