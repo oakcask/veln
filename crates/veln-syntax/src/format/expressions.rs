@@ -388,7 +388,7 @@ fn format_handle_expr(
     };
     let mut text = String::from("handle");
     format_terminated_handle_body(&mut text, body, indent, comments, &header_trailing_comments);
-    format_terminated_handler_entries(&mut text, entries, indent, comments);
+    format_handler_entries(&mut text, entries.iter(), indent, comments);
     if let Some(comments) = comments {
         comments.emit_before(expr_end_line(expr), &mut text, indent + 1);
     }
@@ -466,7 +466,7 @@ fn format_retained_mixed_handle_chain(
     for level in levels.iter().rev() {
         if level.terminated {
             let mut retained = format!("handle {text} with\n");
-            format_terminated_handler_entries(&mut retained, level.entries, indent, None);
+            format_handler_entries(&mut retained, level.entries.iter(), indent, None);
             push_indent(&mut retained, indent);
             retained.push_str("end");
             text = retained;
@@ -536,14 +536,7 @@ fn format_flattened_short_handle_chain(
     indent: usize,
 ) -> String {
     let mut text = format!("handle {formatted_body} with\n");
-    for (index, entry) in entries.iter().enumerate() {
-        push_indent(&mut text, indent + 1);
-        text.push_str(&format_handler_entry(entry, indent, None));
-        if index + 1 < entries.len() {
-            text.push(',');
-        }
-        text.push('\n');
-    }
+    format_handler_entries(&mut text, entries.iter().copied(), indent, None);
     push_indent(&mut text, indent);
     text.push_str("end");
     text
@@ -683,16 +676,17 @@ fn format_terminated_handle_body(
     }
 }
 
-fn format_terminated_handler_entries(
+fn format_handler_entries<'a>(
     text: &mut String,
-    entries: &[HandlerEntry],
+    entries: impl IntoIterator<Item = &'a HandlerEntry>,
     indent: usize,
     comments: Option<&LineComments>,
 ) {
-    for (index, entry) in entries.iter().enumerate() {
+    let mut entries = entries.into_iter().peekable();
+    while let Some(entry) = entries.next() {
         let trailing_comments = take_handler_entry_trailing_comments(entry, comments);
         let mut line = format_handler_entry(entry, indent, comments);
-        if index + 1 < entries.len() {
+        if entries.peek().is_some() {
             line.push(',');
         }
         for comment in trailing_comments {
