@@ -6,11 +6,11 @@ use veln_core::{
 
 use crate::{
     IrCallTarget, IrCallbackTarget, IrCleanupRegion, IrContract, IrDeferredBlock,
-    IrDeferredCapture, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm,
-    IrModuleValueDecl, IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
-    IrSchemaRefinementField, IrSchemaRefinementPayload, IrSchemaRefinementPlan,
-    IrSchemaRefinementPlanNode, IrSchemaRefinementValidationSpec, IrSchemaRefinementVariant,
-    IrStmt, IrStmtKind, TypedProgram,
+    IrDeferredCapture, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerApplication,
+    IrHandlerProvider, IrMatchArm, IrModuleValueDecl, IrParam, IrPattern, IrPatternField,
+    IrPatternKind, IrRecordField, IrSchemaRefinementField, IrSchemaRefinementPayload,
+    IrSchemaRefinementPlan, IrSchemaRefinementPlanNode, IrSchemaRefinementValidationSpec,
+    IrSchemaRefinementVariant, IrStmt, IrStmtKind, TypedProgram,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -315,21 +315,24 @@ fn lower_effect_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError
             operation: operation.clone(),
             args: lower_exprs(args)?,
         })),
-        CoreExprKind::Handle {
-            effect,
-            providers,
-            context_args,
-            body,
-        } => Ok(Some(IrExprKind::Handle {
-            effect: effect.clone(),
-            providers: providers
+        CoreExprKind::Handle { entries, body } => Ok(Some(IrExprKind::Handle {
+            entries: entries
                 .iter()
-                .map(|provider| IrHandlerProvider {
-                    operation: provider.operation.clone(),
-                    function: provider.function.clone(),
+                .map(|entry| {
+                    Ok(IrHandlerApplication {
+                        effect: entry.effect.clone(),
+                        providers: entry
+                            .providers
+                            .iter()
+                            .map(|provider| IrHandlerProvider {
+                                operation: provider.operation.clone(),
+                                function: provider.function.clone(),
+                            })
+                            .collect(),
+                        context_args: lower_exprs(&entry.context_args)?,
+                    })
                 })
-                .collect(),
-            context_args: lower_exprs(context_args)?,
+                .collect::<Result<Vec<_>, IrLowerError>>()?,
             body: Box::new(lower_expr(body)?),
         })),
         _ => Ok(None),

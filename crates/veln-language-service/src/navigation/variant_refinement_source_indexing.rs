@@ -228,9 +228,18 @@ fn collect_expr_refinement_ranges(
         ExprKind::Perform { args, .. } | ExprKind::List(args) => {
             collect_exprs_refinement_ranges(args, type_parameters, index);
         }
-        ExprKind::Handle { body, args, .. } => {
-            collect_expr_refinement_ranges(body, type_parameters, index);
-            collect_exprs_refinement_ranges(args, type_parameters, index);
+        ExprKind::Handle { body, entries, .. } => {
+            match body {
+                veln_syntax::HandleBody::Expression(expr) => {
+                    collect_expr_refinement_ranges(expr, type_parameters, index);
+                }
+                veln_syntax::HandleBody::Block { body, .. } => {
+                    collect_body_refinement_ranges(body, type_parameters, index);
+                }
+            }
+            for entry in entries {
+                collect_exprs_refinement_ranges(&entry.args, type_parameters, index);
+            }
         }
         ExprKind::SchemaDecode { input, base, .. } => {
             collect_expr_refinement_ranges(input, type_parameters, index);

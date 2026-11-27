@@ -369,6 +369,27 @@ fn fmt_preserves_files_when_any_input_has_parse_errors() {
 }
 
 #[test]
+fn fmt_preserves_overdeep_handled_block_input() {
+    let mut text = String::from("fn deep() -> ()\n");
+    for _ in 0..800 {
+        text.push_str(" handle\n");
+    }
+    text.push_str(" ()\n");
+    for _ in 0..800 {
+        text.push_str(" with\n  handler()\n end\n");
+    }
+    text.push_str("end\n");
+
+    let project = TestProject::new("fmt-deep-handled-block");
+    project.write("main.veln", &text);
+    let output = project.fmt(&["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(project.read("main.veln"), text);
+    assert!(stderr(&output).contains("parse.cleanup_nesting_limit"));
+}
+
+#[test]
 fn fmt_formats_comment_bearing_files() {
     let project = TestProject::new("fmt-comments");
     let text = concat!(
@@ -565,6 +586,38 @@ fn fmt_formats_comments_inside_handler_cleanup_regions_idempotently() {
         "\tclose() => begin\n",
         "\t\t# keep cleanup body docs\n",
         "\t\t()\n",
+        "\tend\n",
+        "end\n",
+    );
+    project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);
+}
+
+#[test]
+fn fmt_preserves_multiple_handler_boundary_comments_idempotently() {
+    let project = TestProject::new("fmt-multiple-handler-boundary-comments");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn example() -> Int\n",
+            "  handle\n",
+            "    1\n",
+            "  # before with\n",
+            "  with\n",
+            "    outer(),\n",
+            "  # before end\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let expected = concat!(
+        "fn example() -> Int\n",
+        "\thandle\n",
+        "\t\t1\n",
+        "\t\t# before with\n",
+        "\twith\n",
+        "\t\touter()\n",
+        "\t\t# before end\n",
         "\tend\n",
         "end\n",
     );

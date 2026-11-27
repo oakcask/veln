@@ -141,15 +141,12 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             ExprKind::Perform { args, .. } => {
                 self.collect_exprs(args, current_module, local_bindings, spans);
             }
-            ExprKind::Handle {
-                body,
-                handler,
-                args,
-                ..
-            } => {
-                self.select_handler(handler, current_module, spans);
+            ExprKind::Handle { body, entries } => {
+                for entry in entries {
+                    self.select_handler(&entry.handler, current_module, spans);
+                    self.collect_exprs(&entry.args, current_module, local_bindings, spans);
+                }
                 self.collect_expr(body, current_module, local_bindings, spans);
-                self.collect_exprs(args, current_module, local_bindings, spans);
             }
             ExprKind::SchemaDecode {
                 schema: _,

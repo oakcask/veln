@@ -129,11 +129,10 @@ impl<'a> ExprParser<'a> {
         strategy: RecoveryStrategy,
         anchor: Option<&'static str>,
     ) {
-        let token = self
-            .tokens
-            .get(self.cursor)
-            .cloned()
-            .unwrap_or_else(|| Token::eof(self.source.len()));
+        let token =
+            self.tokens.get(self.cursor).cloned().unwrap_or_else(|| {
+                Token::eof(self.recovery_end.unwrap_or_else(|| self.source.len()))
+            });
         self.error_at_token(
             &token,
             DiagnosticRequest {

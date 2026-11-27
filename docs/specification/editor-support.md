@@ -733,11 +733,16 @@ binding and navigation behavior. The adjacent effect qualifier keeps its
 separate effect identity.
 
 For a selected parse-clean workspace handler declaration, references include
-each complete bare handler name in `handle Body with handler(arguments)` from
-saved workspace sources that declare the same module. If the handler is
-public, references also include complete qualified handler-name leaves reached
-through one parse-clean, unambiguous workspace or retained direct-dependency
-import. A workspace qualifier can use the full module path or its unique
+each complete bare handler name in a short
+`handle Body with handler(arguments)` expression and in every entry of a
+terminated expression-body or block-body handler list. The application must
+come from a saved workspace source that declares the same module. Handler
+arguments and both terminated body forms retain the ordinary nested navigation
+and semantic-token classifications of their contained expressions and body
+lines. If the handler is public, references also include complete qualified
+handler-name leaves reached through one parse-clean, unambiguous workspace or
+retained direct-dependency import. A workspace qualifier can use the full
+module path or its unique
 implicit leaf alias. An explicitly aliased workspace import still permits the
 full module path, but neither the written alias nor the module's leaf name
 becomes an implicit qualifier. A retained direct-dependency qualifier can use

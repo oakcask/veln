@@ -1,0 +1,53 @@
+effect Ask
+	value() -> Int
+end
+
+handler outer(value: Int) for Ask
+	value() => value
+end
+
+handler inner(value: Int) for Ask
+	value() => value
+end
+
+handler handler() for Ask
+	value() => 3
+end
+
+fn first() -> Int
+	1
+end
+
+fn second() -> Int
+	2
+end
+
+fn value() -> Int effects [Ask]
+	perform Ask::value()
+end
+
+fn expression_body() -> Int
+	handle value() with
+		outer(first()),
+		inner(second())
+	end
+end
+
+fn block_body() -> Int
+	handle
+		let value = first()
+		value
+		# retain before with
+	with
+		outer(),
+		inner()
+		# retain before end
+	end
+end
+
+fn contextual_entries() -> Int
+	handle value() with
+		handler(),
+		inner(second())
+	end
+end

@@ -239,6 +239,68 @@ mod navigation_handler_references_tests {
     }
 
     #[test]
+    fn terminated_handler_lists_index_every_entry_body_and_argument() {
+        let sources = vec![
+            source(
+                "handlers.veln",
+                concat!(
+                    "mod library::fx\n\n",
+                    "pub handler outer() for Work\n  go() => 1\nend\n\n",
+                    "pub handler inner(value: Int) for Work\n  go() => value\nend\n",
+                ),
+            ),
+            source(
+                "consumer.veln",
+                concat!(
+                    "mod consumer\n\n",
+                    "use library::fx\n\n",
+                    "fn body_value() -> Int\n  1\nend\n\n",
+                    "fn argument() -> Int\n  2\nend\n\n",
+                    "fn expression() -> Int\n",
+                    "  handle body_value() with\n",
+                    "    fx::outer(),\n",
+                    "    fx::inner(argument())\n",
+                    "  end\n",
+                    "end\n\n",
+                    "fn block() -> Int\n",
+                    "  handle\n",
+                    "    let value = body_value()\n",
+                    "    value\n",
+                    "  with\n",
+                    "    fx::outer(),\n",
+                    "    fx::inner(argument())\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        for (definition_line, name, references) in [
+            (3, "outer", [("consumer.veln", 15, 9), ("consumer.veln", 25, 9)]),
+            (7, "inner", [("consumer.veln", 16, 9), ("consumer.veln", 26, 9)]),
+        ] {
+            let declaration = query(sources.clone(), "handlers.veln", definition_line, 13).unwrap();
+            assert_eq!(declaration.selected_symbol.name, name);
+            assert_eq!(locations(&declaration.references), references);
+            for (path, line, column) in references {
+                let selected = query(sources.clone(), path, line, column).unwrap();
+                assert_location(&selected.definition, "handlers.veln", definition_line, 13);
+            }
+        }
+
+        for (line, column, definition_line) in [
+            (14, 10, 5),
+            (16, 19, 9),
+            (22, 17, 5),
+            (26, 19, 9),
+        ] {
+            let selected = query(sources.clone(), "consumer.veln", line, column).unwrap();
+            assert_eq!(selected.selected_symbol.kind, SymbolKind::Function);
+            assert_location(&selected.definition, "consumer.veln", definition_line, 4);
+        }
+    }
+
+    #[test]
     fn workspace_handler_import_resolution_does_not_invent_leaf_for_explicit_alias() {
         let sources = vec![
             source(

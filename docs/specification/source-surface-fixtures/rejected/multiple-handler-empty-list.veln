@@ -1,0 +1,4 @@
+fn invalid() -> Int
+	handle value() with
+	end
+end

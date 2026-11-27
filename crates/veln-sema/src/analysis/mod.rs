@@ -74,12 +74,12 @@ pub(crate) use body::check_function_body;
 pub(crate) use body::{
     ConstructorPatternScanWork, RefinedMatchCoverageWork, RefinedMatchDiagnosticWork,
     StablePlaceWork, TransparentAliasWork, reset_constructor_pattern_scan_work,
-    reset_refined_match_coverage_work, reset_refined_match_diagnostic_work,
-    reset_retained_variant_diagnostic_key_variants, reset_stable_place_work,
-    reset_transparent_alias_work, take_constructor_pattern_scan_work,
-    take_refined_match_coverage_work, take_refined_match_diagnostic_work,
-    take_retained_variant_diagnostic_key_variants, take_stable_place_work,
-    take_transparent_alias_work,
+    reset_ordered_handler_effect_work, reset_refined_match_coverage_work,
+    reset_refined_match_diagnostic_work, reset_retained_variant_diagnostic_key_variants,
+    reset_stable_place_work, reset_transparent_alias_work, take_constructor_pattern_scan_work,
+    take_ordered_handler_effect_work, take_refined_match_coverage_work,
+    take_refined_match_diagnostic_work, take_retained_variant_diagnostic_key_variants,
+    take_stable_place_work, take_transparent_alias_work,
 };
 pub(crate) use body::{VariantDiagnosticInterner, check_function_body_with_facts};
 pub(crate) use boundary::{

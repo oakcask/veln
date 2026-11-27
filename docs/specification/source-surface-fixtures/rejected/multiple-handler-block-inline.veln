@@ -1,0 +1,6 @@
+fn invalid() -> Int
+	handle
+		value()
+	with outer()
+	end
+end

@@ -16,7 +16,8 @@ Without `--check`, cycles, large ABC values, and duplicate bodies are
 reported but do not make a completed analysis fail.
 
 The [metrics JSON contract](metrics-json.md#abc-subjects) defines how nested
-`begin` and `defer` bodies contribute to ABC and whole-body similarity results.
+`begin`, `defer`, and handled-block bodies, plus handler applications and
+arguments, contribute to ABC and whole-body similarity results.
 
 ## Selection and partial analysis
 

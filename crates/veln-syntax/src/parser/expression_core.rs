@@ -16,6 +16,7 @@ impl<'a> ExprParser<'a> {
             context,
             tokens,
             cursor: 0,
+            recovery_end: None,
             cleanup_depth: 0,
             control_blocks: Vec::new(),
             diagnostics: Vec::new(),
@@ -24,6 +25,11 @@ impl<'a> ExprParser<'a> {
 
     pub(super) fn with_cleanup_depth(mut self, cleanup_depth: usize) -> Self {
         self.cleanup_depth = cleanup_depth;
+        self
+    }
+
+    pub(super) fn with_recovery_end(mut self, recovery_end: usize) -> Self {
+        self.recovery_end = Some(recovery_end);
         self
     }
 

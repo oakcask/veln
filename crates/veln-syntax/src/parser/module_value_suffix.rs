@@ -20,6 +20,9 @@ struct ScanState {
     equivalent_initializers: Vec<usize>,
     block_depth: usize,
     delimiter_depth: usize,
+    handle_candidates: Vec<(bool, usize)>,
+    continued_handle_after_with: Option<bool>,
+    previous_handle_started_expression: bool,
     previous_kind: Option<TokenKind>,
     at_line_start: bool,
     closed_initializer_block: bool,
@@ -50,7 +53,8 @@ impl ModuleValueSuffixClassifier {
             if state.starts_top_level_item(kind) {
                 return self.finish(state, ModuleValueSuffixEvidence::TopLevelItem);
             }
-            if let Some(evidence) = state.record_structure(kind) {
+            let next_kind = tokens.get(state.cursor + 1).map(|token| token.kind);
+            if let Some(evidence) = state.record_structure(kind, next_kind) {
                 return self.finish(state, evidence);
             }
             state.advance(kind);
@@ -79,6 +83,9 @@ impl ScanState {
             equivalent_initializers: vec![initializer],
             block_depth: 0,
             delimiter_depth: 0,
+            handle_candidates: Vec::new(),
+            continued_handle_after_with: None,
+            previous_handle_started_expression: false,
             previous_kind: Some(TokenKind::Equal),
             at_line_start: false,
             closed_initializer_block: false,
@@ -115,7 +122,17 @@ impl ScanState {
             )
     }
 
-    fn record_structure(&mut self, kind: TokenKind) -> Option<ModuleValueSuffixEvidence> {
+    fn record_structure(
+        &mut self,
+        kind: TokenKind,
+        next_kind: Option<TokenKind>,
+    ) -> Option<ModuleValueSuffixEvidence> {
+        let handle_started_expression = kind == TokenKind::Handle
+            && !matches!(
+                self.previous_kind,
+                Some(TokenKind::Dot | TokenKind::DoubleColon)
+            )
+            && next_kind != Some(TokenKind::DoubleColon);
         match kind {
             TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
                 self.delimiter_depth += 1;
@@ -124,6 +141,29 @@ impl ScanState {
                 self.delimiter_depth = self.delimiter_depth.saturating_sub(1);
             }
             TokenKind::Match | TokenKind::Begin => self.block_depth += 1,
+            TokenKind::Handle if handle_started_expression => {
+                self.handle_candidates.push((false, self.block_depth));
+            }
+            TokenKind::With => {
+                self.continued_handle_after_with =
+                    self.handle_candidates.pop().map(|(started, _)| started);
+            }
+            TokenKind::Newline if self.previous_handle_started_expression => {
+                if let Some((started, _)) = self.handle_candidates.last_mut() {
+                    *started = true;
+                    self.block_depth += 1;
+                }
+            }
+            TokenKind::Newline if self.previous_kind == Some(TokenKind::With) => {
+                if self.continued_handle_after_with.take() == Some(false) {
+                    self.block_depth += 1;
+                }
+            }
+            TokenKind::Newline => {
+                self.handle_candidates
+                    .retain(|(_, candidate_depth)| *candidate_depth < self.block_depth);
+                self.continued_handle_after_with = None;
+            }
             TokenKind::Defer if self.at_line_start && self.delimiter_depth == 0 => {
                 self.block_depth += 1;
             }
@@ -138,6 +178,7 @@ impl ScanState {
             TokenKind::Eof => return Some(self.end_of_input_evidence()),
             _ => {}
         }
+        self.previous_handle_started_expression = handle_started_expression;
         None
     }
 

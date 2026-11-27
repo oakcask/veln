@@ -405,10 +405,21 @@ fn collect_perform_effect_regions(expr: &Expr, regions: &mut Vec<(usize, usize)>
                 collect_perform_effect_regions(arg, regions);
             }
         }
-        ExprKind::Handle { body, args, .. } => {
-            collect_perform_effect_regions(body, regions);
-            for arg in args {
-                collect_perform_effect_regions(arg, regions);
+        ExprKind::Handle { body, entries, .. } => {
+            match body {
+                veln_syntax::HandleBody::Expression(expr) => {
+                    collect_perform_effect_regions(expr, regions);
+                }
+                veln_syntax::HandleBody::Block { body, .. } => {
+                    for line in body {
+                        collect_body_line_effect_reference_regions(line, regions);
+                    }
+                }
+            }
+            for entry in entries {
+                for arg in &entry.args {
+                    collect_perform_effect_regions(arg, regions);
+                }
             }
         }
         ExprKind::SchemaDecode { input, base, .. } => {

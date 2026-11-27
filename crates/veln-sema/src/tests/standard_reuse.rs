@@ -610,6 +610,73 @@ fn embedded_reusable_standard_environment_has_current_identity_and_reuses_applic
     assert_eq!(crate::standard_reuse_counters::application_prepares(), 1);
 }
 
+fn reusable_project(
+    standard: &veln_ast::SurfaceModule,
+    name: &'static str,
+    result_type: &str,
+) -> veln_ast::SurfaceModule {
+    merge_modules(vec![
+        standard.clone(),
+        app_case(
+            name,
+            "src/shared.veln",
+            &format!(
+                "pub fn main() -> {result_type}\n  let boxed = prelude::answer(prelude::PayloadShape(1))\n  1\nend\n"
+            ),
+        )
+        .module,
+    ])
+}
+
+fn check_repeated_reusable_projects(
+    reusable: &ReusableStandardEnvironment,
+    alpha: &veln_ast::SurfaceModule,
+    beta: &veln_ast::SurfaceModule,
+) {
+    for module in [alpha, beta, alpha, beta] {
+        let _ = check_project_surface_module_with_standard_environment(module, reusable);
+    }
+    assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
+    assert_eq!(crate::standard_reuse_counters::application_prepares(), 6);
+    assert_eq!(
+        crate::standard_reuse_counters::standard_environment_builds(),
+        1
+    );
+}
+
+fn check_concurrent_reusable_projects(
+    reusable: &ReusableStandardEnvironment,
+    alpha: &veln_ast::SurfaceModule,
+    beta: &veln_ast::SurfaceModule,
+    alpha_expected: &[String],
+    beta_expected: &[String],
+) {
+    thread::scope(|scope| {
+        let handles = (0..12)
+            .map(|index| {
+                let module = if index % 2 == 0 { alpha } else { beta };
+                scope.spawn(move || (index, checked_json(module, reusable)))
+            })
+            .collect::<Vec<_>>();
+
+        for handle in handles {
+            let (index, diagnostics) = handle.join().expect("analysis should not panic");
+            let expected = if index % 2 == 0 {
+                alpha_expected
+            } else {
+                beta_expected
+            };
+            assert_eq!(diagnostics, expected);
+        }
+    });
+    assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
+    assert_eq!(crate::standard_reuse_counters::application_prepares(), 18);
+    assert_eq!(
+        crate::standard_reuse_counters::standard_environment_builds(),
+        1
+    );
+}
+
 #[test]
 fn reusable_standard_environment_is_prepared_once_for_repeated_and_concurrent_projects() {
     let _guard = standard_reuse_test_lock();
@@ -623,34 +690,8 @@ fn reusable_standard_environment_is_prepared_once_for_repeated_and_concurrent_pr
         1
     );
 
-    let alpha = merge_modules(vec![
-        standard.clone(),
-        app_case(
-            "alpha",
-            "src/shared.veln",
-            concat!(
-                "pub fn main() -> Int\n",
-                "  let boxed = prelude::answer(prelude::PayloadShape(1))\n",
-                "  1\n",
-                "end\n",
-            ),
-        )
-        .module,
-    ]);
-    let beta = merge_modules(vec![
-        standard.clone(),
-        app_case(
-            "beta",
-            "src/shared.veln",
-            concat!(
-                "pub fn main() -> Bool\n",
-                "  let boxed = prelude::answer(prelude::PayloadShape(1))\n",
-                "  1\n",
-                "end\n",
-            ),
-        )
-        .module,
-    ]);
+    let alpha = reusable_project(&standard, "alpha", "Int");
+    let beta = reusable_project(&standard, "beta", "Bool");
 
     let alpha_expected = checked_json(&alpha, &reusable);
     let beta_expected = checked_json(&beta, &reusable);
@@ -661,44 +702,8 @@ fn reusable_standard_environment_is_prepared_once_for_repeated_and_concurrent_pr
         1
     );
 
-    for module in [alpha.clone(), beta.clone(), alpha.clone(), beta.clone()] {
-        let _ = check_project_surface_module_with_standard_environment(&module, &reusable);
-    }
-    assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
-    assert_eq!(crate::standard_reuse_counters::application_prepares(), 6);
-    assert_eq!(
-        crate::standard_reuse_counters::standard_environment_builds(),
-        1
-    );
-
-    thread::scope(|scope| {
-        let handles = (0..12)
-            .map(|index| {
-                let module = if index % 2 == 0 {
-                    alpha.clone()
-                } else {
-                    beta.clone()
-                };
-                let reusable = &reusable;
-                scope.spawn(move || (index, checked_json(&module, reusable)))
-            })
-            .collect::<Vec<_>>();
-
-        for handle in handles {
-            let (index, diagnostics) = handle.join().expect("analysis should not panic");
-            if index % 2 == 0 {
-                assert_eq!(diagnostics, alpha_expected);
-            } else {
-                assert_eq!(diagnostics, beta_expected);
-            }
-        }
-    });
-    assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
-    assert_eq!(crate::standard_reuse_counters::application_prepares(), 18);
-    assert_eq!(
-        crate::standard_reuse_counters::standard_environment_builds(),
-        1
-    );
+    check_repeated_reusable_projects(&reusable, &alpha, &beta);
+    check_concurrent_reusable_projects(&reusable, &alpha, &beta, &alpha_expected, &beta_expected);
 }
 
 #[test]
@@ -765,8 +770,8 @@ fn reachable_project_lowering_with_reusable_standard_environment_keeps_standard_
                         CoreStmtKind::Let { expr, .. }
                             if matches!(
                                 &expr.kind,
-                                CoreExprKind::Handle { providers, .. }
-                                    if providers.iter().any(|provider| {
+                                CoreExprKind::Handle { entries, .. }
+                                    if entries.iter().flat_map(|entry| &entry.providers).any(|provider| {
                                         provider.function
                                             == "__veln_std$prelude$__handler_3$ask_5$value"
                                     })

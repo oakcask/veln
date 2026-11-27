@@ -138,6 +138,16 @@ function contracts and hole `satisfy` predicates, which admit integer `%`,
 from schema predicates, which do not. The current contract, hole, type, and
 source-surface specifications remain authoritative for predicate typing,
 validation, execution, and nesting limits.
+The complete grammar also publishes the three implemented handler-expression
+forms. `SingleHandle` accepts one inline application. `ExpressionHandle`
+accepts an expression followed by a terminated, nonempty handler-entry list.
+`BlockHandle` accepts a body followed by the same list. `HandlerEntries`
+requires newline-separated applications, commas between entries, and permits
+one final comma. The `effects-handlers` topic selects those productions beside
+the effect and handler declaration productions. Its checked examples cover
+single-handler nesting and ordered terminated expression and block forms. The
+current source-surface, effects, formatting, and execution specifications own
+the complete multiple-handler behavior and limits.
 The `schemas` topic selects explicit decode, encode, and runtime-validation
 expression productions in addition to schema declarations and fields. The
 runtime-validation production is `validate MemberPath from Expr at Expr`; the

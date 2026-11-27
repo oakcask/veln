@@ -8,13 +8,14 @@ use crate::tree::build_lossless_root;
 use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
     EffectBinder, EffectDecl, EffectOperationDecl, Expr, ExprKind, FunctionDecl, FunctionKind,
-    HandlerDecl, HandlerOperationClauseDecl, IfBranch, MatchArm, ModuleDecl, ModuleValueDecl,
-    Param, Pattern, PatternField, PatternKind, PredicateRemainder, PrefixOp, PublicAliasDecl,
-    PublicAliasKind, RecordField, RecordFieldPath, SatisfyClause, SchemaDecl, SchemaField,
-    SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SyntaxItem, SyntaxTree,
-    Token, TokenKind, TypeBinder, TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField,
-    TypeVariantFieldDelimiter, UseAlias, UseDecl, UsePackage, VariantRefinementAlternative,
-    VariantRefinementType, VariantRefinementTypeArgument, Visibility, lex,
+    HandleBody, HandlerDecl, HandlerEntry, HandlerOperationClauseDecl, IfBranch, MatchArm,
+    ModuleDecl, ModuleValueDecl, Param, Pattern, PatternField, PatternKind, PredicateRemainder,
+    PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, RecordFieldPath, SatisfyClause,
+    SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause,
+    SyntaxItem, SyntaxTree, Token, TokenKind, TypeBinder, TypeDecl, TypePathSegments,
+    TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseAlias, UseDecl, UsePackage,
+    VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument, Visibility,
+    lex,
 };
 
 mod adr_lite;
@@ -364,6 +365,7 @@ struct Parser<'a> {
     lossless_tokens: Vec<Token>,
     cursor: usize,
     cleanup_depth: usize,
+    recovering_to_top_level_item: bool,
     top_level_boundary_cache: Cell<Option<(usize, bool)>>,
     module_value_suffixes: ModuleValueSuffixClassifier,
     diagnostics: Vec<ParseDiagnostic>,
@@ -435,13 +437,17 @@ struct ExprParser<'a> {
     context: &'static str,
     tokens: &'a [Token],
     cursor: usize,
+    recovery_end: Option<usize>,
     cleanup_depth: usize,
     control_blocks: Vec<TokenKind>,
     diagnostics: Vec<ParseDiagnostic>,
 }
 
 fn is_cleanup_block(kind: TokenKind) -> bool {
-    matches!(kind, TokenKind::Begin | TokenKind::Defer)
+    matches!(
+        kind,
+        TokenKind::Begin | TokenKind::Defer | TokenKind::Handle
+    )
 }
 
 fn recover_cleanup_blocks_before_branch(blocks: &mut Vec<TokenKind>, owner: TokenKind) {

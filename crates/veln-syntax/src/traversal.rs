@@ -1,4 +1,4 @@
-use crate::{BodyLine, Expr, ExprChildren};
+use crate::{BodyLine, Expr, ExprChildren, HandleBody};
 
 impl Expr {
     /// Visits immediate expression children in source order, without recursing.
@@ -15,6 +15,15 @@ impl Expr {
             ExprChildren::HeadAndSlice(head, children) => {
                 visitor(head);
                 children.iter().for_each(visitor);
+            }
+            ExprChildren::Handle(body, entries) => {
+                match body {
+                    HandleBody::Expression(expr) => visitor(expr),
+                    HandleBody::Block { body, .. } => visit_body_exprs(body, visitor),
+                }
+                for entry in entries {
+                    entry.args.iter().for_each(&mut *visitor);
+                }
             }
             ExprChildren::Record(fields) => {
                 fields.iter().for_each(|field| visitor(&field.expr));

@@ -12,9 +12,9 @@ pub use lower::{
 };
 pub use model::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, EffectBinder, EffectDecl,
-    EffectOperationDecl, Expr, ExprKind, Function, FunctionBody, FunctionKind, HandlerDecl,
-    HandlerOperationClauseDecl, IfBranch, InvalidName, MatchArm, ModuleHeader, ModuleValueDecl,
-    NameClass, NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind,
+    EffectOperationDecl, Expr, ExprKind, Function, FunctionBody, FunctionKind, HandlerApplication,
+    HandlerDecl, HandlerOperationClauseDecl, IfBranch, InvalidName, MatchArm, ModuleHeader,
+    ModuleValueDecl, NameClass, NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind,
     PredicateRemainder, PredicateRemainderChain, PredicateTokenSpan, PrefixOp, PublicAlias,
     PublicAliasKind, QualifiedPathSegment, QualifiedPathSegmentEvidence, RecordField,
     RecordFieldPath, ResolvedImportOwner, ResolvedImportTarget, ResultBinding, SatisfyClause,

@@ -9,8 +9,13 @@ struct ExpressionLineCollector {
     tokens: Vec<Token>,
     delimiter_depth: usize,
     block_stack: Vec<TokenKind>,
+    block_delimiter_depths: Vec<usize>,
+    handle_candidates: Vec<(bool, usize)>,
+    continued_handle_after_with: Option<bool>,
+    previous_handle_started_expression: bool,
     previous_kind: Option<TokenKind>,
     at_line_start: bool,
+    preserve_enclosing_end: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -50,42 +55,95 @@ impl TypeNesting {
 }
 
 impl ExpressionLineCollector {
-    fn new(start: TextRange) -> Self {
+    fn new(start: TextRange, preserve_enclosing_end: bool) -> Self {
         Self {
             start,
             end: start,
             tokens: Vec::new(),
             delimiter_depth: 0,
             block_stack: Vec::new(),
+            block_delimiter_depths: Vec::new(),
+            handle_candidates: Vec::new(),
+            continued_handle_after_with: None,
+            previous_handle_started_expression: false,
             previous_kind: None,
             at_line_start: false,
+            preserve_enclosing_end,
         }
     }
 
     fn stops_before(&self, parser: &Parser<'_>) -> bool {
-        if self.delimiter_depth == 0 && self.block_stack.is_empty() && parser.at(TokenKind::Newline)
+        if self.delimiter_depth == 0
+            && self.block_stack.is_empty()
+            && parser.at(TokenKind::Newline)
+            && !self.continues_terminated_handle()
         {
             return true;
         }
-        parser.at(TokenKind::End)
-            && self.block_stack.iter().copied().any(is_cleanup_block)
+        if self.stops_before_top_level_item(parser) {
+            return true;
+        }
+        self.preserve_enclosing_end
+            && parser.at(TokenKind::End)
+            && self
+                .block_stack
+                .iter()
+                .copied()
+                .any(|kind| is_cleanup_block(kind) || kind == TokenKind::Handle)
             && parser.end_closes_enclosing_declaration()
+    }
+
+    fn stops_before_top_level_item(&self, parser: &Parser<'_>) -> bool {
+        self.at_line_start
+            && self.block_stack.contains(&TokenKind::Handle)
+            && parser.at_top_level_item_start()
+            && (!parser.at(TokenKind::Handler) || parser.at_handler_declaration_start())
+    }
+
+    fn continues_terminated_handle(&self) -> bool {
+        match self.previous_kind {
+            Some(TokenKind::Handle) => {
+                self.handle_candidates
+                    .last()
+                    .is_some_and(|(started, candidate_depth)| {
+                        !started && *candidate_depth == self.block_stack.len()
+                    })
+            }
+            Some(TokenKind::With) => self.continued_handle_after_with == Some(false),
+            _ => false,
+        }
     }
 
     fn recover_before_branch(&mut self, parser: &Parser<'_>) {
         if parser.at(TokenKind::Else) {
             recover_cleanup_blocks_before_branch(&mut self.block_stack, TokenKind::If);
+            self.block_delimiter_depths.truncate(self.block_stack.len());
         } else if self.delimiter_depth == 0
             && self.at_line_start
             && line_starts_match_arm(&parser.tokens, parser.cursor)
         {
             recover_cleanup_blocks_before_branch(&mut self.block_stack, TokenKind::Match);
+            self.block_delimiter_depths.truncate(self.block_stack.len());
         }
     }
 
-    fn push(&mut self, token: Token) {
+    fn push_block(&mut self, kind: TokenKind) {
+        self.block_stack.push(kind);
+        self.block_delimiter_depths.push(self.delimiter_depth);
+    }
+
+    fn close_owned_block(&mut self) {
+        if self.block_delimiter_depths.last() == Some(&self.delimiter_depth) {
+            self.block_stack.pop();
+            self.block_delimiter_depths.pop();
+        }
+    }
+
+    fn push(&mut self, token: Token, next_kind: Option<TokenKind>) {
         self.end = token.range;
         let token_kind = token.kind;
+        let handle_started_expression = token_kind == TokenKind::Handle
+            && handle_starts_expression(self.previous_kind, next_kind);
         match token_kind {
             TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
                 self.delimiter_depth += 1;
@@ -93,19 +151,41 @@ impl ExpressionLineCollector {
             TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
                 self.delimiter_depth = self.delimiter_depth.saturating_sub(1);
             }
-            TokenKind::Match | TokenKind::Begin => self.block_stack.push(token_kind),
-            TokenKind::Defer
-                if self.delimiter_depth == 0
-                    && !self.block_stack.is_empty()
-                    && self.at_line_start =>
-            {
-                self.block_stack.push(token_kind);
+            TokenKind::Match | TokenKind::Begin => self.push_block(token_kind),
+            TokenKind::Handle if handle_starts_expression(self.previous_kind, next_kind) => {
+                self.handle_candidates.push((false, self.block_stack.len()));
+            }
+            TokenKind::With => {
+                self.continued_handle_after_with =
+                    self.handle_candidates.pop().map(|(started, _)| started);
+            }
+            TokenKind::Newline if self.previous_handle_started_expression => {
+                if let Some((started, _)) = self.handle_candidates.last_mut() {
+                    *started = true;
+                    self.push_block(TokenKind::Handle);
+                }
+            }
+            TokenKind::Newline if self.previous_kind == Some(TokenKind::With) => {
+                if self.continued_handle_after_with.take() == Some(false) {
+                    self.push_block(TokenKind::Handle);
+                }
+            }
+            TokenKind::Newline => {
+                if self.delimiter_depth == 0 {
+                    let block_depth = self.block_stack.len();
+                    self.handle_candidates
+                        .retain(|(_, candidate_depth)| *candidate_depth < block_depth);
+                    self.continued_handle_after_with = None;
+                }
+            }
+            TokenKind::Defer if !self.block_stack.is_empty() && self.at_line_start => {
+                self.push_block(token_kind);
             }
             TokenKind::If if self.previous_kind != Some(TokenKind::Else) => {
-                self.block_stack.push(token_kind);
+                self.push_block(token_kind);
             }
             TokenKind::End if !self.block_stack.is_empty() => {
-                self.block_stack.pop();
+                self.close_owned_block();
             }
             _ => {}
         }
@@ -116,11 +196,20 @@ impl ExpressionLineCollector {
         }
         self.at_line_start = token_kind == TokenKind::Newline;
         self.previous_kind = Some(token_kind);
+        self.previous_handle_started_expression = handle_started_expression;
     }
 
     fn range(&self) -> TextRange {
         self.start.cover(self.end)
     }
+}
+
+fn handle_starts_expression(
+    previous_kind: Option<TokenKind>,
+    next_kind: Option<TokenKind>,
+) -> bool {
+    !matches!(previous_kind, Some(TokenKind::Dot | TokenKind::DoubleColon))
+        && next_kind != Some(TokenKind::DoubleColon)
 }
 
 impl<'a> Parser<'a> {
@@ -432,9 +521,15 @@ impl<'a> Parser<'a> {
     }
 
     pub(super) fn parse_expr_until_newline(&mut self, context: &'static str) -> (Expr, TextRange) {
-        let mut collector = ExpressionLineCollector::new(self.current().range);
+        let mut collector = ExpressionLineCollector::new(
+            self.current().range,
+            context != "module_value_declaration",
+        );
         while !self.at(TokenKind::Eof) {
             if collector.stops_before(self) {
+                if collector.stops_before_top_level_item(self) {
+                    self.recovering_to_top_level_item = true;
+                }
                 break;
             }
             collector.recover_before_branch(self);
@@ -447,14 +542,17 @@ impl<'a> Parser<'a> {
                     "newline",
                 ));
             }
-            collector.push(token);
+            let next_kind = self.tokens.get(self.cursor).map(|token| token.kind);
+            collector.push(token, next_kind);
         }
         if self.at(TokenKind::Newline) {
             collector.end = self.bump().range;
         }
 
+        let recovery_end = collector.range().end;
         let (expr, diagnostics) = ExprParser::new(self.source, context, &collector.tokens)
             .with_cleanup_depth(self.cleanup_depth)
+            .with_recovery_end(recovery_end)
             .parse();
         self.diagnostics.extend(diagnostics);
         (expr, collector.range())

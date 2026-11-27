@@ -150,6 +150,53 @@ fn collector_classifies_schema_validate_and_both_nested_operands() {
         text == "Packet" && *token_type == SemanticTokenType::Type
     }));
 }
+
+#[test]
+fn collector_traverses_terminated_handler_bodies_and_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn expression() -> Int\n",
+            "  handle body_call() with\n",
+            "    fx::outer(argument_call()),\n",
+            "    inner()\n",
+            "  end\n",
+            "end\n\n",
+            "fn block() -> Int\n",
+            "  handle\n",
+            "    let value = body_call()\n",
+            "    value\n",
+            "  with\n",
+            "    fx::outer(),\n",
+            "    inner(argument_call())\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let tokens = collect_text(&source);
+    for function in ["body_call", "argument_call"] {
+        assert_eq!(
+            tokens
+                .iter()
+                .filter(|(text, token_type, _)| {
+                    text == function && *token_type == SemanticTokenType::Function
+                })
+                .count(),
+            2,
+            "{function}: {tokens:?}",
+        );
+    }
+    assert!(tokens.iter().any(|(text, token_type, modifiers)| {
+        text == "value"
+            && *token_type == SemanticTokenType::Variable
+            && *modifiers
+                == SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Declaration)
+                    .with(SemanticTokenModifier::Readonly)
+                    .bits()
+    }));
+}
 #[test]
 fn collector_classifies_unnamed_holes_and_boolean_literals() {
     let source = SourceFile::new(

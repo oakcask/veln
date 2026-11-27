@@ -831,32 +831,29 @@ fn visit_nested_effect_regions(
             );
             bindings.truncate(binding_count);
         }
-        ExprKind::Handle {
-            body,
-            handler,
-            args,
-            ..
-        } => {
-            for arg in args {
-                visit_nested_effect_regions(
-                    arg,
-                    current_module,
-                    current_package,
-                    context,
-                    bindings,
-                    handled_effects,
-                    track_handled_effects,
-                    visit,
-                );
-            }
+        ExprKind::Handle { body, entries } => {
             let handled_effect_count = handled_effects.len();
-            if track_handled_effects {
-                let expr_context =
-                    context.expression_context(current_module, current_package, bindings);
-                if let Some(handler) = handler_for_path(handler, &expr_context) {
-                    #[cfg(test)]
-                    effect_inference_counters::record_handled_effect_stack_work(1);
-                    handled_effects.push(handler.effect.clone());
+            for entry in entries {
+                for arg in &entry.args {
+                    visit_nested_effect_regions(
+                        arg,
+                        current_module,
+                        current_package,
+                        context,
+                        bindings,
+                        handled_effects,
+                        track_handled_effects,
+                        visit,
+                    );
+                }
+                if track_handled_effects {
+                    let expr_context =
+                        context.expression_context(current_module, current_package, bindings);
+                    if let Some(handler) = handler_for_path(&entry.handler, &expr_context) {
+                        #[cfg(test)]
+                        effect_inference_counters::record_handled_effect_stack_work(1);
+                        handled_effects.push(handler.effect.clone());
+                    }
                 }
             }
             visit_nested_effect_regions(

@@ -179,10 +179,12 @@ pub(crate) fn collect_private_prelude_callback_wrapped_expr_constraints(
                 collect_private_prelude_callback_expr_constraints(arg, None, context);
             }
         }
-        ExprKind::Handle { body, args, .. } => {
+        ExprKind::Handle { body, entries } => {
             collect_private_prelude_callback_expr_constraints(body, expected, context);
-            for arg in args {
-                collect_private_prelude_callback_expr_constraints(arg, None, context);
+            for entry in entries {
+                for arg in &entry.args {
+                    collect_private_prelude_callback_expr_constraints(arg, None, context);
+                }
             }
         }
         ExprKind::SchemaDecode { input, base, .. } => {

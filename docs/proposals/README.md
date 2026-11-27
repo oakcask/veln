@@ -25,9 +25,9 @@ also states it.
   consolidate timer wait reporting and distinguish interruption from cancellation.
 - [Preserve Progress in Network Write-all Results](network-write-progress.md):
   retain cumulative committed bytes and invalid-provider uncertainty on failure.
-- [Multiple-handler Expressions](multiple-handler-syntax.md): add an ordered
-  handler list and block body to `handle`, with outermost-first nesting,
-  scoped context evaluation, and existing cleanup and provider behavior.
+- [Multiple-handler Migration and Acceptance](multiple-handler-syntax.md):
+  automatically flatten eligible legacy nesting and complete the remaining
+  failure, cleanup, task, provider-capture, and migration acceptance matrix.
 - [Generic Functions](generic-functions.md): implement explicit rank-one type
   schemes, independent call instantiation, scheme-preserving aliases,
   artifacts and tooling, and backend acceptance. Current declaration syntax

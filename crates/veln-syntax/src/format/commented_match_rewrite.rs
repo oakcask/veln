@@ -1,6 +1,6 @@
 use super::expressions::format_expr_at_indent;
 use super::{LineComments, bool_match_rewrite, literal_match_rewrite};
-use crate::{BodyLine, Expr, ExprChildren, ExprKind, SyntaxItem, SyntaxTree};
+use crate::{BodyLine, Expr, ExprChildren, ExprKind, HandleBody, SyntaxItem, SyntaxTree};
 
 pub(super) fn tree_has_commented_match_rewrite(tree: &SyntaxTree, comments: &LineComments) -> bool {
     tree.items.iter().any(|item| match item {
@@ -47,6 +47,18 @@ fn expr_children_have_commented_match_rewrite(expr: &Expr, comments: &LineCommen
         ExprChildren::HeadAndSlice(head, children) => {
             expr_has_commented_match_rewrite(head, comments)
                 || expr_slice_has_commented_match_rewrite(children, comments)
+        }
+        ExprChildren::Handle(body, entries) => {
+            let body_has = match body {
+                HandleBody::Expression(expr) => expr_has_commented_match_rewrite(expr, comments),
+                HandleBody::Block { body, .. } => {
+                    body_lines_have_commented_match_rewrite(body, comments)
+                }
+            };
+            body_has
+                || entries
+                    .iter()
+                    .any(|entry| expr_slice_has_commented_match_rewrite(&entry.args, comments))
         }
         ExprChildren::Record(fields) => record_has_commented_match_rewrite(fields, comments),
         ExprChildren::Dict(entries) => dict_has_commented_match_rewrite(entries, comments),

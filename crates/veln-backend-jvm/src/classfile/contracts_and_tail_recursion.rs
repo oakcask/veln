@@ -79,10 +79,10 @@ fn scan_expr_tail_recursion(
         IrExprKind::Perform { args, .. } => {
             scan_non_tail_exprs(args, function, facts);
         }
-        IrExprKind::Handle {
-            context_args, body, ..
-        } => {
-            scan_non_tail_exprs(context_args, function, facts);
+        IrExprKind::Handle { entries, body, .. } => {
+            for entry in entries {
+                scan_non_tail_exprs(&entry.context_args, function, facts);
+            }
             scan_expr_tail_recursion(body, function, tail_position, facts);
         }
         IrExprKind::ResultOk(value)

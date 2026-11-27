@@ -13,6 +13,8 @@ struct SchemaOperationMetadata {
     unresolved_eligibility: &'static str,
 }
 
+type ResolvedHandler = Option<(String, Vec<String>, String)>;
+
 impl SchemaOperation {
     fn metadata(self) -> SchemaOperationMetadata {
         match self {
@@ -131,12 +133,7 @@ impl<'a> FunctionChecker<'a> {
                 operation_span,
                 args,
             } => self.infer_perform(expr, effect, effect_span, operation, operation_span, args),
-            ExprKind::Handle {
-                body,
-                handler,
-                handler_span,
-                args,
-            } => self.infer_handle(expr, body, handler, handler_span, args, expected),
+            ExprKind::Handle { body, entries } => self.infer_handle(expr, body, entries, expected),
             ExprKind::SchemaDecode {
                 schema,
                 input,
@@ -338,89 +335,156 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         expr: &Expr,
         body: &Expr,
-        handler_path: &[String],
-        handler_span: &SourceSpan,
-        args: &[Expr],
+        entries: &[veln_ast::HandlerApplication],
         expected: Option<&ExpectedType>,
     ) -> Type {
-        let handler = match self.environment.handler_path_in_owner(
-            handler_path,
+        let before_handle = self.inferred_effects.len();
+        let (resolved, argument_effects) = self.infer_handler_entries(expr, entries, before_handle);
+        let body_ty = self.infer_expr(body, expected);
+        let retained = self.inferred_effects.split_off(before_handle);
+        self.inferred_effects.extend(Self::retain_handler_effects(
+            expr,
+            entries,
+            resolved,
+            argument_effects,
+            retained,
+        ));
+        body_ty
+    }
+
+    fn infer_handler_entries(
+        &mut self,
+        expr: &Expr,
+        entries: &[veln_ast::HandlerApplication],
+        before_handle: usize,
+    ) -> (Vec<ResolvedHandler>, Vec<Vec<EffectUse>>) {
+        let mut resolved = Vec::with_capacity(entries.len());
+        let mut argument_effects = Vec::with_capacity(entries.len());
+        for entry in entries {
+            resolved.push(self.infer_handler_entry(expr, entry));
+            argument_effects.push(self.inferred_effects.split_off(before_handle));
+        }
+        (resolved, argument_effects)
+    }
+
+    fn infer_handler_entry(
+        &mut self,
+        expr: &Expr,
+        entry: &veln_ast::HandlerApplication,
+    ) -> ResolvedHandler {
+        let resolution = self.environment.handler_path_in_owner(
+            &entry.handler,
             self.function.module_name.as_deref(),
             self.function.package_name.as_deref(),
-        ) {
-            HandlerPathResolution::Found(handler) => handler.clone(),
+        );
+        match resolution {
+            HandlerPathResolution::Found(handler) => {
+                let handler = handler.clone();
+                self.check_call_arguments(
+                    &entry.args,
+                    &handler.params,
+                    None,
+                    &CallOrigin {
+                        node_id: expr.node_id,
+                        span: entry.handler_span.clone(),
+                        declaration_span: None,
+                        symbol: handler.qualified_name.clone(),
+                        effects: handler.effects.clone(),
+                        schema_encode: false,
+                    },
+                );
+                Some((handler.effect, handler.effects, handler.qualified_name))
+            }
             HandlerPathResolution::PrivateCompanionTargetMismatch { handler, access } => {
-                for arg in args {
+                for arg in &entry.args {
                     self.infer_expr(arg, None);
                 }
-                let body_ty = self.infer_expr(body, expected);
                 self.diagnostics
                     .push(private_companion_handler_target_diagnostic(
                         expr.node_id.display("expr"),
                         "handle_expression",
-                        &handler_path.join("::"),
+                        &entry.handler.join("::"),
                         handler,
                         access,
-                        handler_span.clone(),
+                        entry.handler_span.clone(),
                     ));
-                return body_ty;
+                None
             }
             HandlerPathResolution::QuarantinedImportTarget => {
-                for arg in args {
+                for arg in &entry.args {
                     self.infer_expr(arg, None);
                 }
-                return self.infer_expr(body, expected);
+                None
             }
             HandlerPathResolution::Missing => {
-                for arg in args {
+                for arg in &entry.args {
                     self.infer_expr(arg, None);
                 }
-                let body_ty = self.infer_expr(body, expected);
                 self.diagnostics.push(Diagnostic::new(
                     "handler.unknown",
                     Severity::Error,
                     DiagnosticKind::Effect,
-                    format!("handler `{}` is not known", handler_path.join("::")),
-                    Some(handler_span.clone()),
+                    format!("handler `{}` is not known", entry.handler.join("::")),
+                    Some(entry.handler_span.clone()),
                     effect_details(expr.node_id.display("expr"), "handle_expression"),
                 ));
-                return body_ty;
+                None
+            }
+        }
+    }
+
+    fn retain_handler_effects(
+        expr: &Expr,
+        entries: &[veln_ast::HandlerApplication],
+        resolved: Vec<ResolvedHandler>,
+        argument_effects: Vec<Vec<EffectUse>>,
+        body_effects: Vec<EffectUse>,
+    ) -> Vec<EffectUse> {
+        let mut first_handler_by_effect = HashMap::new();
+        for (index, resolution) in resolved.iter().enumerate() {
+            if let Some((handled_effect, _, _)) = resolution {
+                first_handler_by_effect
+                    .entry(handled_effect.clone())
+                    .or_insert(index);
+            }
+        }
+
+        let mut retained = Vec::new();
+        let mut retain_at = |effect_use: EffectUse, index: usize| {
+            record_ordered_handler_effect_work();
+            if !first_handler_by_effect
+                .get(effect_use.effect.as_str())
+                .is_some_and(|first_handler| *first_handler < index)
+            {
+                retained.push(effect_use);
             }
         };
 
-        self.check_call_arguments(
-            args,
-            &handler.params,
-            None,
-            &CallOrigin {
-                node_id: expr.node_id,
-                span: handler_span.clone(),
-                declaration_span: None,
-                symbol: handler.qualified_name.clone(),
-                effects: handler.effects.clone(),
-                schema_encode: false,
-            },
-        );
-        let before_body = self.inferred_effects.len();
-        let body_ty = self.infer_expr(body, expected);
-        let mut retained = self.inferred_effects[..before_body].to_vec();
-        retained.extend(
-            self.inferred_effects[before_body..]
-                .iter()
-                .filter(|effect_use| effect_use.effect != handler.effect)
-                .cloned(),
-        );
-        self.inferred_effects = retained;
-        for effect in &handler.effects {
-            self.inferred_effects.push(EffectUse {
-                effect: effect.clone(),
-                node_id: expr.node_id,
-                span: expr.span.clone(),
-                kind: "handle_expression",
-                symbol: handler.qualified_name.clone(),
-            });
+        for (index, effects) in argument_effects.into_iter().enumerate() {
+            for effect_use in effects {
+                retain_at(effect_use, index);
+            }
         }
-        body_ty
+        for effect_use in body_effects {
+            retain_at(effect_use, resolved.len());
+        }
+        for (index, resolution) in resolved.into_iter().enumerate().rev() {
+            if let Some((_, handler_effects, symbol)) = resolution {
+                for effect in handler_effects {
+                    retain_at(
+                        EffectUse {
+                            effect,
+                            node_id: expr.node_id,
+                            span: entries[index].handler_span.clone(),
+                            kind: "handle_expression",
+                            symbol: symbol.clone(),
+                        },
+                        index,
+                    );
+                }
+            }
+        }
+        retained
     }
 
     pub(super) fn infer_schema_decode(

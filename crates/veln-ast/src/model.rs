@@ -620,9 +620,7 @@ pub enum ExprKind {
     },
     Handle {
         body: Box<Expr>,
-        handler: Vec<String>,
-        handler_span: SourceSpan,
-        args: Vec<Expr>,
+        entries: Vec<HandlerApplication>,
     },
     SchemaDecode {
         schema: Vec<String>,
@@ -674,6 +672,13 @@ pub enum ExprKind {
         left: Box<Expr>,
         right: Box<Expr>,
     },
+}
+
+#[derive(Clone, Debug)]
+pub struct HandlerApplication {
+    pub handler: Vec<String>,
+    pub handler_span: SourceSpan,
+    pub args: Vec<Expr>,
 }
 
 #[derive(Clone, Debug)]

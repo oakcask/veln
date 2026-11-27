@@ -337,6 +337,25 @@ module `let`, output retains both the cleanup diagnostic and
 `parse.module_value_declaration`; recovery also preserves the next top-level
 declaration.
 
+Malformed handler expressions use focused parse diagnostics:
+
+| Failure | Diagnostic |
+| --- | --- |
+| Missing `with`, missing handler application, missing application parentheses, or a block form without a newline after `with` | `parse.handle_expression` |
+| Empty terminated handler list | `parse.handle_entry_required` |
+| Missing entry comma or newline | `parse.handle_entry` |
+| Missing comma or closing parenthesis in handler arguments | `parse.handle_argument` |
+| Missing terminated-list `end` | `parse.handle_missing_end` |
+
+These diagnostics retain the ordinary parse details for the handler-expression
+context, including the expected token or form and the selected recovery. A
+missing list `end` does not consume an enclosing function `end`, an enclosing
+`if` branch, an enclosing `match` arm, or a following top-level declaration.
+An unclosed handler-argument delimiter also leaves both the terminated handler
+and enclosing declaration boundaries available to recovery. A diagnostic that
+requires a synthetic end-of-expression token stops at that collected expression
+boundary; its span does not extend into a following top-level declaration.
+
 A handler declaration with `handles` followed by another identifier that can
 start its effect target reports `parse.expected_token` at the first `handles`.
 Its message is `expected for`, its `details.expected` value is `["for"]`, and

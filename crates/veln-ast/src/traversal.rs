@@ -17,85 +17,119 @@ impl Expr {
         &'a self,
         visitor: &mut impl FnMut(&'a Expr) -> ControlFlow<B>,
     ) -> ControlFlow<B> {
-        match &self.kind {
-            ExprKind::Call { callee, args }
-            | ExprKind::Handle {
-                body: callee, args, ..
-            } => {
-                visitor(callee)?;
-                for arg in args {
-                    visitor(arg)?;
-                }
-            }
-            ExprKind::TypeApply { callee: expr, .. }
-            | ExprKind::SchemaEncode { value: expr, .. }
-            | ExprKind::FieldAccess { base: expr, .. }
-            | ExprKind::Try { expr, .. }
-            | ExprKind::Prefix { expr, .. } => visitor(expr)?,
-            ExprKind::Perform { args, .. } | ExprKind::List(args) => {
-                for arg in args {
-                    visitor(arg)?;
-                }
-            }
-            ExprKind::SchemaDecode {
-                input: left,
-                base: right,
-                ..
-            }
-            | ExprKind::SchemaValidate {
-                value: left,
-                base: right,
-                ..
-            }
-            | ExprKind::Binary { left, right, .. } => {
-                visitor(left)?;
-                visitor(right)?;
-            }
-            ExprKind::Record(fields) => {
-                for field in fields {
-                    visitor(&field.expr)?;
-                }
-            }
-            ExprKind::Dict(entries) => {
-                for entry in entries {
-                    visitor(&entry.key)?;
-                    visitor(&entry.value)?;
-                }
-            }
-            ExprKind::Match { scrutinee, arms } => {
-                visitor(scrutinee)?;
-                for arm in arms {
-                    visitor(&arm.expr)?;
-                }
-            }
-            ExprKind::If {
-                condition,
-                then_branch,
-                else_if_branches,
-                else_branch,
-            } => {
-                visitor(condition)?;
-                visitor(then_branch)?;
-                for branch in else_if_branches {
-                    visitor(&branch.condition)?;
-                    visitor(&branch.expr)?;
-                }
-                visitor(else_branch)?;
-            }
-            ExprKind::Begin { body, .. } => {
-                visit_body_exprs(body, visitor)?;
-            }
-            ExprKind::Missing
-            | ExprKind::Hole { .. }
-            | ExprKind::NamePath { .. }
-            | ExprKind::StringLiteral(_)
-            | ExprKind::IntLiteral(_)
-            | ExprKind::FloatLiteral(_)
-            | ExprKind::BoolLiteral(_)
-            | ExprKind::Unit => {}
-        }
-        ControlFlow::Continue(())
+        visit_first_expr_kind_children(&self.kind, visitor)
     }
+}
+
+fn visit_first_expr_kind_children<'a, B>(
+    kind: &'a ExprKind,
+    visitor: &mut impl FnMut(&'a Expr) -> ControlFlow<B>,
+) -> ControlFlow<B> {
+    match kind {
+        ExprKind::Call { callee, args } => {
+            visitor(callee)?;
+            for arg in args {
+                visitor(arg)?;
+            }
+        }
+        ExprKind::Handle { body, entries } => {
+            visitor(body)?;
+            for entry in entries {
+                for arg in &entry.args {
+                    visitor(arg)?;
+                }
+            }
+        }
+        ExprKind::TypeApply { callee: expr, .. }
+        | ExprKind::SchemaEncode { value: expr, .. }
+        | ExprKind::FieldAccess { base: expr, .. }
+        | ExprKind::Try { expr, .. }
+        | ExprKind::Prefix { expr, .. } => visitor(expr)?,
+        ExprKind::Perform { args, .. } | ExprKind::List(args) => {
+            for arg in args {
+                visitor(arg)?;
+            }
+        }
+        ExprKind::SchemaDecode {
+            input: left,
+            base: right,
+            ..
+        }
+        | ExprKind::SchemaValidate {
+            value: left,
+            base: right,
+            ..
+        }
+        | ExprKind::Binary { left, right, .. } => {
+            visitor(left)?;
+            visitor(right)?;
+        }
+        _ => return visit_remaining_expr_kind_children(kind, visitor),
+    }
+    ControlFlow::Continue(())
+}
+
+fn visit_remaining_expr_kind_children<'a, B>(
+    kind: &'a ExprKind,
+    visitor: &mut impl FnMut(&'a Expr) -> ControlFlow<B>,
+) -> ControlFlow<B> {
+    match kind {
+        ExprKind::Record(fields) => {
+            for field in fields {
+                visitor(&field.expr)?;
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                visitor(&entry.key)?;
+                visitor(&entry.value)?;
+            }
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            visitor(scrutinee)?;
+            for arm in arms {
+                visitor(&arm.expr)?;
+            }
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            visitor(condition)?;
+            visitor(then_branch)?;
+            for branch in else_if_branches {
+                visitor(&branch.condition)?;
+                visitor(&branch.expr)?;
+            }
+            visitor(else_branch)?;
+        }
+        ExprKind::Begin { body, .. } => {
+            visit_body_exprs(body, visitor)?;
+        }
+        ExprKind::Call { .. }
+        | ExprKind::Handle { .. }
+        | ExprKind::TypeApply { .. }
+        | ExprKind::SchemaEncode { .. }
+        | ExprKind::FieldAccess { .. }
+        | ExprKind::Try { .. }
+        | ExprKind::Prefix { .. }
+        | ExprKind::Perform { .. }
+        | ExprKind::List(_)
+        | ExprKind::SchemaDecode { .. }
+        | ExprKind::SchemaValidate { .. }
+        | ExprKind::Binary { .. }
+        | ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath { .. }
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => {}
+    }
+    ControlFlow::Continue(())
 }
 
 fn visit_body_exprs<'a, B>(

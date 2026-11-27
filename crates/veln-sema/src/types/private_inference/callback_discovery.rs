@@ -555,10 +555,11 @@ pub(crate) fn private_prelude_callback_wrapped_expr_references_slot(
         ExprKind::Perform { args, .. } => args
             .iter()
             .any(|arg| private_prelude_callback_expr_references_slot(arg, None, context)),
-        ExprKind::Handle { body, args, .. } => {
+        ExprKind::Handle { body, entries } => {
             private_prelude_callback_expr_references_slot(body, expected, context)
-                || args
+                || entries
                     .iter()
+                    .flat_map(|entry| &entry.args)
                     .any(|arg| private_prelude_callback_expr_references_slot(arg, None, context))
         }
         ExprKind::SchemaDecode { input, base, .. } => {

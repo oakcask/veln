@@ -210,21 +210,26 @@ fn record_handler_reference_range(
     argument_delimiters: &HandlerArgumentDelimiters,
     ranges: &mut BTreeSet<(usize, usize)>,
 ) {
-    if let ExprKind::Handle {
-        handler,
-        handler_span,
-        ..
-    } = &expr.kind
-        && !handler.is_empty()
-        && !diagnostics.overlaps(&expr.span)
-        && argument_delimiters.complete_arguments_follow(handler_span, &expr.span, tokens)
-    {
-        let insertion = tokens.partition_point(|token| token.range.end <= handler_span.end.offset);
-        if let Some(leaf) = insertion.checked_sub(1).and_then(|index| tokens.get(index))
-            && handler_span.start.offset <= leaf.range.start
-            && leaf.kind.is_contextual_identifier()
-        {
-            ranges.insert((leaf.range.start, leaf.range.end));
+    if let ExprKind::Handle { entries, .. } = &expr.kind {
+        for entry in entries {
+            if !entry.handler.is_empty()
+                && !diagnostics.overlaps(&entry.span)
+                && argument_delimiters.complete_arguments_follow(
+                    &entry.handler_span,
+                    &entry.span,
+                    tokens,
+                )
+            {
+                let insertion = tokens.partition_point(|token| {
+                    token.range.end <= entry.handler_span.end.offset
+                });
+                if let Some(leaf) = insertion.checked_sub(1).and_then(|index| tokens.get(index))
+                    && entry.handler_span.start.offset <= leaf.range.start
+                    && leaf.kind.is_contextual_identifier()
+                {
+                    ranges.insert((leaf.range.start, leaf.range.end));
+                }
+            }
         }
     }
 }
@@ -250,7 +255,7 @@ fn collect_nested_handler_reference_ranges(
                 ranges,
             );
         }
-        ExprKind::Call { callee, args } | ExprKind::Handle { body: callee, args, .. } => {
+        ExprKind::Call { callee, args } => {
             collect_handler_reference_ranges(
                 callee,
                 diagnostics,
@@ -266,6 +271,37 @@ fn collect_nested_handler_reference_ranges(
                     argument_delimiters,
                     ranges,
                 );
+            }
+        }
+        ExprKind::Handle { body, entries, .. } => {
+            match body {
+                veln_syntax::HandleBody::Expression(expr) => collect_handler_reference_ranges(
+                    expr,
+                    diagnostics,
+                    tokens,
+                    argument_delimiters,
+                    ranges,
+                ),
+                veln_syntax::HandleBody::Block { body, .. } => {
+                    collect_body_handler_reference_ranges(
+                        body,
+                        diagnostics,
+                        tokens,
+                        argument_delimiters,
+                        ranges,
+                    );
+                }
+            }
+            for entry in entries {
+                for arg in &entry.args {
+                    collect_handler_reference_ranges(
+                        arg,
+                        diagnostics,
+                        tokens,
+                        argument_delimiters,
+                        ranges,
+                    );
+                }
             }
         }
         ExprKind::Perform { args, .. } | ExprKind::List(args) => {

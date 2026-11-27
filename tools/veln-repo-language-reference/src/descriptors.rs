@@ -302,7 +302,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
         Descriptor {
             id: "effects-handlers",
             title: "Effects And Handlers",
-            summary: "Effect declarations, effect rows, perform expressions, handler declarations, and handler operation clauses describe effectful source behavior.",
+            summary: "Effect declarations, effect rows, perform expressions, handler declarations, handler applications, and ordered handler lists describe effectful source behavior.",
             keywords: &[
                 "effects",
                 "handlers",
@@ -311,8 +311,8 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 "operations",
             ],
             body: &[
-                "The topic selects executable grammar for effect operations, effect rows, perform expressions, and handler clauses.",
-                "The selected example covers lexical handler behavior in a successful run specification case.",
+                "The topic selects executable grammar for effect operations, effect rows, perform expressions, handler declarations, and all three handler-expression forms.",
+                "The selected examples cover lexical single-handler behavior and ordered terminated handler lists in successful run specification cases.",
             ],
             related: &[
                 "declarations-aliases",
@@ -326,12 +326,25 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 "Perform",
                 "HandlerDecl",
                 "HandlerOperationClause",
+                "Handle",
+                "SingleHandle",
+                "ExpressionHandle",
+                "BlockHandle",
+                "HandlerApplication",
+                "HandlerEntries",
             ],
-            examples: &[ExampleSelection {
-                case: "run/lexical-handler-nesting",
-                display_name: "Lexical handler nesting run",
-                files: &["main.veln"],
-            }],
+            examples: &[
+                ExampleSelection {
+                    case: "run/lexical-handler-nesting",
+                    display_name: "Lexical handler nesting run",
+                    files: &["main.veln"],
+                },
+                ExampleSelection {
+                    case: "run/multiple-handler-order-and-results",
+                    display_name: "Ordered multiple-handler execution",
+                    files: &["main.veln"],
+                },
+            ],
         },
         Descriptor {
             id: "contracts",

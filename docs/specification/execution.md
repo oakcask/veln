@@ -431,6 +431,17 @@ join reports cancellation. The effect boundary during unwinding is specified by
 [effects.md](effects.md#effect-labels). The backend transfers a successful
 `begin` value only after that region's cleanup completes.
 
+Terminated multiple-handler expressions retain one ordered handler-entry list
+through checked core and typed IR. Their runtime behavior is equivalent to
+nested single-handler expressions. The first source entry is the outermost
+runtime frame. The JVM therefore evaluates outer context
+arguments before inner context arguments, enters every frame before the body,
+preserves the expression or handled-block result, and unwinds inner frames
+before outer frames. The checked
+[`multiple-handler-order-and-results`](../../examples/specification/run/multiple-handler-order-and-results/)
+case exercises both body forms, ordered context evaluation, inner shadowing,
+and non-unit result preservation through JVM execution.
+
 Integer remainder evaluates the left operand once and then the right operand
 once. A failure in the left operand prevents evaluation of the right operand.
 A zero divisor discovered at runtime raises `runtime.remainder_by_zero` and

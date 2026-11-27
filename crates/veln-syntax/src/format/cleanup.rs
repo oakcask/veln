@@ -66,7 +66,7 @@ pub(super) fn format_defer_statement_with_comments(
     format_cleanup_region_with_comments("defer", body, span, indent, comments, render_expr)
 }
 
-fn format_cleanup_body_line(
+pub(super) fn format_cleanup_body_line(
     line: &BodyLine,
     indent: usize,
     render_expr: &impl Fn(&Expr, usize) -> String,
@@ -92,7 +92,7 @@ fn format_cleanup_body_line(
     }
 }
 
-fn format_cleanup_body_line_with_comments(
+pub(super) fn format_cleanup_body_line_with_comments(
     line: &BodyLine,
     indent: usize,
     comments: &LineComments,

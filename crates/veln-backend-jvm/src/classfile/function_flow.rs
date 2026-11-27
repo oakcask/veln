@@ -659,12 +659,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 operation,
                 args,
             } => self.emit_perform(code, effect, operation, args),
-            IrExprKind::Handle {
-                effect,
-                providers,
-                context_args,
-                body,
-            } => self.emit_handle(code, effect, providers, context_args, body),
+            IrExprKind::Handle { entries, body } => self.emit_handle(code, entries, body),
             IrExprKind::Try(value) => self.emit_try(code, value),
             IrExprKind::Record(fields) => self.emit_record(code, fields),
             IrExprKind::Dict(entries) => self.emit_dict(code, entries),

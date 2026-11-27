@@ -120,9 +120,14 @@ fn prepare_expr(expr: &mut Expr, source: &str) {
             prepare_exprs(args, source);
         }
         ExprKind::Perform { args, .. } | ExprKind::List(args) => prepare_exprs(args, source),
-        ExprKind::Handle { body, args, .. } => {
-            prepare_expr(body, source);
-            prepare_exprs(args, source);
+        ExprKind::Handle { body, entries, .. } => {
+            match body {
+                crate::HandleBody::Expression(expr) => prepare_expr(expr, source),
+                crate::HandleBody::Block { body, .. } => prepare_body(body, source),
+            }
+            for entry in entries {
+                prepare_exprs(&mut entry.args, source);
+            }
         }
         ExprKind::SchemaDecode { input, base, .. } => {
             prepare_expr(input, source);
