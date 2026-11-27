@@ -67,6 +67,91 @@ fn fmt_formats_supported_golden_and_is_idempotent() {
 }
 
 #[test]
+fn fmt_migrates_nested_short_handlers_before_jvm_execution() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("fmt-short-handler-migration");
+    project.write(
+        "veln.toml",
+        "[package]\nname = \"fmt-short-handler-migration\"\n",
+    );
+    project.write(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "\n",
+            "handler ask(value: Int) for Ask\n",
+            "  value() => value\n",
+            "end\n",
+            "\n",
+            "fn context(label: String, value: Int) -> Int effects [stdio]\n",
+            "  stdio::println(label)\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn inner_context(label: String, offset: Int) -> Int effects [Ask, stdio]\n",
+            "  stdio::println(label)\n",
+            "  perform Ask::value() + offset\n",
+            "end\n",
+            "\n",
+            "fn body() -> Int effects [Ask, stdio]\n",
+            "  stdio::println(\"body\")\n",
+            "  perform Ask::value()\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> () effects [stdio]\n",
+            "  let result = handle (handle body() with ask(inner_context(\"inner context\", 1))) with ask(context(\"outer context\", 1))\n",
+            "  stdio::println(int_to_string(result))\n",
+            "end\n",
+        ),
+    );
+
+    let expected = concat!(
+        "effect Ask\n",
+        "\tvalue() -> Int\n",
+        "end\n",
+        "\n",
+        "handler ask(value: Int) for Ask\n",
+        "\tvalue() => value\n",
+        "end\n",
+        "\n",
+        "fn context(label: String, value: Int) -> Int effects [stdio]\n",
+        "\tstdio::println(label)\n",
+        "\tvalue\n",
+        "end\n",
+        "\n",
+        "fn inner_context(label: String, offset: Int) -> Int effects [Ask, stdio]\n",
+        "\tstdio::println(label)\n",
+        "\tperform Ask::value() + offset\n",
+        "end\n",
+        "\n",
+        "fn body() -> Int effects [Ask, stdio]\n",
+        "\tstdio::println(\"body\")\n",
+        "\tperform Ask::value()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "\tlet result = handle body() with\n",
+        "\t\task(context(\"outer context\", 1)),\n",
+        "\t\task(inner_context(\"inner context\", 1))\n",
+        "\tend\n",
+        "\tstdio::println(int_to_string(result))\n",
+        "end\n",
+    );
+    project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "outer context\ninner context\nbody\n2\n");
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
 fn fmt_formats_focused_supported_forms_across_multiple_files() {
     let project = TestProject::new("fmt-focused-golden");
     project.write(

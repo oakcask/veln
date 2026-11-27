@@ -437,6 +437,192 @@ fn parses_and_formats_terminated_multiple_handler_forms() {
 }
 
 #[test]
+fn formatter_keeps_ineligible_nested_short_handler_chains_nested() {
+    let cases = [
+        (
+            concat!(
+                "fn commented() -> Int\n",
+                "  handle (handle value() with inner()) with outer() # retain nested\n",
+                "end\n",
+            ),
+            "handle handle value() with inner() with outer()  # retain nested",
+        ),
+        (
+            concat!(
+                "fn commented_complete_chain() -> Int\n",
+                "  handle (handle (handle value() with inner()) with middle()) with outer() # retain all\n",
+                "end\n",
+            ),
+            "handle handle handle value() with inner() with middle() with outer()  # retain all",
+        ),
+        (
+            concat!(
+                "fn mixed() -> Int\n",
+                "  handle (handle (handle value() with\n",
+                "    listed()\n",
+                "  end) with middle()) with outer()\n",
+                "end\n",
+            ),
+            "end with middle() with outer()",
+        ),
+        (
+            concat!(
+                "fn call_boundary() -> Int\n",
+                "  handle wrap(handle value() with inner()) with outer()\n",
+                "end\n",
+            ),
+            "handle wrap(handle value() with inner()) with outer()",
+        ),
+        (
+            concat!(
+                "fn mixed_other_direction() -> Int\n",
+                "  handle (handle (handle value() with inner()) with middle()) with\n",
+                "    listed()\n",
+                "  end\n",
+                "end\n",
+            ),
+            "handle handle handle value() with inner() with middle() with",
+        ),
+    ];
+
+    for (source_text, retained) in cases {
+        let source = SourceFile::new("main.veln", source_text);
+        let output = parse(&source);
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+        let formatted = format_tree(&output.tree);
+        assert!(formatted.contains(retained), "{formatted}");
+    }
+}
+
+#[test]
+fn formatter_stabilizes_multiline_nested_short_handler_chains() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn multiline_complete_chain() -> Int\n",
+            "  handle (\n",
+            "    handle (handle value() with inner()) with middle()\n",
+            "  ) with outer()\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn multiline_complete_chain() -> Int\n",
+            "\thandle (\n",
+            "\t\thandle handle value() with inner() with middle()\n",
+            "\t) with outer()\n",
+            "end\n",
+        )
+    );
+
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
+fn terminated_handler_suppression_stops_at_an_independent_expression_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn independent_call() -> Int\n",
+            "  handle wrap(handle (handle value() with inner()) with middle()) with\n",
+            "    listed()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let formatted = format_tree(&output.tree);
+    assert!(
+        formatted.contains(concat!(
+            "wrap(handle value() with\n",
+            "\t\tmiddle(),\n",
+            "\t\tinner()\n",
+            "\tend)"
+        )),
+        "{formatted}"
+    );
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
+fn short_handler_comment_lookup_work_scales_with_candidates_not_comments() {
+    let original = short_handler_comment_range_queries(32, 32);
+    let larger = short_handler_comment_range_queries(64, 64);
+
+    assert!(
+        original.0 <= 2 * 32,
+        "unexpected original range queries: {}",
+        original.0
+    );
+    assert!(
+        larger.0 <= 2 * 64,
+        "unexpected larger range queries: {}",
+        larger.0
+    );
+    assert!(
+        larger.0 <= original.0.saturating_mul(2),
+        "doubling comments and candidates grew range queries from {} to {}",
+        original.0,
+        larger.0
+    );
+    assert_eq!(
+        original.1, 0,
+        "unrelated comment keys entered a candidate range"
+    );
+    assert_eq!(
+        larger.1, 0,
+        "unrelated comment keys entered a candidate range"
+    );
+}
+
+fn short_handler_comment_range_queries(comment_count: usize, chain_count: usize) -> (usize, usize) {
+    let mut source_text = String::new();
+    for index in 0..chain_count {
+        source_text.push_str(&format!(
+            "fn chain{index}() -> Int\n  handle (handle value() with inner()) with outer()\nend\n\n"
+        ));
+    }
+    for index in 0..comment_count {
+        source_text.push_str(&format!(
+            "# unrelated {index}\nfn unrelated{index}() -> Int\n  {index}\nend\n\n"
+        ));
+    }
+
+    let source = SourceFile::new("main.veln", source_text);
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    crate::format::reset_comment_range_queries();
+    let formatted = format_tree(&output.tree);
+    assert_eq!(formatted.matches("\t\touter(),").count(), chain_count);
+    (
+        crate::format::comment_range_queries(),
+        crate::format::comment_range_keys_inspected(),
+    )
+}
+
+#[test]
 fn terminated_handlers_accept_multiline_bodies_arguments_and_contextual_names() {
     let source = SourceFile::new(
         "main.veln",

@@ -10,36 +10,25 @@ defines the implemented terminated expression-body and block-body handler
 lists. The [effects specification](../specification/effects.md) defines their
 outermost-first ordered semantics, and the
 [format specification](../specification/command-fmt.md) defines canonical
-formatting for directly written lists.
+formatting for directly written lists and the implemented short-chain
+migration.
 
-This proposal now covers only automatic migration from legacy nested short
-handler expressions and the ordered-contract cases that are not yet accepted
-by focused executable evidence. The accepted source forms, direct list
-formatting, ordered context evaluation, inner shadowing, and body-result
+This proposal now covers only the remaining migration forms and
+ordered-contract cases that are not yet accepted by focused executable
+evidence. The accepted source forms, direct list formatting, narrow
+comment-free single-line short-chain migration and its complete-chain boundary,
+successful ordered context evaluation, inner shadowing, and body-result
 preservation are current behavior rather than future work.
 
 ## Automatic migration
 
-`veln fmt` should flatten eligible direct chains of nested short handler
-expressions into one terminated list. The first output entry must be the
-outermost handler. Existing source remains accepted whether or not it is
-eligible for conversion.
-
-```veln
-handle (handle body() with inner(b())) with outer(a())
-```
-
-should format as:
-
-```veln
-handle body() with
-	outer(a()),
-	inner(b())
-end
-```
-
-The migration should also combine directly nested mixtures of short and list
-forms. It must not cross a `begin` body, statement, `defer`, function call,
+The current [format specification](../specification/command-fmt.md) defines the
+implemented migration for comment-free, single-line chains made only of short
+handler expressions. It retains a comment-free multiline chain that otherwise
+meets those direct short-chain conditions as a stable multiline nested form.
+Remaining migration should migrate such multiline inputs in one pass and
+combine directly nested mixtures of
+short and list forms without crossing a statement, `defer`, function call,
 branch, or postfix operator. A `begin` used as the direct outer body should
 become a handled block without removing the cleanup boundary.
 
@@ -61,8 +50,8 @@ not discard or guess comment ownership.
 A migrated chain must preserve entry order, context evaluation count and
 scope, result value, effect inference, dispatch, cleanup timing, and provider
 identity. Formatting the result again must produce identical bytes. The
-formatter should leave an ineligible chain nested while continuing to format
-eligible regions elsewhere.
+formatter must preserve comment ownership while extending migration to the
+remaining eligible forms.
 
 ## Remaining ordered-contract acceptance
 
@@ -78,7 +67,6 @@ complete:
   complete list;
 - child-task inheritance and cancellation restoration;
 - provider-bound resource capture that outlives the list scope;
-- formatter-produced migration source compared with explicit expected traces;
 - the motivating direct-IO chain rewritten automatically without changing its
   companion-test outcomes.
 
@@ -87,12 +75,11 @@ are required. Production handlers continue to use real host effects.
 
 ## Acceptance evidence
 
-Implementation is complete when checked formatter cases cover eligible legacy,
-parenthesized, mixed, single-entry, multiline-expression, block, and
-comment-boundary inputs; a second formatting pass is byte-identical; and
-semantic/backend cases compare migrated output with explicit traces for the
-remaining contract above. The current parse-before-write gate must continue to
-leave every selected file unchanged when any file has a parse diagnostic.
+Implementation is complete when checked formatter cases cover the remaining
+mixed, single-entry, multiline-expression, block, and comment-boundary inputs;
+a second formatting pass is byte-identical; and semantic/backend cases cover
+the remaining contract above. The current parse-before-write gate must continue
+to leave every selected file unchanged when any file has a parse diagnostic.
 
 After those checks pass, remove this proposal and its Ready catalog entry. The
 current specifications and executable examples must remain the authority for

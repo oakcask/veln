@@ -173,8 +173,25 @@ fn format_expr_prec(
     indent: usize,
     comments: Option<&LineComments>,
 ) -> String {
+    format_expr_prec_ctx(expr, parent_prec, side, indent, comments, true)
+}
+
+fn format_expr_prec_ctx(
+    expr: &Expr,
+    parent_prec: u8,
+    side: ExprSide,
+    indent: usize,
+    comments: Option<&LineComments>,
+    allow_short_handle_chain_migration: bool,
+) -> String {
     let prec = expr_prec(expr);
-    let mut rendered = format_expr_inner(expr, prec, indent, comments);
+    let mut rendered = format_expr_inner(
+        expr,
+        prec,
+        indent,
+        comments,
+        allow_short_handle_chain_migration,
+    );
 
     let needs_parens = match side {
         ExprSide::Root | ExprSide::Left => prec < parent_prec,
@@ -192,6 +209,7 @@ fn format_expr_inner(
     prec: u8,
     indent: usize,
     comments: Option<&LineComments>,
+    allow_short_handle_chain_migration: bool,
 ) -> String {
     match &expr.kind {
         kind @ (ExprKind::Missing
@@ -210,7 +228,13 @@ fn format_expr_inner(
         | ExprKind::Handle { .. }
         | ExprKind::SchemaDecode { .. }
         | ExprKind::SchemaValidate { .. }
-        | ExprKind::SchemaEncode { .. }) => format_keyword_expr(expr, kind, indent, comments),
+        | ExprKind::SchemaEncode { .. }) => format_keyword_expr(
+            expr,
+            kind,
+            indent,
+            comments,
+            allow_short_handle_chain_migration,
+        ),
         kind @ (ExprKind::Record(_) | ExprKind::Dict(_) | ExprKind::List(_)) => {
             format_collection_expr(kind, indent, comments)
         }
@@ -285,6 +309,7 @@ fn format_keyword_expr(
     kind: &ExprKind,
     indent: usize,
     comments: Option<&LineComments>,
+    allow_short_handle_chain_migration: bool,
 ) -> String {
     match kind {
         ExprKind::Perform {
@@ -301,7 +326,15 @@ fn format_keyword_expr(
             entries,
             terminated,
             ..
-        } => format_handle_expr(expr, body, entries, *terminated, indent, comments),
+        } => format_handle_expr(
+            expr,
+            body,
+            entries,
+            *terminated,
+            indent,
+            comments,
+            allow_short_handle_chain_migration,
+        ),
         ExprKind::SchemaDecode {
             schema,
             input,
@@ -343,9 +376,22 @@ fn format_handle_expr(
     terminated: bool,
     indent: usize,
     comments: Option<&LineComments>,
+    allow_short_handle_chain_migration: bool,
 ) -> String {
     if !terminated {
-        return format_unterminated_handle(body, entries, indent, comments);
+        if allow_short_handle_chain_migration
+            && let Some((body, entries)) = flattenable_short_handle_chain(expr, comments)
+        {
+            return format_flattened_short_handle_chain(body, &entries, indent);
+        }
+        return format_unterminated_handle(
+            expr,
+            body,
+            entries,
+            indent,
+            comments,
+            allow_short_handle_chain_migration,
+        );
     }
 
     let mut text = String::from("handle");
@@ -359,11 +405,82 @@ fn format_handle_expr(
     text
 }
 
+fn flattenable_short_handle_chain<'a>(
+    expr: &'a Expr,
+    comments: Option<&LineComments>,
+) -> Option<(&'a Expr, Vec<&'a HandlerEntry>)> {
+    if expr.span.start.line != expr_end_line(expr) {
+        return None;
+    }
+
+    let (body, entries) = direct_short_handle_chain(expr)?;
+
+    if comments.is_some_and(|comments| comments.has_comment_in_span(&expr.span)) {
+        return None;
+    }
+
+    Some((body, entries))
+}
+
+fn direct_short_handle_chain(expr: &Expr) -> Option<(&Expr, Vec<&HandlerEntry>)> {
+    let mut current = expr;
+    let mut entries = Vec::new();
+    while let ExprKind::Handle {
+        body: HandleBody::Expression(body),
+        entries: current_entries,
+        terminated: false,
+    } = &current.kind
+    {
+        let [entry] = current_entries.as_slice() else {
+            return None;
+        };
+        entries.push(entry);
+        current = body;
+    }
+
+    if matches!(
+        current.kind,
+        ExprKind::Handle { .. } | ExprKind::Begin { .. }
+    ) {
+        return None;
+    }
+
+    if entries.len() < 2 {
+        return None;
+    }
+
+    Some((current, entries))
+}
+
+fn format_flattened_short_handle_chain(
+    body: &Expr,
+    entries: &[&HandlerEntry],
+    indent: usize,
+) -> String {
+    let mut text = format!(
+        "handle {} with\n",
+        format_expr_at_indent_ctx(body, indent, None)
+    );
+    for (index, entry) in entries.iter().enumerate() {
+        push_indent(&mut text, indent + 1);
+        text.push_str(&format_handler_entry(entry, indent, None));
+        if index + 1 < entries.len() {
+            text.push(',');
+        }
+        text.push('\n');
+    }
+    push_indent(&mut text, indent);
+    text.push_str("end");
+    text
+}
+
 fn format_unterminated_handle(
+    expr: &Expr,
     body: &HandleBody,
     entries: &[HandlerEntry],
     indent: usize,
     comments: Option<&LineComments>,
+    preserve_multiline_short_handle_chain: bool,
 ) -> String {
     let HandleBody::Expression(body) = body else {
         unreachable!("unterminated handle must have an expression body");
@@ -372,9 +489,33 @@ fn format_unterminated_handle(
         .first()
         .expect("unterminated handle must have one handler entry");
     let args = format_expr_args(&entry.args, indent, comments);
+    if preserve_multiline_short_handle_chain
+        && expr.span.start.line != expr_end_line(expr)
+        && direct_short_handle_chain(expr).is_some()
+        && !comments.is_some_and(|comments| comments.has_comment_in_span(&expr.span))
+    {
+        let mut text = String::from("handle (\n");
+        push_indent(&mut text, indent + 1);
+        text.push_str(&format_expr_prec_ctx(
+            body,
+            0,
+            ExprSide::Root,
+            indent + 1,
+            comments,
+            false,
+        ));
+        text.push('\n');
+        push_indent(&mut text, indent);
+        text.push_str(") with ");
+        text.push_str(&entry.handler.join("::"));
+        text.push('(');
+        text.push_str(&args);
+        text.push(')');
+        return text;
+    }
     format!(
         "handle {} with {}({args})",
-        format_expr_at_indent_ctx(body, indent, comments),
+        format_expr_prec_ctx(body, 0, ExprSide::Root, indent, comments, false),
         entry.handler.join("::")
     )
 }
@@ -388,7 +529,14 @@ fn format_terminated_handle_body(
     match body {
         HandleBody::Expression(body) => {
             text.push(' ');
-            text.push_str(&format_expr_at_indent_ctx(body, indent, comments));
+            text.push_str(&format_expr_prec_ctx(
+                body,
+                0,
+                ExprSide::Root,
+                indent,
+                comments,
+                false,
+            ));
             text.push_str(" with\n");
         }
         HandleBody::Block { body, block_span } => {
