@@ -1,6 +1,6 @@
 use prelude
 use transport
-use transport::network
+use transport::net
 use net
 use http2::core
 
@@ -216,7 +216,7 @@ end
 
 fn service_connection_task<effect E>(context: { stream : NetStream, callback : fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E] }) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net::IO, ...E]
 	let state = service_application_initial_state()?
-	handle drive_server_application(state, context.callback) with transport::network::net_stream(context.stream)
+	handle drive_server_application(state, context.callback) with transport::net::net_stream(context.stream)
 end
 
 fn service_application_initial_state() -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure>
@@ -388,7 +388,7 @@ fn client_spawn_request(stream: NetStream, state: CoreConnectionState, reused: B
 end
 
 fn client_request_task(context: { stream : NetStream, state : CoreConnectionState, reused : Bool, request : Http2ClientRequest }) -> Result<Http2ClientTaskResult, Http2ClientServiceFailure> effects [net::IO]
-	handle client_request_body(context.state, context.reused, context.request) with transport::network::net_stream(context.stream)
+	handle client_request_body(context.state, context.reused, context.request) with transport::net::net_stream(context.stream)
 end
 
 fn start_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]

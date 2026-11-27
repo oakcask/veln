@@ -1,0 +1,7 @@
+use transport::network from "std"
+
+# Package-resolution integration contract: the retired standard module has no
+# source-callable compatibility route.
+pub fn main() -> ()
+	()
+end

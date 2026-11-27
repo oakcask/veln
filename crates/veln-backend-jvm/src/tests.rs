@@ -78,7 +78,7 @@ fn lower_network_facade_entry_to_ir(text: &str, entry: &str) -> TypedProgram {
     lower_project_entry_to_ir(
         &format!(
             "{}\n{}\n{text}",
-            include_str!("../test-support/network.veln"),
+            include_str!("../test-support/network_facade.veln"),
             include_str!("../test-support/network_boundary.veln")
         ),
         entry,

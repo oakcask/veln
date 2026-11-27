@@ -2,7 +2,7 @@ use prelude
 use net
 use host_effects
 use transport
-use transport::network
+use transport::net
 use transport::net_resource_test
 
 fn trace_push(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> () effects [concurrency]
@@ -226,11 +226,11 @@ fn write_chunks(chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [t
 end
 
 fn read_with_network_adapter(stream: net::Stream) -> Result<Option<ByteChunk>, net::NetError> effects [net::IO]
-	transport::network::read_stream_chunk(stream)
+	transport::net::read_stream_chunk(stream)
 end
 
 fn write_with_network_adapter(stream: net::Stream, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net::IO]
-	transport::network::write_stream_chunks(stream, chunks)
+	transport::net::write_stream_chunks(stream, chunks)
 end
 
 fn run_owned_read(mode: String) -> Result<{ result : Result<Option<ByteChunk>, net::NetError>, trace : List<String> }, String> effects [net, time, concurrency]
@@ -243,7 +243,7 @@ end
 
 fn run_owned_read_with_resources() -> Result<Option<ByteChunk>, net::NetError> effects [net::IO]
 	match transport::net_resource_test::stream("captured")
-		Ok(seed) => handle read_chunk() with transport::network::net_stream(seed)
+		Ok(seed) => handle read_chunk() with transport::net::net_stream(seed)
 		Err(error) => Err(error)
 	end
 end

@@ -1,7 +1,7 @@
 use fixture_effects
 use fake_effects
 use net from "std"
-use transport::network from "std"
+use transport::net from "std"
 use stdio
 
 schema Http2FrameHeaderWire
@@ -270,7 +270,7 @@ end
 fn write_projected_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
 	match chunks
 		Nil => ()
-		Cons(_, _) => ignore_projected_write(transport::network::write_stream_chunks(stream, chunks))
+		Cons(_, _) => ignore_projected_write(transport::net::write_stream_chunks(stream, chunks))
 	end
 end
 

@@ -2,7 +2,7 @@ use http2::connection from "std"
 use http2::core from "std"
 use http2::hpack from "std"
 use transport from "std"
-use transport::network from "std"
+use transport::net from "std"
 use net from "std"
 
 fn ascii_header(name: String, value: String) -> Result<http2::hpack::HeaderField, String>
@@ -18,7 +18,7 @@ fn handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>,
 end
 
 pub fn outer_duplex_handler_does_not_handle_network_io(listener: NetListener, stream: net::Stream) -> Result<(), Http2ServiceFailure> effects [concurrency]
-	handle http2::connection::serve_tcp(listener, handler) with transport::network::net_stream(stream)
+	handle http2::connection::serve_tcp(listener, handler) with transport::net::net_stream(stream)
 end
 
 pub fn explicit_listener_boundary(listener: NetListener) -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency]

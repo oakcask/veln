@@ -27,8 +27,6 @@ also states it.
   consolidate timer wait reporting and distinguish interruption from cancellation.
 - [Preserve Progress in Network Write-all Results](network-write-progress.md):
   retain cumulative committed bytes and invalid-provider uncertainty on failure.
-- [One Canonical Network Transport Adapter](transport-adapter-canonicalization.md):
-  retain `transport::net` and remove the duplicate public `transport::network` path.
 - [Multiple-handler Expressions](multiple-handler-syntax.md): add an ordered
   handler list and block body to `handle`, with outermost-first nesting,
   scoped context evaluation, and existing cleanup and provider behavior.
