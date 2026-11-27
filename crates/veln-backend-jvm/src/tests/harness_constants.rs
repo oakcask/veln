@@ -529,27 +529,27 @@ public final class RuntimeByteViewHarness {
             ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(9))).value()
         )).value();
         System.out.println(VelnRuntime.byteDecodeHttp2FrameHeader(frameView));
-        Object widthSample = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("1234deadbeef")).value();
-        Object widthSampleView = ((VelnRuntime.Result) VelnRuntime.byteView(
-            widthSample,
+        Object widthFixture = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("1234deadbeef")).value();
+        Object widthFixtureView = ((VelnRuntime.Result) VelnRuntime.byteView(
+            widthFixture,
             ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
             ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(6))).value()
         )).value();
-        System.out.println(VelnRuntime.byteDecodeSchemaWidthSample(widthSampleView));
-        Object validationSample = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("00000504")).value();
-        Object validationSampleView = ((VelnRuntime.Result) VelnRuntime.byteView(
-            validationSample,
+        System.out.println(VelnProgram.fn_decode_width_fixture(widthFixtureView));
+        Object validationFixture = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("00000504")).value();
+        Object validationFixtureView = ((VelnRuntime.Result) VelnRuntime.byteView(
+            validationFixture,
             ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
             ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()
         )).value();
-        System.out.println(VelnRuntime.byteDecodeSchemaValidationSample(validationSampleView));
-        Object invalidValidationSample = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("00000506")).value();
-        Object invalidValidationSampleView = ((VelnRuntime.Result) VelnRuntime.byteView(
-            invalidValidationSample,
+        System.out.println(VelnProgram.fn_decode_validation_fixture(validationFixtureView));
+        Object invalidValidationFixture = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("00000506")).value();
+        Object invalidValidationFixtureView = ((VelnRuntime.Result) VelnRuntime.byteView(
+            invalidValidationFixture,
             ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
             ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()
         )).value();
-        System.out.println(VelnRuntime.byteDecodeSchemaValidationSample(invalidValidationSampleView));
+        System.out.println(VelnProgram.fn_decode_validation_fixture(invalidValidationFixtureView));
         Object reservedFrame = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("000005010480000001")).value();
         Object reservedView = ((VelnRuntime.Result) VelnRuntime.byteView(
             reservedFrame,

@@ -297,8 +297,6 @@ byte_chunks_produce(chunks: List<ByteChunk>, budget: ByteCount) -> {chunks: List
 byte_read_u8_be(view: ByteView) -> Result<Int, String>
 byte_expect_fixed_u8_be(view: ByteView, expected: Int, schema_name: String, field_name: String) -> Result<Int, String>
 http2::frame::decode(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView}, String>
-byte_decode_schema_width_sample(view: ByteView) -> Result<{short_value: Int, wide_value: Int}, String>
-byte_decode_schema_validation_sample(view: ByteView) -> Result<{length: Int, padding_length: Int}, String>
 http2::diagnostic::protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String, expected_stream: Int, started_kind: Int, started_offset: Int, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2::diagnostic::protocol_partial_preface(offset: Int, pending_count: Int, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2::diagnostic::protocol_invalid_preface(offset: Int, expected_byte: Int, actual_byte: Int, matched_count: Int, preview: ByteView) -> Result<(), RuntimeDiagnostic>
@@ -517,15 +515,12 @@ source-visible `u56` helpers read and write the same seven-byte big-endian or
 little-endian representation as `UInt56be` and `UInt56le`, accept values in
 the `0..72057594037927935` range, and reject shorter views or unrepresentable
 write values with `Err(String)`.
-The
-`byte_expect_fixed_u8_be` helper reads one byte and returns
+The `byte_expect_fixed_u8_be` helper reads one byte and returns
 `schema.fixed_field_mismatch` diagnostic details when the actual byte differs
-from the expected fixed byte for the supplied schema and field names. The
-`byte_decode_schema_width_sample` remains as compatibility coverage for the
-narrow executable schema slice for `UInt16be` and `UInt32be`: it reads both
-fields from a `ByteView`, returns ordinary `Int` values, and reports schema
-truncation with field-path byte diagnostic details. Compatibility binary
-schema helper lowering also accepts `UInt16le`,
+from the expected fixed byte for the supplied schema and field names.
+Schema-owned binary decoder helpers are generated from local declarations;
+the standard prelude does not export fixed sample layouts. Binary schema
+helper lowering accepts `UInt16le`,
 `UInt24le`, `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, `UInt56le`, and
 `UInt64le` as little-endian unsigned fields. `UInt40be` uses the matching
 five-byte big-endian representation, `UInt48be` uses the matching six-byte
@@ -675,8 +670,7 @@ helpers, rather than the public schema application surface.
   `byte_chunks_produce`,
   `byte_read_u8_be`,
   `byte_expect_fixed_u8_be`,
-  `http2::frame::decode`, `byte_decode_schema_width_sample`,
-  `byte_decode_schema_validation_sample`,
+  `http2::frame::decode`,
   `http2::diagnostic::protocol_closed_with_pending`,
   `http2::diagnostic::protocol_partial_preface`,
   `http2::diagnostic::protocol_invalid_preface`,

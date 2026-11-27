@@ -702,10 +702,10 @@ install that production client boundary.
   2,000 and 4,000 after warm-up, rejects allocation growth above three times,
   checks an explicitly refined recursive edge, and checks index-zero mismatches
   with million-element list and vector tails under a 64 MiB heap.
-- Compatibility generated binary schema decode helpers read fields in
-  declaration order and return the schema-local visible record shape. They are
-  retained for old fixtures and runtime adapter coverage, not as the public
-  source surface for applying schemas.
+- Schema-owned generated binary decode helpers read fields in declaration
+  order, return the schema-local visible record shape, and lower through the
+  general JVM schema codec. Fixed schema layouts are not supplied as standard
+  prelude runtime helpers.
 - Consecutive visible `UInt1` through `UInt7` fields whose widths complete
   one, two, three, four, five, six, seven, or eight big-endian bytes are
   packed into the shared storage unit in declaration order. Decode exposes

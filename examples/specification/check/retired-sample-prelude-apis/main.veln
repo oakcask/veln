@@ -1,0 +1,56 @@
+# Compiler public-contract coverage: removed sample decoders are unavailable
+# through every standard prelude lookup route. Unrelated byte helpers and a
+# schema-owned generated decoder remain valid in the same checked module.
+use prelude as standard from "std"
+
+schema GeneralFixture
+	format binary
+
+	value: UInt8
+end
+
+fn positive_general_path(view: ByteView) -> Result<Int, String>
+	let direct = byte_read_u8_be(view)?
+	let decoded = byte_decode_general_fixture(view)?
+	Ok(direct + decoded.value)
+end
+
+fn removed_bare_width(view: ByteView) -> ()
+	byte_decode_schema_width_sample(view)
+	()
+end
+
+fn removed_bare_validation(view: ByteView) -> ()
+	byte_decode_schema_validation_sample(view)
+	()
+end
+
+fn removed_qualified_width(view: ByteView) -> ()
+	prelude::byte_decode_schema_width_sample(view)
+	()
+end
+
+fn removed_qualified_validation(view: ByteView) -> ()
+	prelude::byte_decode_schema_validation_sample(view)
+	()
+end
+
+fn removed_imported_width(view: ByteView) -> ()
+	standard::byte_decode_schema_width_sample(view)
+	()
+end
+
+fn removed_imported_validation(view: ByteView) -> ()
+	standard::byte_decode_schema_validation_sample(view)
+	()
+end
+
+fn removed_width_function_value() -> ()
+	let decoder: fn(ByteView) -> Result<{short_value: Int, wide_value: Int}, String> = byte_decode_schema_width_sample
+	()
+end
+
+fn removed_validation_function_value() -> ()
+	let decoder: fn(ByteView) -> Result<{length: Int, padding_length: Int}, String> = byte_decode_schema_validation_sample
+	()
+end

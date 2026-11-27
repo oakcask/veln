@@ -267,8 +267,6 @@ compiler_adapter_symbol_set! {
     "byte_read_u8_be",
     "byte_expect_fixed_u8_be",
     "byte_decode_http2_frame",
-    "byte_decode_schema_width_sample",
-    "byte_decode_schema_validation_sample",
     "string_contains_nul",
     "string_nul",
     "string_split_all",

@@ -1,7 +1,7 @@
 # Binary schema field-local validation preserves the decoded value shape when it passes.
 use stdio
 
-schema SchemaValidationSample
+schema ValidationFixture
 	format binary
 
 	length: UInt24be
@@ -19,7 +19,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let offset = byte_offset(0)?
 	let count = byte_count(4)?
 	let view = byte_view(bytes, offset, count)?
-	let sample = byte_decode_schema_validation_sample(view)?
+	let sample = byte_decode_validation_fixture(view)?
 	emit_sample(sample)
 	Ok(())
 end

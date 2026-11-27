@@ -92,14 +92,6 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("byte_expect_fixed_u8_be", "byteExpectFixedU8Be"),
         ("byte_decode_http2_frame", "byteDecodeHttp2Frame"),
         (
-            "byte_decode_schema_width_sample",
-            "byteDecodeSchemaWidthSample",
-        ),
-        (
-            "byte_decode_schema_validation_sample",
-            "byteDecodeSchemaValidationSample",
-        ),
-        (
             "http2_protocol_partial_preface",
             "http2ProtocolPartialPreface",
         ),
