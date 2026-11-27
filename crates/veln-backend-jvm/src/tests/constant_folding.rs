@@ -12,6 +12,7 @@ fn folded_scalars_execute_with_full_width_integer_results() {
         "  stdio::println(int_to_string((9223372036854775807 + 1) / -1))\n",
         "  stdio::println(int_to_string((9223372036854775807 + 1) % -1))\n",
         "  stdio::println(int_to_string(-1 >>> 63))\n",
+        "  stdio::println(int_to_string(~0))\n",
         "  if (1 + 2 == 3) and not false\n",
         "    stdio::println(\"true\")\n",
         "  else\n",
@@ -42,8 +43,41 @@ fn folded_scalars_execute_with_full_width_integer_results() {
             "-9223372036854775808\n",
             "0\n",
             "1\n",
+            "-1\n",
             "true\n",
         )
+    );
+}
+
+#[test]
+fn folded_bitwise_not_method_omits_runtime_helper() {
+    if Command::new("javap").arg("-version").output().is_err() {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> Int\n  ~0\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let root = temp_dir("constant-folding-bitwise-not-javap");
+    write_jvm_program(&root, &program);
+    let output = Command::new("javap")
+        .arg("-c")
+        .arg("-p")
+        .arg("-classpath")
+        .arg(&root)
+        .arg("VelnProgram")
+        .output()
+        .expect("javap should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let instructions = String::from_utf8_lossy(&output.stdout);
+    assert!(instructions.contains("long -1l"), "{instructions}");
+    assert!(
+        !instructions.contains("VelnRuntime.bitwiseNot"),
+        "{instructions}"
     );
 }
 

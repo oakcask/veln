@@ -157,6 +157,15 @@ fn lower_prefix_folds_closed_typed_scalars() {
         )),
     })
     .expect("negation should lower");
+    let inverted = lower_fixture_expr(CoreType::int(), |anchor| CoreExprKind::Prefix {
+        op: PrefixOp::BitwiseNot,
+        expr: Box::new(core_expr(
+            anchor,
+            CoreType::int(),
+            CoreExprKind::IntLiteral("0".to_string()),
+        )),
+    })
+    .expect("bitwise not should lower");
     let checked = lower_fixture_expr(CoreType::bool(), |anchor| CoreExprKind::Prefix {
         op: PrefixOp::Not,
         expr: Box::new(core_expr(
@@ -169,6 +178,8 @@ fn lower_prefix_folds_closed_typed_scalars() {
 
     assert_eq!(negated.ty, CoreType::int());
     assert_eq!(negated.kind, IrExprKind::IntConstant(-1));
+    assert_eq!(inverted.ty, CoreType::int());
+    assert_eq!(inverted.kind, IrExprKind::IntConstant(-1));
     assert_eq!(checked.ty, CoreType::bool());
     assert_eq!(checked.kind, IrExprKind::BoolLiteral(true));
 }
