@@ -1,0 +1,132 @@
+# The example accepts a deliberately small, unquoted CSV dialect.
+pub fn failure(status: Int, code: String) -> { status : Int, body : String }
+	{ status: status, body: string::concat(string::concat("{\"error\":\"", code), "\"}") }
+end
+
+fn row_error(report: { rows : Int, accepted : Int, quantity : Int, total_cents : Int, errors : String }, line: Int, code: String) -> { rows : Int, accepted : Int, quantity : Int, total_cents : Int, errors : String }
+	let separator = if report.errors == ""
+		""
+	else
+		","
+	end
+	{ rows: report.rows + 1, accepted: report.accepted, quantity: report.quantity, total_cents: report.total_cents, errors: string::concat(report.errors, string::concat(separator, string::concat("{\"line\":", string::concat(int_to_string(line), string::concat(",\"code\":\"", string::concat(code, "\"}")))))) }
+end
+
+fn parse_row(line: String) -> Result<{ quantity : Int, unit_cents : Int }, String>
+	match string_split_once(line, "\"")
+		Some(_) => Err("quoted_fields_unsupported")
+		None => begin
+			let first: { left : String, right : String } = match string_split_once(line, ",")
+				Some(parts) => Ok(parts)
+				None => Err("expected_three_columns")
+			end?
+			let second: { left : String, right : String } = match string_split_once(first.right, ",")
+				Some(parts) => Ok(parts)
+				None => Err("expected_three_columns")
+			end?
+			if first.left == ""
+				Err("missing_sku")
+			else
+				match string_split_once(second.right, ",")
+					Some(_) => Err("expected_three_columns")
+					None => parse_numbers(second.left, second.right)
+				end
+			end
+		end
+	end
+end
+
+fn parse_numbers(quantity_text: String, cents_text: String) -> Result<{ quantity : Int, unit_cents : Int }, String>
+	let quantity = match string_parse_int(quantity_text)
+		Ok(value) => Ok(value)
+		Err(_) => Err("invalid_quantity")
+	end?
+	let cents = match string_parse_int(cents_text)
+		Ok(value) => Ok(value)
+		Err(_) => Err("invalid_unit_cents")
+	end?
+	if quantity < 1 or quantity > 1000000
+		Err("invalid_quantity")
+	else if cents < 0 or cents > 1000000
+		Err("invalid_unit_cents")
+	else
+		Ok({ quantity: quantity, unit_cents: cents })
+	end
+end
+
+fn add_line(report: { rows : Int, accepted : Int, quantity : Int, total_cents : Int, errors : String }, line: String, number: Int) -> Result<{ rows : Int, accepted : Int, quantity : Int, total_cents : Int, errors : String }, String>
+	if number == 1
+		if line == "sku,quantity,unit_cents"
+			Ok(report)
+		else
+			Err("expected_header")
+		end
+	else if report.rows >= 100
+		Err("too_many_rows")
+	else
+		match parse_row(line)
+			Ok(item) => Ok({ rows: report.rows + 1, accepted: report.accepted + 1, quantity: report.quantity + item.quantity, total_cents: report.total_cents + item.quantity * item.unit_cents, errors: report.errors })
+			Err(code) => Ok(row_error(report, number, code))
+		end
+	end
+end
+
+# Split byte ranges so accepted input does not require one JVM frame per byte.
+fn scan(input: ByteChunk, index: Int, count: Int, state: { line : String, number : Int, report : { rows : Int, accepted : Int, quantity : Int, total_cents : Int, errors : String }, after_cr : Bool }) -> Result<{ line : String, number : Int, report : { rows : Int, accepted : Int, quantity : Int, total_cents : Int, errors : String }, after_cr : Bool }, String>
+	if count == 0
+		Ok(state)
+	else if count > 1
+		begin
+			let half = count / 2
+			let left = scan(input, index, half, state)?
+			scan(input, index + half, count - half, left)
+		end
+	else
+		scan_octet(input, index, state)
+	end
+end
+
+fn scan_octet(input: ByteChunk, index: Int, state: { line : String, number : Int, report : { rows : Int, accepted : Int, quantity : Int, total_cents : Int, errors : String }, after_cr : Bool }) -> Result<{ line : String, number : Int, report : { rows : Int, accepted : Int, quantity : Int, total_cents : Int, errors : String }, after_cr : Bool }, String>
+	let octet = byte_read_u8_be(byte_view(input, byte_offset(index)?, byte_count(1)?)?)?
+	if state.after_cr and octet != 10
+		Err("invalid_line_ending")
+	else if octet == 10
+		begin
+			let next = add_line(state.report, state.line, state.number)?
+			Ok({ line: "", number: state.number + 1, report: next, after_cr: false })
+		end
+	else if octet == 13
+		Ok({ line: state.line, number: state.number, report: state.report, after_cr: true })
+	else if octet == 32
+		Ok({ line: string::concat(state.line, " "), number: state.number, report: state.report, after_cr: false })
+	else if octet >= 33 and octet <= 126
+		begin
+			let character = byte_chunk_to_visible_ascii_string(byte_view_to_chunk(byte_view(input, byte_offset(index)?, byte_count(1)?)?))?
+			Ok({ line: string::concat(state.line, character), number: state.number, report: state.report, after_cr: false })
+		end
+	else
+		Err("expected_ascii_csv")
+	end
+end
+
+fn finish_scan(input: ByteChunk) -> Result<{ rows : Int, accepted : Int, quantity : Int, total_cents : Int, errors : String }, String>
+	let state = scan(input, 0, byte_count_to_int(byte_chunk_count(input)), { line: "", number: 1, report: { rows: 0, accepted: 0, quantity: 0, total_cents: 0, errors: "" }, after_cr: false })?
+	if state.after_cr
+		Err("invalid_line_ending")
+	else if state.line == "" and state.number > 1
+		Ok(state.report)
+	else
+		add_line(state.report, state.line, state.number)
+	end
+end
+
+pub fn analyze(input: ByteChunk) -> { status : Int, body : String }
+	if byte_count_to_int(byte_chunk_count(input)) > 8192
+		failure(413, "csv_too_large")
+	else
+		match finish_scan(input)
+			Err(code) => failure(400, code)
+			Ok(report) => { status: 200, body: string::concat("{\"rows\":", string::concat(int_to_string(report.rows), string::concat(",\"accepted\":", string::concat(int_to_string(report.accepted), string::concat(",\"quantity\":", string::concat(int_to_string(report.quantity), string::concat(",\"total_cents\":", string::concat(int_to_string(report.total_cents), string::concat(",\"errors\":[", string::concat(report.errors, "]}")))))))))) }
+		end
+	end
+end

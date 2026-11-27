@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order desk · Veln CSV analyzer</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <main>
+    <header><p class="eyebrow">VELN EXAMPLES / ORDER DESK</p><h1>Check an order.<br>Keep the useful rows.</h1><p>Validate line items and total their value. Your data stays in this local session; nothing is saved.</p></header>
+    <form id="analyze">
+      <div class="toolbar"><label class="file">Open CSV <input id="file" type="file" accept=".csv,text/csv"></label><button id="sample" type="button">Load sample</button></div>
+      <label for="csv">Order CSV</label>
+      <p id="format" class="hint">Header: <code>sku,quantity,unit_cents</code>. Up to 100 rows / 8 KiB. Printable ASCII, unquoted fields, LF or CRLF.</p>
+      <textarea id="csv" rows="9" spellcheck="false" aria-describedby="format">sku,quantity,unit_cents
+tea,2,250
+cake,1,400
+mug,0,800</textarea>
+      <button id="submit" class="primary" type="submit">Analyze order <span aria-hidden="true">→</span></button>
+    </form>
+    <p id="status" role="status" aria-live="polite"></p>
+    <section id="results" hidden aria-label="Analysis results">
+      <div class="metrics"><div><span>Data rows</span><strong id="rows"></strong></div><div><span>Accepted rows</span><strong id="accepted"></strong></div><div><span>Total quantity</span><strong id="quantity"></strong></div><div><span>Total · cents ÷ 100</span><strong id="total"></strong></div></div>
+      <h2>Rows to fix</h2><p class="hint">Line numbers include the header. Totals include accepted rows only.</p>
+      <table><thead><tr><th scope="col">Line</th><th scope="col">Issue</th></tr></thead><tbody id="errors"></tbody></table>
+    </section>
+    <footer>Veln computes the result · TypeScript displays it · No database</footer>
+  </main>
+</body>
+</html>
