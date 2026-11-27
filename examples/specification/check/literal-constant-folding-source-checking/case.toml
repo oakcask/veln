@@ -1,0 +1,30 @@
+# Integration contract: `check --json` still checks an unselected branch whose
+# condition is an eligible closed expression.
+command = ["check", "--json", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"hole.unfilled\"", "\"expected_type\":\"Int\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "partial"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "hole.unfilled"
+severity = "hint"
+kind = "hole"
+message = "hole requires a `Int` value"
+
+[diagnostics.span]
+file = "main.veln"
+line = 5
+column = 3

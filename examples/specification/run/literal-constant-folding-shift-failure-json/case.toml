@@ -1,0 +1,26 @@
+# Integration contract: `run --json` projects a computed invalid shift count
+# with the folded count span and the residual operation span.
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"runtime.invalid_shift_count\"", "\"operator\":\">>>\"", "\"actual_count\":64", "\"count_span\"", "\"operation_span\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "error.message"
+equals = "invalid shift count 64 for operator `>>>`; expected a value between 0 and 63"
+
+[[json_assert]]
+path = "error.related.0.kind"
+equals = "operation"
+
+[[json_assert]]
+path = "stdout"
+equals_file = "case-text/stdout.txt"

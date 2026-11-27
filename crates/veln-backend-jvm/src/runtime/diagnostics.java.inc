@@ -50,6 +50,14 @@
             System.err.println("  note: " + remainder.sourceFile + ":"
                 + remainder.operationStartLine + ":" + remainder.operationStartColumn
                 + ": Remainder operation is here.");
+        } else if (failure instanceof LocatedOperatorFailure) {
+            LocatedOperatorFailure operator = (LocatedOperatorFailure) failure;
+            System.err.println(operator.sourceFile + ":" + operator.operandStartLine + ":"
+                + operator.operandStartColumn + ": error[" + operator.id + "]: "
+                + operator.getMessage());
+            System.err.println("  note: " + operator.sourceFile + ":"
+                + operator.operationStartLine + ":" + operator.operationStartColumn
+                + ": Operator `" + operator.operator + "` is here.");
         } else {
             System.err.println(failure.getMessage());
         }
@@ -81,6 +89,26 @@
                 + "\t" + remainder.operationEndLine
                 + "\t" + remainder.operationEndColumn
                 + "\t" + remainder.operationEndOffset
+                + System.lineSeparator();
+        } else if (failure instanceof LocatedOperatorFailure) {
+            LocatedOperatorFailure operator = (LocatedOperatorFailure) failure;
+            line = "operator\t" + hex(operator.id)
+                + "\t" + hex(operator.getMessage())
+                + "\t" + hex(operator.operator)
+                + "\t" + operator.actual
+                + "\t" + hex(operator.sourceFile)
+                + "\t" + operator.operandStartLine
+                + "\t" + operator.operandStartColumn
+                + "\t" + operator.operandStartOffset
+                + "\t" + operator.operandEndLine
+                + "\t" + operator.operandEndColumn
+                + "\t" + operator.operandEndOffset
+                + "\t" + operator.operationStartLine
+                + "\t" + operator.operationStartColumn
+                + "\t" + operator.operationStartOffset
+                + "\t" + operator.operationEndLine
+                + "\t" + operator.operationEndColumn
+                + "\t" + operator.operationEndOffset
                 + System.lineSeparator();
         } else {
             line = "runtime\t"

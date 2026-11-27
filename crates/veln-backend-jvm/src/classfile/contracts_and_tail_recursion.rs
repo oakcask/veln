@@ -123,6 +123,7 @@ fn scan_expr_tail_recursion(
         | IrExprKind::BoolLiteral(_)
         | IrExprKind::StringLiteral(_)
         | IrExprKind::IntLiteral(_)
+        | IrExprKind::IntConstant(_)
         | IrExprKind::FloatLiteral(_)
         | IrExprKind::Unit
         | IrExprKind::FunctionValue { .. }

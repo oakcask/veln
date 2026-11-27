@@ -124,6 +124,8 @@ impl RunJsonReport {
             Self::runtime_transport_error(exit_code, stdout, stderr, failure, related)
         } else if let Some(failure) = remainder_failure_from_trace(&traces.runtime_error) {
             Self::runtime_remainder_error(exit_code, stdout, stderr, failure, related)
+        } else if let Some(failure) = operator_failure_from_trace(&traces.runtime_error) {
+            Self::runtime_operator_error(exit_code, stdout, stderr, failure, related)
         } else {
             let message = runtime_error_message(&traces.runtime_error, &stderr, output.status);
             Self::runtime_error(exit_code, stdout, stderr, message, related)
@@ -216,6 +218,36 @@ impl RunJsonReport {
             error: Some(RunJsonError {
                 kind: "runtime".to_string(),
                 message: "remainder divisor is zero".to_string(),
+                details: failure.details(),
+                related,
+            }),
+        }
+    }
+
+    fn runtime_operator_error(
+        exit_code: i32,
+        stdout: String,
+        stderr: String,
+        failure: OperatorFailureTrace,
+        cleanup_related: Vec<String>,
+    ) -> Self {
+        let mut related = vec![JsonValue::object([
+            ("kind", JsonValue::string("operation")),
+            (
+                "message",
+                JsonValue::string(format!("Operator `{}` is here.", failure.operator)),
+            ),
+            ("span", failure.operation_span()),
+        ])];
+        related.extend(cleanup_related.into_iter().map(cleanup_related_json));
+        Self {
+            status: "failed",
+            exit_code,
+            stdout,
+            stderr,
+            error: Some(RunJsonError {
+                kind: "runtime".to_string(),
+                message: failure.message.clone(),
                 details: failure.details(),
                 related,
             }),
@@ -487,6 +519,77 @@ fn remainder_failure_from_trace(trace: &str) -> Option<RemainderFailureTrace> {
     })
 }
 
+struct OperatorFailureTrace {
+    id: String,
+    message: String,
+    operator: String,
+    actual: i64,
+    source_file: String,
+    operand: [i64; 6],
+    operation: [i64; 6],
+}
+
+impl OperatorFailureTrace {
+    fn span(&self, positions: &[i64; 6]) -> JsonValue {
+        JsonValue::object([
+            ("file", JsonValue::string(self.source_file.clone())),
+            ("start", trace_position(&positions[0..3])),
+            ("end", trace_position(&positions[3..6])),
+        ])
+    }
+
+    fn operation_span(&self) -> JsonValue {
+        self.span(&self.operation)
+    }
+
+    fn details(&self) -> JsonValue {
+        let mut entries = vec![
+            ("phase".to_string(), JsonValue::string("runtime")),
+            ("id".to_string(), JsonValue::string(self.id.clone())),
+            (
+                "operator".to_string(),
+                JsonValue::string(self.operator.clone()),
+            ),
+        ];
+        if self.id == "runtime.division_by_zero" {
+            entries.push(("divisor".to_string(), JsonValue::Number(self.actual)));
+            entries.push(("divisor_span".to_string(), self.span(&self.operand)));
+        } else {
+            entries.push(("actual_count".to_string(), JsonValue::Number(self.actual)));
+            entries.push(("minimum_count".to_string(), JsonValue::Number(0)));
+            entries.push(("maximum_count".to_string(), JsonValue::Number(63)));
+            entries.push(("count_span".to_string(), self.span(&self.operand)));
+        }
+        entries.push(("operation_span".to_string(), self.operation_span()));
+        JsonValue::Object(entries)
+    }
+}
+
+fn operator_failure_from_trace(trace: &str) -> Option<OperatorFailureTrace> {
+    let fields: Vec<&str> = trace
+        .lines()
+        .rev()
+        .find(|line| line.starts_with("operator\t"))?
+        .split('\t')
+        .collect();
+    if fields.len() != 18 {
+        return None;
+    }
+    let values = fields[6..]
+        .iter()
+        .map(|field| field.parse::<i64>().ok())
+        .collect::<Option<Vec<_>>>()?;
+    Some(OperatorFailureTrace {
+        id: trace_string(fields[1])?,
+        message: trace_string(fields[2])?,
+        operator: trace_string(fields[3])?,
+        actual: fields[4].parse().ok()?,
+        source_file: trace_string(fields[5])?,
+        operand: values[0..6].try_into().ok()?,
+        operation: values[6..12].try_into().ok()?,
+    })
+}
+
 fn invalid_shift_runtime_details(message: &str) -> Option<JsonValue> {
     let count_text = message.strip_prefix("invalid shift count ")?;
     let (count_text, operator_text) = count_text.split_once(" for operator `")?;
@@ -610,6 +713,27 @@ mod tests {
         assert!(details.contains("\"id\":\"runtime.remainder_by_zero\""));
         assert!(details.contains("\"operator\":\"%\""));
         assert!(details.contains("\"divisor\":0"));
+        assert!(details.contains("\"offset\":30"));
+    }
+
+    #[test]
+    fn operator_failure_trace_projects_folded_operand_and_operation_spans() {
+        let trace = format!(
+            "operator\t{}\t{}\t{}\t64\t{}\t2\t9\t30\t2\t18\t39\t2\t5\t26\t2\t18\t39\n",
+            trace_hex("runtime.invalid_shift_count"),
+            trace_hex(
+                "invalid shift count 64 for operator `<<`; expected a value between 0 and 63"
+            ),
+            trace_hex("<<"),
+            trace_hex("main.veln"),
+        );
+        let failure =
+            operator_failure_from_trace(&trace).expect("operator failure trace should parse");
+        assert_eq!(failure.id, "runtime.invalid_shift_count");
+        assert_eq!(failure.actual, 64);
+        let details = failure.details().to_json();
+        assert!(details.contains("\"count_span\""));
+        assert!(details.contains("\"operation_span\""));
         assert!(details.contains("\"offset\":30"));
     }
 

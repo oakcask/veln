@@ -13,6 +13,10 @@ use crate::{
     IrSchemaRefinementVariant, IrStmt, IrStmtKind, TypedProgram,
 };
 
+mod constant_folding;
+
+use constant_folding::fold_expression_kind;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum IrLowerError {
     Blocked(CoreBlocker),
@@ -202,11 +206,12 @@ fn lower_stmt(stmt: &CoreStmt) -> Result<IrStmt, IrLowerError> {
 }
 
 fn lower_expr(expr: &CoreExpr) -> Result<IrExpr, IrLowerError> {
+    let kind = lower_expr_kind(expr)?;
     Ok(IrExpr {
         node_id: expr.node_id,
         ty: expr.ty.clone(),
         span: expr.span.clone(),
-        kind: lower_expr_kind(expr)?,
+        kind: fold_expression_kind(&expr.ty, kind),
     })
 }
 

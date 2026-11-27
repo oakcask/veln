@@ -356,6 +356,63 @@
         }
     }
 
+    private static final class LocatedOperatorFailure extends RuntimeFailure {
+        private final String id;
+        private final String operator;
+        private final long actual;
+        private final String sourceFile;
+        private final int operandStartLine;
+        private final int operandStartColumn;
+        private final int operandStartOffset;
+        private final int operandEndLine;
+        private final int operandEndColumn;
+        private final int operandEndOffset;
+        private final int operationStartLine;
+        private final int operationStartColumn;
+        private final int operationStartOffset;
+        private final int operationEndLine;
+        private final int operationEndColumn;
+        private final int operationEndOffset;
+
+        private LocatedOperatorFailure(
+            String id,
+            String message,
+            String operator,
+            long actual,
+            String sourceFile,
+            int operandStartLine,
+            int operandStartColumn,
+            int operandStartOffset,
+            int operandEndLine,
+            int operandEndColumn,
+            int operandEndOffset,
+            int operationStartLine,
+            int operationStartColumn,
+            int operationStartOffset,
+            int operationEndLine,
+            int operationEndColumn,
+            int operationEndOffset
+        ) {
+            super(message);
+            this.id = id;
+            this.operator = operator;
+            this.actual = actual;
+            this.sourceFile = sourceFile;
+            this.operandStartLine = operandStartLine;
+            this.operandStartColumn = operandStartColumn;
+            this.operandStartOffset = operandStartOffset;
+            this.operandEndLine = operandEndLine;
+            this.operandEndColumn = operandEndColumn;
+            this.operandEndOffset = operandEndOffset;
+            this.operationStartLine = operationStartLine;
+            this.operationStartColumn = operationStartColumn;
+            this.operationStartOffset = operationStartOffset;
+            this.operationEndLine = operationEndLine;
+            this.operationEndColumn = operationEndColumn;
+            this.operationEndOffset = operationEndOffset;
+        }
+    }
+
     private static final class TransportFailure extends RuntimeFailure {
         private final String operation;
         private final String category;

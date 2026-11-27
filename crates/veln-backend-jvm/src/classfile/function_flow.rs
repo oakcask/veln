@@ -638,6 +638,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrExprKind::BoolLiteral(value) => self.emit_bool_literal(code, *value),
             IrExprKind::StringLiteral(value) => self.emit_string_literal(code, value),
             IrExprKind::IntLiteral(value) => self.emit_int_literal(code, value),
+            IrExprKind::IntConstant(value) => self.emit_int_constant(code, *value),
             IrExprKind::FloatLiteral(value) => self.emit_float_literal(code, value),
             IrExprKind::Unit => self.emit_unit(code),
             IrExprKind::FunctionValue { name, callsite } => {
@@ -701,6 +702,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 .map(|literal| literal.value)
                 .unwrap_or(0),
         );
+        code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
+    }
+
+    pub(super) fn emit_int_constant(&mut self, code: &mut MethodCode, value: i64) {
+        code.ldc_long(value);
         code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
     }
 
