@@ -150,21 +150,8 @@ inferred parameter classifications. The checked
 case covers ordinary and effect declaration binders, trailing-comma removal,
 and idempotence. The checked
 [`multiple-handler-expressions`](../../examples/specification/fmt/multiple-handler-expressions/)
-case covers both terminated body forms, short-chain migration with and without
-grouping parentheses, single-line and multiline chain layouts, mixed short and
-terminated chains in both nesting directions, outermost-first entry order,
-final-comma removal, boundary-comment retention, and idempotence. Formatter
-golden tests also pin complete-chain eligibility: postfix, branch, `begin`,
-handled-block, multiline-body, and comment boundaries keep the surrounding
-mixed chain nested, while eligible independent chains beyond statement and
-`defer` boundaries still migrate. Each boundary output is idempotent.
-Golden coverage also places commented mixed chains after independently eligible
-mixed chains as adjacent function-body expressions and as sibling call
-arguments. Exact formatter cases cover comments owned by an inner handler
-closing token, a call delimiter, same-line sibling arguments, and list, record,
-and dictionary siblings. These checks reparse the first output and require
-byte-identical second output. The inner-delimiter case also compares the
-comment's preceding token before and after formatting. The checked formatter
-case covers call and list comment ownership through two command passes.
-Formatter tests preserve comments after `if` and `else if` conditions and
-require byte-identical output on a second pass.
+case covers handler-list formatting, nested-chain migration, comment ownership,
+and idempotence through two command passes. Focused formatter tests cover the
+migration boundaries and comment-preservation rules above. They reparse the
+first output, compare syntax ownership where formatting moves delimiters, and
+require byte-identical output on the second pass.

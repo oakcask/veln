@@ -624,6 +624,102 @@ fn format_tree_keeps_if_condition_comments_with_their_conditions() {
 }
 
 #[test]
+fn format_tree_keeps_collection_continuations_after_final_child_comments() {
+    let cases = [
+        (
+            concat!(
+                "fn sample() -> Int\n",
+                "  { first: value() # final field\n",
+                "  }.first\n",
+                "end\n",
+            ),
+            concat!(
+                "fn sample() -> Int\n",
+                "\t{ first: value()  # final field\n",
+                "\t}.first\n",
+                "end\n",
+            ),
+            "field access",
+        ),
+        (
+            concat!(
+                "fn sample() -> Int\n",
+                "  [value() # final item\n",
+                "  ]?\n",
+                "end\n",
+            ),
+            concat!(
+                "fn sample() -> Int\n",
+                "\t[value()  # final item\n",
+                "\t]?\n",
+                "end\n",
+            ),
+            "postfix try",
+        ),
+    ];
+
+    for (source_text, expected, continuation) in cases {
+        let parsed = parse(&SourceFile::new("main.veln", source_text));
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+        let formatted = format_tree(&parsed.tree);
+        assert_eq!(formatted, expected);
+
+        let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+        assert!(
+            reparsed.diagnostics.is_empty(),
+            "{formatted}\n{:#?}",
+            reparsed.diagnostics
+        );
+        assert_eq!(
+            collection_continuation_kind(&parsed.tree),
+            collection_continuation_kind(&reparsed.tree),
+            "formatter changed the {continuation} expression shape"
+        );
+        assert_eq!(
+            preceding_collection_comment_owner(&parsed.tree),
+            preceding_collection_comment_owner(&reparsed.tree),
+            "formatter changed the {continuation} comment owner"
+        );
+        assert_eq!(format_tree(&reparsed.tree), formatted);
+    }
+}
+
+fn collection_continuation_kind(tree: &SyntaxTree) -> &'static str {
+    let SyntaxItem::Function(function) = &tree.items[0] else {
+        panic!("expected function item");
+    };
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body line");
+    };
+    match &expr.kind {
+        ExprKind::FieldAccess { base, .. } if matches!(base.kind, ExprKind::Record(_)) => {
+            "record field access"
+        }
+        ExprKind::Try { expr, .. } if matches!(expr.kind, ExprKind::List(_)) => "list postfix try",
+        kind => panic!("expected collection continuation, found {kind:?}"),
+    }
+}
+
+fn preceding_collection_comment_owner(tree: &SyntaxTree) -> (TokenKind, String) {
+    let mut preceding = None;
+    for token in tree.lossless_tokens() {
+        match token.kind {
+            TokenKind::Newline => preceding = None,
+            TokenKind::Whitespace => {}
+            TokenKind::Comment
+                if matches!(token.text.trim_start(), "# final field" | "# final item") =>
+            {
+                return preceding.expect("collection comment must have a preceding owner token");
+            }
+            TokenKind::Comment | TokenKind::Eof => {}
+            _ => preceding = Some((token.kind, token.text.clone())),
+        }
+    }
+    panic!("missing final collection-child comment");
+}
+
+#[test]
 fn trailing_comment_ownership_work_scales_with_entries() {
     let original = trailing_comment_ownership_work(32);
     let larger = trailing_comment_ownership_work(64);

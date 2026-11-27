@@ -938,7 +938,7 @@ fn format_delimited_subjects<'a>(
             } else if break_before_close_for_final_comment {
                 rendered.push('\n');
                 push_indent(&mut rendered, indent);
-                rendered.push_str(close);
+                rendered.push_str(close.trim_start());
             }
             needs_inline_space = false;
         } else {
@@ -974,7 +974,7 @@ fn format_record_expr(
         comments,
         "{ ",
         " }",
-        false,
+        true,
     )
 }
 
@@ -998,7 +998,7 @@ fn format_dict_expr(
         comments,
         "{ ",
         " }",
-        false,
+        true,
     )
 }
 
@@ -1014,7 +1014,7 @@ fn format_list_expr(items: &[Expr], indent: usize, comments: Option<&LineComment
         comments,
         "[",
         "]",
-        false,
+        true,
     )
 }
 

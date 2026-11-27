@@ -97,3 +97,8 @@ fn preserve_list_sibling_comment() -> Vec<Int>
   end, second() # later item
   ]
 end
+
+fn preserve_record_continuation() -> Int
+  { first: first() # final field
+  }.first
+end

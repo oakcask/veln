@@ -106,5 +106,11 @@ fn preserve_list_sibling_comment() -> Vec<Int>
 	[handle value() with
 		outer(first()),
 		inner(second())
-	end, second()]  # later item
+	end, second()  # later item
+	]
+end
+
+fn preserve_record_continuation() -> Int
+	{ first: first()  # final field
+	}.first
 end
