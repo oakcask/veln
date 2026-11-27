@@ -146,10 +146,13 @@ cases with `failure.kind: "contract"`. The failure details use
 - `span`: the source span for the failed clause
 
 A computed zero divisor reached while evaluating a runtime contract predicate
-terminates the case before a contract result exists. The case has
+terminates the case before a contract result exists. A division or remainder
+by a computed zero and a shift by a computed count outside `0..63` also remain
+executable after closed scalar expression folding. The case has
 `failure.kind: "runtime"`; its message reports the process exit status, and its
 details use the general runtime-failure shape. Unlike `veln run --json`, the
-test JSON boundary does not project a `runtime.remainder_by_zero` detail record.
+test JSON boundary does not project `runtime.division_by_zero`,
+`runtime.remainder_by_zero`, or `runtime.invalid_shift_count` detail records.
 
 Tests or doctests that return `Err(value)` are reported as failed cases with
 `failure.kind: "result"`. The failure details use `kind: "result"` and

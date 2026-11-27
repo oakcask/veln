@@ -202,8 +202,8 @@ is specified by [run JSON](run-json.md). When the operation occurs in a
 runtime contract predicate, this runtime failure is reported instead of a
 contract-violation diagnostic.
 
-If constant folding reduces a computed division divisor to zero, execution
-fails with `runtime.division_by_zero` and the message
+If constant folding reduces a computed `Int` division divisor to zero,
+execution fails with `runtime.division_by_zero` and the message
 `division divisor is zero` at the original divisor-expression location. If it
 reduces a shift count outside `0..63`, execution fails with
 `runtime.invalid_shift_count` at the original count-expression location. In

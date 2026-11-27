@@ -76,7 +76,8 @@ with the complete operator-expression span.
 A cleanup failure attached
 to an existing primary failure contributes one object with
 `kind: "cleanup_failure"` and its runtime `message`. Objects retain cleanup
-execution order. The array is empty when no related cleanup failed.
+execution order. The array is empty when the failure contributes no related
+note.
 
 ## Static diagnostic gate
 
@@ -211,7 +212,7 @@ case covers that boundary. The checked
 [`literal-constant-folding-shift-failure-json`](../../examples/specification/run/literal-constant-folding-shift-failure-json/)
 case covers the located folded-count projection.
 
-A division whose closed divisor expression folds to zero uses
+An `Int` division whose closed divisor expression folds to zero uses
 `details.id: "runtime.division_by_zero"`, `operator: "/"`, and numeric
 `divisor: 0`. `divisor_span` identifies the original divisor expression and
 `operation_span` identifies the complete division. The primary message is
