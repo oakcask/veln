@@ -69,7 +69,7 @@ source makes it visible.
 
 ## Specify canonical source and preservation
 
-Follow [Proposal Canonical Form](documentation-authoring.md#proposal-canonical-form)
+Follow [Canonical Form](proposal-authoring.md#canonical-form)
 for accepted input, canonical output, convergence, migration, comments, and
 idempotence. Define both forms when a construct supports a pair.
 

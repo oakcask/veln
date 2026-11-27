@@ -20,6 +20,8 @@ material.
 
 - Documentation structure, metadata, presentation, and specification writing:
   [documentation-authoring.md](documentation-authoring.md).
+- Proposal acceptance, readiness and completion, canonical source, and related
+  work: [proposal-authoring.md](proposal-authoring.md).
 - Source-syntax expression and block forms, token boundaries, scopes, and
   design-review evidence: [source-syntax-design.md](source-syntax-design.md).
 - Standard-library public API scope, cardinality, generic dependencies, outcomes,

@@ -68,6 +68,14 @@ executable evidence.
 
 ## Review Checklist
 
+When authoring or reviewing readiness gates, apply
+[Readiness and Completion](../../../docs/reference/proposal-authoring.md#readiness-and-completion).
+Check whether each pre-Ready evidence requirement resolves a named design
+choice; move implementation acceptance to completion conditions. Route needed
+code or measurement to the policy's independently selectable investigation
+work rather than treating a Design In Progress parent as an implementation
+target.
+
 - The behavior implemented by code is present in executable specification
   evidence when practical, such as `examples/specification/`,
   `docs/specification/source-surface-executable.pl`, checked fixtures,

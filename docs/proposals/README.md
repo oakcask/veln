@@ -119,25 +119,9 @@ sequence. Such work needs a concrete new capability.
 
 ## Proposal Shape
 
-For authoring and review, follow
-[Proposal Related Work](../reference/documentation-authoring.md#proposal-related-work)
-to connect source evidence with design choices and alternatives.
-
-For proposals that add or change language syntax, also follow
-[Proposal Canonical Form](../reference/documentation-authoring.md#proposal-canonical-form).
-
-Express observable targets as structured acceptance cases, decision tables,
-state-transition tables, executable models, or another directly verifiable
-form when practical. Map those targets to the tests, fixtures, doctests,
-benchmarks, or executable specifications that will verify implementation.
-Keep prose for scope, rationale, non-goals, and constraints that cannot
-reasonably be expressed in the primary verification medium. Do not describe
-planned evidence as already passing.
-
-State proposed behavior declaratively as an externally observable contract.
-Keep internal algorithms and ordered procedures outside normative behavior
-unless they are required design constraints. Use Simplified Technical English
-style when those details need prose explanation.
+For acceptance models, Ready promotion, bounded feasibility work, canonical
+source, and related work, follow
+[Proposal Authoring Policy](../reference/proposal-authoring.md).
 
 ## Update When
 
