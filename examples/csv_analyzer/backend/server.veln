@@ -3,6 +3,8 @@ use http2::core from "std"
 use http2::frame from "std"
 use http2::hpack from "std"
 use net from "std"
+use log from "std"
+use observe from "std"
 
 # One bounded POST per connection. Protocol transitions remain standard owned.
 fn network_error(error: net::NetError) -> String
@@ -73,7 +75,7 @@ fn response_header(name: String, value: String, tail: http2::hpack::HeaderList) 
 	Ok(http2::hpack::prepend_header_field(http2::hpack::header_field(name, byte_chunk_from_visible_ascii_string(value)?), tail))
 end
 
-fn respond(stream: net::Stream, state: http2::core::CoreReceiveConnectionState, request: { stream_id : Int, method : String, path : String }, response: { status : Int, body : String }, deadline: Deadline) -> Result<(), String> effects [net::IO]
+fn respond(stream: net::Stream, state: http2::core::CoreReceiveConnectionState, request: { stream_id : Int, method : String, path : String }, response: { status : Int, body : String }, deadline: Deadline) -> Result<(), String> effects [net::IO, observe::Observe]
 	let body = byte_chunk_from_visible_ascii_string(response.body)?
 	let headers = response_header(":status", int_to_string(response.status), response_header("content-type", "application/json", http2::hpack::empty_header_list())?)?
 	let connection = http2::core::receive_connection_connection(state)
@@ -81,7 +83,14 @@ fn respond(stream: net::Stream, state: http2::core::CoreReceiveConnectionState, 
 	let after_head = http2::core::headers_send_state(head)?
 	let data = http2::core::send_data(after_head, 0, request.stream_id, body, true)
 	let _ = http2::core::data_send_state(data)?
-	write_bytes(stream, byte_append(http2::core::headers_send_bytes(head), http2::core::data_send_bytes(data)), deadline)
+	let _ = write_bytes(stream, byte_append(http2::core::headers_send_bytes(head), http2::core::data_send_bytes(data)), deadline)?
+	let attributes: List<observe::Attribute> = list_cons(observe::Attribute("status", observe::IntValue(response.status)), list_cons(observe::Attribute("stream_id", observe::IntValue(request.stream_id)), list_cons(observe::Attribute("response_bytes", observe::IntValue(byte_count_to_int(byte_chunk_count(body)))), list_nil())))
+	let _ = if response.status >= 400
+		log::warning(None, "request.completed", attributes)
+	else
+		log::info(None, "request.completed", attributes)
+	end
+	Ok(())
 end
 
 fn dispatch(request: { stream_id : Int, method : String, path : String }, body: ByteChunk) -> { status : Int, body : String }
@@ -106,7 +115,7 @@ fn data_payload(payload: ByteView, flags: Int) -> Result<ByteChunk, String>
 	end
 end
 
-fn frames(stream: net::Stream, buffered: ByteChunk, state: http2::core::CoreReceiveConnectionState, request: { stream_id : Int, method : String, path : String }, body: ByteChunk, budget: Int, wire_count: Int, deadline: Deadline) -> Result<(), String> effects [net::IO]
+fn frames(stream: net::Stream, buffered: ByteChunk, state: http2::core::CoreReceiveConnectionState, request: { stream_id : Int, method : String, path : String }, body: ByteChunk, budget: Int, wire_count: Int, deadline: Deadline) -> Result<(), String> effects [net::IO, observe::Observe]
 	if budget == 0 or wire_count > 32768
 		Err("request exceeds connection budget")
 	else
@@ -160,7 +169,7 @@ fn reset_output(state: http2::core::CoreReceiveConnectionState) -> http2::core::
 	end
 end
 
-fn connection(stream: net::Stream, deadline: Deadline) -> Result<(), String> effects [net::IO]
+fn connection(stream: net::Stream, deadline: Deadline) -> Result<(), String> effects [net::IO, observe::Observe]
 	let initial = http2::core::server_connection_state(0)?
 	let settings = http2::core::send_local_settings_batch(list_nil(), "server", http2::core::connection_state_local_settings_policy(initial), http2::core::connection_state_settings_ack(initial))?
 	let state = http2::core::connection_state_with_settings_ack(initial, http2::core::local_settings_send_ack_state(settings))
@@ -170,7 +179,7 @@ fn connection(stream: net::Stream, deadline: Deadline) -> Result<(), String> eff
 	frames(stream, preface.rest, received, { stream_id: 0, method: "", path: "" }, byte_chunk([]), 64, 24, deadline)
 end
 
-fn accept_loop(listener: net::Listener) -> Result<(), String> effects [net::IO, time, stdio]
+fn accept_loop(listener: net::Listener) -> Result<(), String> effects [net::IO, time, observe::Observe]
 	match net::accept(listener)
 		Err(error) => Err(network_error(error))
 		Ok(stream) => begin
@@ -178,7 +187,7 @@ fn accept_loop(listener: net::Listener) -> Result<(), String> effects [net::IO, 
 			let closed = net::close_stream(stream)
 			match result
 				Ok(_) => ()
-				Err(reason) => stdio::println(string::concat("request rejected: ", reason))
+				Err(reason) => log::warning(None, "connection.rejected", list_cons(observe::Attribute("reason", observe::StringValue(reason)), list_nil()))
 			end
 			match closed
 				Err(error) => Err(network_error(error))
@@ -188,7 +197,7 @@ fn accept_loop(listener: net::Listener) -> Result<(), String> effects [net::IO, 
 	end
 end
 
-fn serve(port: Int) -> Result<(), String> effects [net::IO, time, stdio]
+fn serve(port: Int) -> Result<(), String> effects [net::IO, time, observe::Observe]
 	let listener = match net::listen(net::Address(net::Tcp4, "127.0.0.1", port))
 		Ok(value) => Ok(value)
 		Err(error) => Err(network_error(error))
@@ -197,12 +206,35 @@ fn serve(port: Int) -> Result<(), String> effects [net::IO, time, stdio]
 		Ok(net::Endpoint(_, value)) => value
 		Err(_) => "unknown"
 	end
-	stdio::println(string::concat("READY ", address))
+	log::info(None, "server.listening", list_cons(observe::Attribute("address", observe::StringValue(address)), list_nil()))
 	let result = accept_loop(listener)
 	let _ = net::close_listener(listener)
 	result
 end
 
-pub fn main(port: Int) -> Result<(), String> effects [net, time, stdio]
-	handle serve(port) with net::system()
+fn logged_serve(port: Int) -> Result<(), String> effects [net::IO, time, observe::Observe]
+	let result = serve(port)
+	let _ = match result
+		Ok(_) => ()
+		Err(reason) => log::error(None, "server.failed", list_cons(observe::Attribute("reason", observe::StringValue(reason)), list_nil()))
+	end
+	result
+end
+
+fn run(port: Int, destination: observe::ExportDestination) -> Result<(), String> effects [net, time, concurrency]
+	let exporter = observe::new_json_lines(observe::Resource("csv-analyzer", list_nil()), observe::InstrumentationScope("csv-analyzer.backend", "1"), 0, observe::ExporterLimits(8, 256, 0, list_nil()), destination, observe::DiagnosticDestination::StandardError, "csv-analyzer")
+	let result = handle logged_serve(port) with
+		observe::json_lines(exporter),
+		net::system()
+	end
+	let _ = observe::report_exporter_health(exporter)
+	result
+end
+
+pub fn main(port: Int) -> Result<(), String> effects [net, time, concurrency]
+	run(port, observe::ExportDestination::StandardError)
+end
+
+pub fn main_with_log_file(port: Int, log_path: String) -> Result<(), String> effects [net, time, concurrency]
+	run(port, observe::FileDestination(log_path))
 end

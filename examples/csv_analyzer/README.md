@@ -17,11 +17,11 @@ Start the backend from its source directory in one terminal:
 
 ```sh
 cd examples/csv_analyzer/backend
-../../../target/debug/veln run main . -- 8082
+../../../target/debug/veln run main_with_log_file . -- 8082 server.jsonl
 ```
 
-The CLI captures program output until exit; it does not print a live readiness
-message. In another terminal, from the repository root:
+The backend appends structured logs to `backend/server.jsonl`. In another
+terminal, from the repository root:
 
 ```sh
 node examples/csv_analyzer/server.mjs
@@ -37,7 +37,8 @@ Click **Analyze order** with the initial input. The two valid rows total 900
 cents and quantity 3. The row with quantity 0 is excluded and reported as line 4.
 **Load sample** adds a second invalid row. Fix the rows and analyze again.
 You can also select a local CSV file; selection fills the editable text area.
-Nothing is written to disk by the application.
+CSV contents are not saved. Operational logs contain status and connection
+metadata, without CSV rows or SKU values.
 
 The supported CSV dialect has the exact header `sku,quantity,unit_cents`.
 It accepts printable ASCII with LF or CRLF line endings, an optional final
@@ -57,6 +58,47 @@ Totals include only accepted rows. All row errors are returned in input order;
 line numbers include the header. Invalid encoding, header, line endings, or
 row count return HTTP 400 with an `error` code. Oversized input returns 413.
 The example uses integer cents; it does not assign a currency.
+
+## Structured logs
+
+The backend uses `log::info`, `log::warning`, and `log::error` from the standard
+library inside an `observe::json_lines` handler. Each record has a timestamp,
+sequence, source location, service identity, severity, and typed attributes.
+
+| Message | Severity | Attributes |
+| --- | --- | --- |
+| `server.listening` | info | `address` |
+| `request.completed` | info for success, warning for HTTP errors | `status`, `stream_id`, `response_bytes` |
+| `connection.rejected` | warning | `reason` |
+| `server.failed` | error | `reason` |
+
+`request.completed` is emitted after the response bytes have been written.
+HTTP 200 can still contain row validation errors; inspect the JSON response
+for those details. Request bodies, SKU values, and raw request paths are not
+logged. Attribute values are bounded by the exporter's configured limits.
+
+With the file entry shown above, follow logs from the repository root:
+
+```sh
+tail -f examples/csv_analyzer/backend/server.jsonl
+```
+
+The file destination appends and flushes records while the server runs.
+`server.jsonl` is ignored by Git. To choose another destination file, pass a
+path relative to the backend's working directory instead.
+
+For standard-error output, the original entry remains available from the
+backend directory:
+
+```sh
+../../../target/debug/veln run main . -- 8082
+```
+
+The CLI captures process output until exit, so file output is useful for live
+inspection with the current CLI. Exporter health is reported to standard error
+when the application returns normally; forceful process termination may prevent
+that summary. Export failures follow the standard handler's behavior: they
+update exporter health and do not change the application result.
 
 ## How it fits together
 
@@ -96,7 +138,9 @@ The tests launch the actual Veln backend on an ephemeral port, send HTTP/2
 requests using Node's independent protocol implementation, and assert JSON
 results, row failures, bounds, fragmented and padded DATA, CRLF, repeated
 connections, idle deadlines, malformed input recovery, proxy cancellation, and
-web proxy behavior. They also execute the served browser code
+web proxy behavior. They assert live JSON Lines logs for startup, successful and
+failed requests, and rejected connections, plus structured startup failure on
+standard error and exclusion of CSV content. They also execute the served browser code
 against a small DOM boundary to check submit, result rendering, file selection,
 and error recovery. This is not a full browser layout or static type check.
 The test owns its process group and temporary compiler cache and removes them

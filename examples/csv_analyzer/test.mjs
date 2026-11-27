@@ -23,7 +23,8 @@ async function startBackend(t) {
   await new Promise(resolveListen => reservation.listen(0, '127.0.0.1', resolveListen));
   const port = reservation.address().port;
   await new Promise(resolveClose => reservation.close(resolveClose));
-  const child = spawn(binary, ['run', 'main', '.', '--', String(port)], {
+  const logPath = join(cache, 'backend.jsonl');
+  const child = spawn(binary, ['run', 'main_with_log_file', '.', '--', String(port), logPath], {
     cwd: new URL('backend/', import.meta.url), detached: true,
     env: { ...process.env, VELN_CACHE_DIR: cache, TMPDIR: cache }, stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -49,7 +50,7 @@ async function startBackend(t) {
     try {
       const reply = await analyze(Buffer.from(sample), backend);
       assert.equal(reply.status, 200);
-      return backend;
+      return { backend, logPath };
     } catch (error) {
       lastError = error;
       await new Promise(resolveRetry => setTimeout(resolveRetry, 100));
@@ -95,7 +96,7 @@ function direct(backend, { method = 'POST', path = '/api/analyze', chunks = [Buf
 }
 
 test('real Veln HTTP/2 backend and browser-facing server', { timeout: 100000 }, async t => {
-  const backend = await startBackend(t);
+  const { backend, logPath } = await startBackend(t);
   await t.test('valid CSV and repeated independent connections', async () => {
     for (let i = 0; i < 3; i++) {
       const reply = await analyze(Buffer.from(sample), backend);
@@ -188,6 +189,48 @@ test('real Veln HTTP/2 backend and browser-facing server', { timeout: 100000 }, 
     assert.equal(failure.status, 502);
     assert.deepEqual(await failure.json(), { error: 'backend_unavailable' });
   });
+  await t.test('log/observe emits live structured records without CSV contents', async () => {
+    const previous = (await readFile(logPath, 'utf8')).trim().split('\n').length;
+    const marker = 'private-csv-sku';
+    const reply = await analyze(Buffer.from(`sku,quantity,unit_cents\n${marker},1,123\n`), backend);
+    assert.equal(reply.status, 200);
+    let text;
+    let records;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      text = await readFile(logPath, 'utf8');
+      records = text.trim().split('\n').map(line => JSON.parse(line));
+      if (records.length > previous) break;
+      await new Promise(resolveTick => setTimeout(resolveTick, 10));
+    }
+    assert.ok(records.length > previous, 'The completed request must be exported while the backend is running');
+    const attributes = record => Object.fromEntries(record.attributes.map(attribute => [attribute.name, attribute.value]));
+    assert.equal(records[0].message, 'server.listening');
+    assert.equal(records[0].severity, 'info');
+    assert.match(attributes(records[0]).address, /^127\.0\.0\.1:\d+$/);
+    for (const [index, record] of records.entries()) {
+      assert.equal(record.kind, 'log');
+      assert.equal(record.sequence, index + 1);
+      assert.equal(record.resource.name, 'csv-analyzer');
+      assert.equal(record.instrumentation_scope.name, 'csv-analyzer.backend');
+      assert.equal(record.exporter_health.failed_exports, 0);
+      assert.equal(record.source.file, 'server.veln');
+      assert.ok(record.source.start_line > 0);
+      assert.deepEqual(record.attribute_facts, { dropped: 0, truncated: 0, redacted: 0 });
+    }
+    const completed = records.filter(record => record.message === 'request.completed');
+    for (const status of [200, 400, 404, 405, 413]) {
+      const record = completed.find(candidate => attributes(candidate).status === status);
+      assert.ok(record, `Missing request.completed log for HTTP ${status}`);
+      assert.equal(record.severity, status >= 400 ? 'warning' : 'info');
+      assert.equal(attributes(record).stream_id, 1);
+      assert.ok(attributes(record).response_bytes > 0);
+      assert.ok(record.attributes.every(attribute => attribute.type === 'int'));
+    }
+    const rejected = records.filter(record => record.message === 'connection.rejected');
+    assert.ok(rejected.length >= 2, 'Malformed and idle connections must emit warnings');
+    assert.ok(rejected.every(record => record.severity === 'warning' && attributes(record).reason.length > 0));
+    assert.equal(text.includes(marker), false, 'CSV contents must stay out of logs');
+  });
 });
 
 // Execute the served TypeScript as browser JavaScript with a small DOM boundary.
@@ -267,4 +310,32 @@ test('editing input while analysis is pending discards the old result', async ()
   assert.equal(nodes.get('results').hidden, true);
   assert.equal(nodes.get('status').textContent, '');
   assert.equal(nodes.get('submit').disabled, false);
+});
+
+test('default entry exports startup failures as structured stderr logs', { timeout: 45000 }, async t => {
+  const cache = await mkdtemp(join(tmpdir(), 'veln-csv-log-'));
+  const binary = resolve(process.env.VELN_BIN ?? join(root, 'target/debug/veln'));
+  const child = spawn(binary, ['run', 'main', '.', '--', '-1'], {
+    cwd: new URL('backend/', import.meta.url), detached: true,
+    env: { ...process.env, VELN_CACHE_DIR: cache, TMPDIR: cache }, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  t.after(async () => {
+    if (child.exitCode === null) {
+      const closed = once(child, 'close');
+      try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+      await closed;
+    }
+    await rm(cache, { recursive: true, force: true });
+  });
+  let stderr = '';
+  child.stdout.resume();
+  child.stderr.on('data', chunk => { stderr += chunk; });
+  const [code] = await once(child, 'close');
+  assert.equal(code, 1);
+  const records = stderr.split('\n').filter(line => line.startsWith('{')).map(line => JSON.parse(line));
+  const failure = records.find(record => record.kind === 'log' && record.message === 'server.failed');
+  assert.ok(failure, `Missing structured startup failure in stderr: ${stderr}`);
+  assert.equal(failure.severity, 'error');
+  assert.equal(failure.resource.name, 'csv-analyzer');
+  assert.ok(failure.attributes.some(attribute => attribute.name === 'reason' && attribute.value.length > 0));
 });
