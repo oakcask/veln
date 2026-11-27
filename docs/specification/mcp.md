@@ -1032,9 +1032,12 @@ separate effect reference set. Failures preserve captured navigation state,
 retained resources, and existing cursors under the general references failure
 contract.
 
-A handler result contains each complete bare handler name in
-`handle Body with handler(arguments)` from saved sources that declare the
-selected workspace handler's module. A public workspace or retained
+A handler result contains each complete bare handler name in a short
+`handle Body with handler(arguments)` expression and in every entry of a
+terminated expression-body or block-body handler list. The application must
+come from a saved source that declares the selected workspace handler's
+module. Handler arguments and both terminated body forms retain their ordinary
+nested navigation behavior. A public workspace or retained
 direct-dependency handler also has complete qualified handler-name leaves
 reached through one parse-clean, unambiguous import. A workspace qualifier can
 use the full module path or its unique implicit leaf alias. An explicitly

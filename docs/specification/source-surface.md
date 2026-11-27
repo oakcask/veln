@@ -665,14 +665,23 @@ closing `end`. An expression body can instead put a newline after `with`, then
 write one or more handler applications on separate lines and close the list
 with `end`. A handled block starts with a newline after `handle`, contains an
 ordinary body, and uses the same newline-separated handler list. Entries are
-separated by commas; the final comma is optional. The list form rejects an
-empty list, a missing comma, a handler application without parentheses, or a
-missing closing `end`. Recovery leaves an enclosing declaration's `end` and
+separated by commas; the final comma is optional. Blank lines and comments may
+occur between entries under the ordinary trivia rules. The list form rejects
+an empty list, a missing comma, a handler application without parentheses, or
+a missing closing `end`. Recovery leaves an enclosing declaration's `end` and
 the following top-level item available to their owners. `handle::member()`
 remains a qualified call path rather than a handler expression. The contextual
 name `handler` remains available as a bare or qualified handler application in
 a terminated list; a following handler declaration remains a top-level
 recovery boundary.
+
+The syntax tree distinguishes an expression body from a block body, retains
+whether the form is terminated, and preserves the ordered entries, each
+complete handler path and span, argument expressions, block span, and complete
+source tokens. Lowering converts a block body to the equivalent `begin` body
+and preserves the ordered handler paths, exact handler spans, and arguments.
+The AST wire layout serializes that lowered body and entry list. It rejects the
+preceding layout header, which encoded only one handler path and argument list.
 
 <!-- source-surface-grammar:start -->
 ```text
@@ -807,10 +816,10 @@ SchemaValidate ::= "validate" MemberPath "from" Expr "at" Expr
 Perform       ::= "perform" MemberPath "::" Name "(" ArgList? ")"
 Handle        ::= SingleHandle | ExpressionHandle | BlockHandle
 SingleHandle  ::= "handle" Expr "with" HandlerApplication
-ExpressionHandle ::= "handle" Expr "with" NL HandlerEntries "end"
-BlockHandle   ::= "handle" NL Body "with" NL HandlerEntries "end"
+ExpressionHandle ::= "handle" Expr "with" NL+ HandlerEntries "end"
+BlockHandle   ::= "handle" NL+ Body "with" NL+ HandlerEntries "end"
 HandlerApplication ::= MemberPath "(" ArgList? ")"
-HandlerEntries ::= HandlerApplication ("," NL HandlerApplication)* ","? NL
+HandlerEntries ::= HandlerApplication ("," NL+ HandlerApplication)* ","? NL+
 Call          ::= "(" ArgList? ")"
 ArgList       ::= Expr ("," Expr)* ","?
 TypeArgs      ::= "<" TypeText ("," TypeText)* ","? ">"

@@ -47,14 +47,15 @@ Equal spellings in different namespaces are accepted where the source grammar
 permits them. A source position selects only the namespace fixed by that
 position. Type annotations select the type namespace even when a schema has the
 same spelling. Schema decode, encode, and runtime-validation expressions select
-the schema namespace. Effect lists and `perform Effect::operation(...)` forms select
-effect and operation namespaces. `handle Body with handler(...)` forms select
-the handler namespace. Ordinary value calls do not select schema, effect,
-handler, or operation declarations. Schema composition remains ambiguous when
-both a visible ordinary type and a visible schema use the same spelling because
-that position admits both namespaces. Namespace selection is therefore fixed
-by the syntactic role, while same-namespace duplicates remain errors and
-unrelated namespaces may share a spelling.
+the schema namespace. Effect lists and `perform Effect::operation(...)` forms
+select effect and operation namespaces. A handler application in a short
+`handle Body with handler(...)` expression or any terminated handler-list entry
+selects the handler namespace. Ordinary value calls do not select schema,
+effect, handler, or operation declarations. Schema composition remains
+ambiguous when both a visible ordinary type and a visible schema use the same
+spelling because that position admits both namespaces. Namespace selection is
+therefore fixed by the syntactic role, while same-namespace duplicates remain
+errors and unrelated namespaces may share a spelling.
 
 An ordinary function type parameter enters the type namespace only for its
 owning declaration. Its unqualified name resolves in that function's parameter
@@ -769,10 +770,13 @@ A wildcard let target, `_`, evaluates its expression without declaring a local
 name. It can be annotated for type checking, but it is never a resolvable
 binding.
 
-Each `begin` body introduces a nested lexical scope. Bindings declared in that
-body stop at its closing `end`. Each `defer` block has its own nested lexical
-scope, and bindings declared inside it stop at the block's closing `end`. The
-block sees only bindings visible at the `defer` statement, so a later binding
+Each `begin` body and each handled block introduces a nested lexical scope.
+Bindings declared in that body stop at its closing `end`. A handled block sees
+the bindings that are visible at its `handle` header. Its local bindings are
+not visible to handler arguments or after the handler expression. Each
+`defer` block has its own nested lexical scope, and bindings declared inside it
+stop at the block's closing `end`. A `defer` block sees only bindings visible
+at the `defer` statement, so a later binding
 remains unresolved inside the block. When the block references a visible
 binding, it captures that binding identity. A later `let` may shadow the
 captured binding. References in the deferred block keep the captured identity,

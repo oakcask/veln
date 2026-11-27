@@ -244,11 +244,13 @@ define declaration selection and shadowing for these calls.
 A `begin` expression checks its body in a nested lexical type environment. Its
 final expression supplies the `begin` type and receives the enclosing expected
 type. A body with no final expression has type `()`. Bindings declared inside
-the body do not escape it. Local annotations in nested `begin` and `defer`
-bodies, including a `begin` used as a handler operation clause, receive the
-same type-name and schema-boundary checks as local annotations in a function
-body. A schema declaration is not an ordinary type, and schema-only primitive
-spellings remain invalid in these annotations.
+the body do not escape it. A terminated handled block uses the same body typing
+and expected-type flow. Its bindings do not enter handler arguments and do not
+escape the handler expression. Local annotations in nested `begin`, handled
+block, and `defer` bodies, including a `begin` used as a handler operation
+clause, receive the same type-name and schema-boundary checks as local
+annotations in a function body. A schema declaration is not an ordinary type,
+and schema-only primitive spellings remain invalid in these annotations.
 
 A deferred block must have type `()`. Postfix `?` inside the block reports
 `defer.propagation`; a non-unit block reports `defer.non_unit`; and another
