@@ -15,11 +15,7 @@ migration.
 
 This proposal now covers only the remaining migration forms and
 ordered-contract cases that are not yet accepted by focused executable
-evidence. The accepted source forms, direct list formatting, comment-free
-short-chain migration for single-line and eligible multiline chains, the
-mixed-chain migration in both nesting directions, the complete-chain boundary,
-successful ordered context evaluation, inner shadowing, and body-result
-preservation are current behavior rather than future work.
+evidence.
 
 ## Automatic migration
 
@@ -73,14 +69,6 @@ These checks must use scoped Veln fake handlers where deterministic effects
 are required. Production handlers continue to use real host effects.
 
 ## Acceptance evidence
-
-Current formatter tests pin the complete-chain boundary for postfix, branch,
-`begin`, handled-block, multiline-body, and comment inputs. They also pin
-independent migration beyond statement and `defer` boundaries. An adjacent
-mixed-chain case verifies that formatting a preceding eligible chain does not
-consume the following chain header's comment. A sibling-argument case verifies
-the same ownership when both chains are inside one call. These cases require a
-byte-identical second formatting pass.
 
 Implementation is complete when checked formatter cases cover migration of the
 remaining single-entry, multiline-expression, block, and comment-preserving
