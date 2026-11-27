@@ -51,6 +51,87 @@ fn assert_lowered_module_value(
 }
 
 #[test]
+fn module_initializers_do_not_fold_closed_expressions() {
+    let module = lower_source("fn main() -> ()\n  ()\nend\n");
+    let surface = main_function(&module);
+    let anchor = expr_line(&surface.body[0]);
+    let negative = || {
+        core_expr(
+            anchor,
+            CoreType::int(),
+            CoreExprKind::Prefix {
+                op: PrefixOp::Negate,
+                expr: Box::new(core_expr(
+                    anchor,
+                    CoreType::int(),
+                    CoreExprKind::IntLiteral("3".to_string()),
+                )),
+            },
+        )
+    };
+    let record_type = CoreType::Record(vec![("value".to_string(), CoreType::int())]);
+    let mut program = complete_program(Vec::new());
+    program.module_values.extend([
+        CoreModuleValueDecl {
+            node_id: surface.node_id,
+            identity: CoreModuleValueIdentity {
+                package: None,
+                module: Some("main".to_string()),
+                name: "negative".to_string(),
+            },
+            annotation: "Int".to_string(),
+            ty: CoreType::int(),
+            visibility: Visibility::Private,
+            initializer: negative(),
+            span: surface.span.clone(),
+        },
+        CoreModuleValueDecl {
+            node_id: surface.node_id,
+            identity: CoreModuleValueIdentity {
+                package: None,
+                module: Some("main".to_string()),
+                name: "nested".to_string(),
+            },
+            annotation: "{value: Int}".to_string(),
+            ty: record_type.clone(),
+            visibility: Visibility::Private,
+            initializer: core_expr(
+                anchor,
+                record_type,
+                CoreExprKind::Record(vec![CoreRecordField {
+                    node_id: anchor.node_id,
+                    name: "value".to_string(),
+                    expr: negative(),
+                    span: anchor.span.clone(),
+                }]),
+            ),
+            span: surface.span.clone(),
+        },
+    ]);
+
+    let ir = lower_checked_core(&program).expect("module initializers should lower");
+    assert!(matches!(
+        ir.module_values[0].initializer.kind,
+        IrExprKind::Prefix {
+            op: PrefixOp::Negate,
+            ref expr,
+        } if matches!(expr.kind, IrExprKind::IntLiteral(ref value) if value == "3")
+    ));
+    assert!(matches!(
+        ir.module_values[1].initializer.kind,
+        IrExprKind::Record(ref fields)
+            if matches!(fields.as_slice(), [field]
+                if matches!(field.value.kind, IrExprKind::Prefix {
+                    op: PrefixOp::Negate,
+                    ref expr,
+                } if matches!(expr.kind, IrExprKind::IntLiteral(ref value) if value == "3")))
+    ));
+
+    let function_body = lower_expr(&negative()).expect("function body expression should lower");
+    assert_eq!(function_body.kind, IrExprKind::IntConstant(-3));
+}
+
+#[test]
 fn lower_callback_boundary_preserves_runtime_target_and_callsite() {
     let module = lower_source(concat!("fn main() -> ()\n", "  ()\n", "end\n",));
     let callsite = expr_line(&main_function(&module).body[0]);
@@ -86,8 +167,12 @@ fn assert_callback_target_lowering(
         target: core_target,
         callsite: Box::new(core_expr(callsite, CoreType::unit(), CoreExprKind::Unit)),
     };
-    let lowered =
-        lower_call_target(callsite.node_id, &target).expect("callback boundary should lower");
+    let lowered = lower_call_target(
+        callsite.node_id,
+        &target,
+        ExpressionLowering::ExecutableBody,
+    )
+    .expect("callback boundary should lower");
     let IrCallTarget::CallbackBoundary {
         target,
         callsite: lowered_callsite,

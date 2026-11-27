@@ -17,6 +17,18 @@ mod constant_folding;
 
 use constant_folding::fold_expression_kind;
 
+#[derive(Clone, Copy)]
+enum ExpressionLowering {
+    ExecutableBody,
+    ModuleInitializer,
+}
+
+impl ExpressionLowering {
+    fn folds_closed_scalars(self) -> bool {
+        matches!(self, Self::ExecutableBody)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum IrLowerError {
     Blocked(CoreBlocker),
@@ -60,7 +72,7 @@ pub fn lower_checked_core(program: &CheckedProgram) -> Result<TypedProgram, IrLo
                     annotation: declaration.annotation.clone(),
                     ty: declaration.ty.clone(),
                     visibility: declaration.visibility,
-                    initializer: lower_expr(&declaration.initializer)?,
+                    initializer: lower_module_initializer(&declaration.initializer)?,
                     span: declaration.span.clone(),
                 })
             })
@@ -172,19 +184,23 @@ fn lower_function(function: &veln_core::CoreFunction) -> Result<IrFunction, IrLo
 }
 
 fn lower_stmt(stmt: &CoreStmt) -> Result<IrStmt, IrLowerError> {
+    lower_stmt_with(stmt, ExpressionLowering::ExecutableBody)
+}
+
+fn lower_stmt_with(stmt: &CoreStmt, lowering: ExpressionLowering) -> Result<IrStmt, IrLowerError> {
     Ok(IrStmt {
         node_id: stmt.node_id,
         kind: match &stmt.kind {
             CoreStmtKind::Let { name, ty, expr } => IrStmtKind::Let {
                 name: name.clone(),
                 ty: ty.clone(),
-                value: lower_expr(expr)?,
+                value: lower_expr_with(expr, lowering)?,
             },
             CoreStmtKind::Expr { expr } => IrStmtKind::Expr {
-                value: lower_expr(expr)?,
+                value: lower_expr_with(expr, lowering)?,
             },
             CoreStmtKind::Return { expr } => IrStmtKind::Return {
-                value: lower_expr(expr)?,
+                value: lower_expr_with(expr, lowering)?,
             },
             CoreStmtKind::Defer(block) => IrStmtKind::Defer(IrDeferredBlock {
                 captures: block
@@ -198,49 +214,65 @@ fn lower_stmt(stmt: &CoreStmt) -> Result<IrStmt, IrLowerError> {
                 body: block
                     .body
                     .iter()
-                    .map(lower_stmt)
+                    .map(|statement| lower_stmt_with(statement, lowering))
                     .collect::<Result<Vec<_>, _>>()?,
             }),
         },
     })
 }
 
+#[cfg(test)]
 fn lower_expr(expr: &CoreExpr) -> Result<IrExpr, IrLowerError> {
-    let kind = lower_expr_kind(expr)?;
+    lower_expr_with(expr, ExpressionLowering::ExecutableBody)
+}
+
+fn lower_module_initializer(expr: &CoreExpr) -> Result<IrExpr, IrLowerError> {
+    lower_expr_with(expr, ExpressionLowering::ModuleInitializer)
+}
+
+fn lower_expr_with(expr: &CoreExpr, lowering: ExpressionLowering) -> Result<IrExpr, IrLowerError> {
+    let kind = lower_expr_kind(expr, lowering)?;
     Ok(IrExpr {
         node_id: expr.node_id,
         ty: expr.ty.clone(),
         span: expr.span.clone(),
-        kind: fold_expression_kind(&expr.ty, kind),
+        kind: if lowering.folds_closed_scalars() {
+            fold_expression_kind(&expr.ty, kind)
+        } else {
+            kind
+        },
     })
 }
 
-fn lower_expr_kind(expr: &CoreExpr) -> Result<IrExprKind, IrLowerError> {
+fn lower_expr_kind(
+    expr: &CoreExpr,
+    lowering: ExpressionLowering,
+) -> Result<IrExprKind, IrLowerError> {
     if let Some(kind) = lower_blocked_expr(expr)? {
         return Ok(kind);
     }
     if let Some(kind) = lower_scalar_expr(expr) {
         return Ok(kind);
     }
-    if let Some(kind) = lower_wrapper_expr(expr)? {
+    if let Some(kind) = lower_wrapper_expr(expr, lowering)? {
         return Ok(kind);
     }
-    if let Some(kind) = lower_constructor_expr(expr)? {
+    if let Some(kind) = lower_constructor_expr(expr, lowering)? {
         return Ok(kind);
     }
-    if let Some(kind) = lower_invocation_expr(expr)? {
+    if let Some(kind) = lower_invocation_expr(expr, lowering)? {
         return Ok(kind);
     }
-    if let Some(kind) = lower_effect_expr(expr)? {
+    if let Some(kind) = lower_effect_expr(expr, lowering)? {
         return Ok(kind);
     }
-    if let Some(kind) = lower_access_expr(expr)? {
+    if let Some(kind) = lower_access_expr(expr, lowering)? {
         return Ok(kind);
     }
-    if let Some(kind) = lower_collection_expr(expr)? {
+    if let Some(kind) = lower_collection_expr(expr, lowering)? {
         return Ok(kind);
     }
-    lower_operator_expr(expr)
+    lower_operator_expr(expr, lowering)
 }
 
 fn lower_blocked_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
@@ -274,42 +306,58 @@ fn lower_scalar_expr(expr: &CoreExpr) -> Option<IrExprKind> {
     }
 }
 
-fn lower_wrapper_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+fn lower_wrapper_expr(
+    expr: &CoreExpr,
+    lowering: ExpressionLowering,
+) -> Result<Option<IrExprKind>, IrLowerError> {
     match &expr.kind {
-        CoreExprKind::ResultOk(value) => lower_unary_expr(value, IrExprKind::ResultOk).map(Some),
-        CoreExprKind::ResultErr(value) => lower_unary_expr(value, IrExprKind::ResultErr).map(Some),
-        CoreExprKind::OptionSome(value) => {
-            lower_unary_expr(value, IrExprKind::OptionSome).map(Some)
+        CoreExprKind::ResultOk(value) => {
+            lower_unary_expr(value, lowering, IrExprKind::ResultOk).map(Some)
         }
-        CoreExprKind::Try(value) => lower_unary_expr(value, IrExprKind::Try).map(Some),
+        CoreExprKind::ResultErr(value) => {
+            lower_unary_expr(value, lowering, IrExprKind::ResultErr).map(Some)
+        }
+        CoreExprKind::OptionSome(value) => {
+            lower_unary_expr(value, lowering, IrExprKind::OptionSome).map(Some)
+        }
+        CoreExprKind::Try(value) => lower_unary_expr(value, lowering, IrExprKind::Try).map(Some),
         _ => Ok(None),
     }
 }
 
-fn lower_constructor_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+fn lower_constructor_expr(
+    expr: &CoreExpr,
+    lowering: ExpressionLowering,
+) -> Result<Option<IrExprKind>, IrLowerError> {
     match &expr.kind {
         CoreExprKind::ListCons { head, tail } => Ok(Some(IrExprKind::ListCons {
-            head: Box::new(lower_expr(head)?),
-            tail: Box::new(lower_expr(tail)?),
+            head: Box::new(lower_expr_with(head, lowering)?),
+            tail: Box::new(lower_expr_with(tail, lowering)?),
         })),
         CoreExprKind::AdtVariant { name, payloads } => Ok(Some(IrExprKind::AdtVariant {
             name: name.clone(),
-            payloads: lower_exprs(payloads)?,
+            payloads: lower_exprs(payloads, lowering)?,
         })),
         _ => Ok(None),
     }
 }
 
-fn lower_invocation_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+fn lower_invocation_expr(
+    expr: &CoreExpr,
+    lowering: ExpressionLowering,
+) -> Result<Option<IrExprKind>, IrLowerError> {
     match &expr.kind {
         CoreExprKind::Call { target, args } => {
-            lower_call_expr(expr.node_id, target, args).map(Some)
+            lower_call_expr(expr.node_id, target, args, lowering).map(Some)
         }
         _ => Ok(None),
     }
 }
 
-fn lower_effect_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+fn lower_effect_expr(
+    expr: &CoreExpr,
+    lowering: ExpressionLowering,
+) -> Result<Option<IrExprKind>, IrLowerError> {
     match &expr.kind {
         CoreExprKind::Perform {
             effect,
@@ -318,7 +366,7 @@ fn lower_effect_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError
         } => Ok(Some(IrExprKind::Perform {
             effect: effect.clone(),
             operation: operation.clone(),
-            args: lower_exprs(args)?,
+            args: lower_exprs(args, lowering)?,
         })),
         CoreExprKind::Handle { entries, body } => Ok(Some(IrExprKind::Handle {
             entries: entries
@@ -334,37 +382,45 @@ fn lower_effect_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError
                                 function: provider.function.clone(),
                             })
                             .collect(),
-                        context_args: lower_exprs(&entry.context_args)?,
+                        context_args: lower_exprs(&entry.context_args, lowering)?,
                     })
                 })
                 .collect::<Result<Vec<_>, IrLowerError>>()?,
-            body: Box::new(lower_expr(body)?),
+            body: Box::new(lower_expr_with(body, lowering)?),
         })),
         _ => Ok(None),
     }
 }
 
-fn lower_access_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+fn lower_access_expr(
+    expr: &CoreExpr,
+    lowering: ExpressionLowering,
+) -> Result<Option<IrExprKind>, IrLowerError> {
     match &expr.kind {
         CoreExprKind::FieldAccess { base, field } => Ok(Some(IrExprKind::FieldAccess {
-            base: Box::new(lower_expr(base)?),
+            base: Box::new(lower_expr_with(base, lowering)?),
             field: field.clone(),
         })),
         _ => Ok(None),
     }
 }
 
-fn lower_collection_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+fn lower_collection_expr(
+    expr: &CoreExpr,
+    lowering: ExpressionLowering,
+) -> Result<Option<IrExprKind>, IrLowerError> {
     match &expr.kind {
-        CoreExprKind::Record(fields) => lower_record_expr(fields).map(Some),
-        CoreExprKind::Dict(entries) => lower_dict_expr(entries).map(Some),
-        CoreExprKind::List(items) => Ok(Some(IrExprKind::List(lower_exprs(items)?))),
-        CoreExprKind::Match { scrutinee, arms } => lower_match_expr(scrutinee, arms).map(Some),
+        CoreExprKind::Record(fields) => lower_record_expr(fields, lowering).map(Some),
+        CoreExprKind::Dict(entries) => lower_dict_expr(entries, lowering).map(Some),
+        CoreExprKind::List(items) => Ok(Some(IrExprKind::List(lower_exprs(items, lowering)?))),
+        CoreExprKind::Match { scrutinee, arms } => {
+            lower_match_expr(scrutinee, arms, lowering).map(Some)
+        }
         CoreExprKind::CleanupRegion { region } => Ok(Some(IrExprKind::CleanupRegion {
             region: IrCleanupRegion::new(
                 region
                     .iter()
-                    .map(lower_stmt)
+                    .map(|statement| lower_stmt_with(statement, lowering))
                     .collect::<Result<Vec<_>, _>>()?,
             ),
         })),
@@ -372,16 +428,19 @@ fn lower_collection_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerE
     }
 }
 
-fn lower_operator_expr(expr: &CoreExpr) -> Result<IrExprKind, IrLowerError> {
+fn lower_operator_expr(
+    expr: &CoreExpr,
+    lowering: ExpressionLowering,
+) -> Result<IrExprKind, IrLowerError> {
     match &expr.kind {
         CoreExprKind::Prefix { op, expr } => Ok(IrExprKind::Prefix {
             op: *op,
-            expr: Box::new(lower_expr(expr)?),
+            expr: Box::new(lower_expr_with(expr, lowering)?),
         }),
         CoreExprKind::Binary { op, left, right } => Ok(IrExprKind::Binary {
             op: *op,
-            left: Box::new(lower_expr(left)?),
-            right: Box::new(lower_expr(right)?),
+            left: Box::new(lower_expr_with(left, lowering)?),
+            right: Box::new(lower_expr_with(right, lowering)?),
         }),
         _ => unreachable!("core expression variant should be handled before operator lowering"),
     }
@@ -389,27 +448,38 @@ fn lower_operator_expr(expr: &CoreExpr) -> Result<IrExprKind, IrLowerError> {
 
 fn lower_unary_expr(
     expr: &CoreExpr,
+    lowering: ExpressionLowering,
     build: impl FnOnce(Box<IrExpr>) -> IrExprKind,
 ) -> Result<IrExprKind, IrLowerError> {
-    Ok(build(Box::new(lower_expr(expr)?)))
+    Ok(build(Box::new(lower_expr_with(expr, lowering)?)))
 }
 
 fn lower_call_expr(
     node_id: NodeId,
     target: &veln_core::CoreCallTarget,
     args: &[CoreExpr],
+    lowering: ExpressionLowering,
 ) -> Result<IrExprKind, IrLowerError> {
     Ok(IrExprKind::Call {
-        target: lower_call_target(node_id, target)?,
-        args: lower_exprs(args)?,
+        target: lower_call_target(node_id, target, lowering)?,
+        args: lower_exprs(args, lowering)?,
     })
 }
 
-fn lower_exprs(exprs: &[CoreExpr]) -> Result<Vec<IrExpr>, IrLowerError> {
-    exprs.iter().map(lower_expr).collect()
+fn lower_exprs(
+    exprs: &[CoreExpr],
+    lowering: ExpressionLowering,
+) -> Result<Vec<IrExpr>, IrLowerError> {
+    exprs
+        .iter()
+        .map(|expr| lower_expr_with(expr, lowering))
+        .collect()
 }
 
-fn lower_record_expr(fields: &[veln_core::CoreRecordField]) -> Result<IrExprKind, IrLowerError> {
+fn lower_record_expr(
+    fields: &[veln_core::CoreRecordField],
+    lowering: ExpressionLowering,
+) -> Result<IrExprKind, IrLowerError> {
     Ok(IrExprKind::Record(
         fields
             .iter()
@@ -417,22 +487,25 @@ fn lower_record_expr(fields: &[veln_core::CoreRecordField]) -> Result<IrExprKind
                 Ok(IrRecordField {
                     node_id: field.node_id,
                     name: field.name.clone(),
-                    value: lower_expr(&field.expr)?,
+                    value: lower_expr_with(&field.expr, lowering)?,
                 })
             })
             .collect::<Result<Vec<_>, IrLowerError>>()?,
     ))
 }
 
-fn lower_dict_expr(entries: &[veln_core::CoreDictEntry]) -> Result<IrExprKind, IrLowerError> {
+fn lower_dict_expr(
+    entries: &[veln_core::CoreDictEntry],
+    lowering: ExpressionLowering,
+) -> Result<IrExprKind, IrLowerError> {
     Ok(IrExprKind::Dict(
         entries
             .iter()
             .map(|entry| {
                 Ok(IrDictEntry {
                     node_id: entry.node_id,
-                    key: lower_expr(&entry.key)?,
-                    value: lower_expr(&entry.value)?,
+                    key: lower_expr_with(&entry.key, lowering)?,
+                    value: lower_expr_with(&entry.value, lowering)?,
                 })
             })
             .collect::<Result<Vec<_>, IrLowerError>>()?,
@@ -442,16 +515,17 @@ fn lower_dict_expr(entries: &[veln_core::CoreDictEntry]) -> Result<IrExprKind, I
 fn lower_match_expr(
     scrutinee: &CoreExpr,
     arms: &[veln_core::CoreMatchArm],
+    lowering: ExpressionLowering,
 ) -> Result<IrExprKind, IrLowerError> {
     Ok(IrExprKind::Match {
-        scrutinee: Box::new(lower_expr(scrutinee)?),
+        scrutinee: Box::new(lower_expr_with(scrutinee, lowering)?),
         arms: arms
             .iter()
             .map(|arm| {
                 Ok(IrMatchArm {
                     node_id: arm.node_id,
                     pattern: lower_pattern(&arm.pattern),
-                    value: lower_expr(&arm.expr)?,
+                    value: lower_expr_with(&arm.expr, lowering)?,
                 })
             })
             .collect::<Result<Vec<_>, IrLowerError>>()?,
@@ -496,6 +570,7 @@ fn lower_pattern(pattern: &veln_core::CorePattern) -> IrPattern {
 fn lower_call_target(
     node_id: NodeId,
     target: &CoreCallTarget,
+    lowering: ExpressionLowering,
 ) -> Result<IrCallTarget, IrLowerError> {
     if let Some(target) = lower_schema_call_target(target) {
         return Ok(target);
@@ -503,7 +578,7 @@ fn lower_call_target(
     if let Some(target) = lower_named_call_target(target) {
         return Ok(target);
     }
-    lower_contextual_call_target(node_id, target)
+    lower_contextual_call_target(node_id, target, lowering)
 }
 
 fn lower_schema_call_target(target: &CoreCallTarget) -> Option<IrCallTarget> {
@@ -548,17 +623,18 @@ fn lower_named_call_target(target: &CoreCallTarget) -> Option<IrCallTarget> {
 fn lower_contextual_call_target(
     node_id: NodeId,
     target: &CoreCallTarget,
+    lowering: ExpressionLowering,
 ) -> Result<IrCallTarget, IrLowerError> {
     match target {
         CoreCallTarget::CallbackBoundary { target, callsite } => {
             Ok(IrCallTarget::CallbackBoundary {
                 target: lower_callback_target(target),
-                callsite: lower_callsite_expr(callsite)?,
+                callsite: lower_callsite_expr(callsite, lowering)?,
             })
         }
         CoreCallTarget::CallsiteValue { name, callsite } => Ok(IrCallTarget::CallsiteValue {
             name: name.clone(),
-            callsite: lower_callsite_expr(callsite)?,
+            callsite: lower_callsite_expr(callsite, lowering)?,
         }),
         CoreCallTarget::Value(symbol) => Err(IrLowerError::ValueCallMissingCallsite {
             node_id,
@@ -585,8 +661,11 @@ fn lower_callback_target(target: &CoreCallbackTarget) -> IrCallbackTarget {
     }
 }
 
-fn lower_callsite_expr(callsite: &CoreExpr) -> Result<Box<IrExpr>, IrLowerError> {
-    Ok(Box::new(lower_expr(callsite)?))
+fn lower_callsite_expr(
+    callsite: &CoreExpr,
+    lowering: ExpressionLowering,
+) -> Result<Box<IrExpr>, IrLowerError> {
+    Ok(Box::new(lower_expr_with(callsite, lowering)?))
 }
 
 #[cfg(test)]

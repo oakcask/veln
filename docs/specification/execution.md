@@ -282,13 +282,16 @@ constructor or call arity failures, and recognized concurrency blockers
 prevent execution.
 
 Typed-IR lowering replaces each successfully evaluated closed `Int` or `Bool`
-operator subtree with one scalar constant before JVM emission. A method whose
-result is entirely closed loads that constant without calling runtime operator
-helpers. A dynamic parent remains executable and evaluates its operands once
-from left to right; folding does not short-circuit Boolean operands, remove
-calls, or change cleanup and failure ordering. The backend materializes folded
-integers directly across the full signed 64-bit range rather than admitting
-them again as source literals. Focused IR and emitted-method evidence is in
+operator subtree in a function or test body with one scalar constant before
+JVM emission. An executable function method whose result is entirely closed
+loads that constant without calling runtime operator helpers. Module immutable
+value initializer methods retain their operator execution. A dynamic parent
+remains executable and evaluates its operands once from left to right; folding
+does not short-circuit Boolean operands, remove calls, or change cleanup and
+failure ordering. Folded integer results follow the
+[executable integer rules](types.md#executable-integer-evaluation). The backend
+materializes them directly across the full signed 64-bit range rather than
+admitting them again as source literals. Focused IR and emitted-method evidence is in
 [`expression_variants.rs`](../../crates/veln-ir/src/lowering/expression_variants.rs)
 and
 [`constant_folding.rs`](../../crates/veln-backend-jvm/src/tests/constant_folding.rs).

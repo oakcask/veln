@@ -277,6 +277,11 @@ fn lower_prefix_folds_closed_typed_scalars() {
         )),
     })
     .expect("boolean not should lower");
+    let minimum_negated = lower_fixture_expr(CoreType::int(), |anchor| CoreExprKind::Prefix {
+        op: PrefixOp::Negate,
+        expr: Box::new(closed_int_binary(anchor, BinaryOp::Add, i64::MAX, 1)),
+    })
+    .expect("minimum integer negation should lower");
 
     assert_eq!(negated.ty, CoreType::int());
     assert_eq!(negated.kind, IrExprKind::IntConstant(-1));
@@ -284,6 +289,7 @@ fn lower_prefix_folds_closed_typed_scalars() {
     assert_eq!(inverted.kind, IrExprKind::IntConstant(-1));
     assert_eq!(checked.ty, CoreType::bool());
     assert_eq!(checked.kind, IrExprKind::BoolLiteral(true));
+    assert_eq!(minimum_negated.kind, IrExprKind::IntConstant(i64::MIN));
 }
 
 #[test]
@@ -311,13 +317,18 @@ fn lower_binary_folds_closed_typed_scalars() {
 fn folding_covers_fixed_width_integer_operator_results() {
     for (op, left, right, expected) in [
         (BinaryOp::Add, 7, 9, 16),
+        (BinaryOp::Add, i64::MAX, 1, i64::MIN),
         (BinaryOp::Subtract, 7, 9, -2),
+        (BinaryOp::Subtract, -9_223_372_036_854_775_807, 2, i64::MAX),
         (BinaryOp::Multiply, i64::MAX, 2, -2),
         (BinaryOp::Divide, -7, 3, -2),
         (BinaryOp::Remainder, -7, 3, -1),
+        (BinaryOp::Remainder, 7, -3, 1),
         (BinaryOp::BitwiseAnd, 0b1100, 0b1010, 0b1000),
+        (BinaryOp::BitwiseAnd, -1, 1_i64 << 62, 1_i64 << 62),
         (BinaryOp::BitwiseXor, 0b1100, 0b1010, 0b0110),
         (BinaryOp::BitwiseOr, 0b1100, 0b1010, 0b1110),
+        (BinaryOp::ShiftLeft, -1, 0, -1),
         (BinaryOp::ShiftLeft, 1, 63, i64::MIN),
         (BinaryOp::ShiftRight, -8, 2, -2),
         (BinaryOp::ShiftRightLogical, -1, 63, 1),
@@ -493,10 +504,12 @@ fn folding_visit_work_is_linear() {
         .expect("small tree should lower");
     assert_eq!(small.kind, IrExprKind::IntConstant(64));
     let small_visits = super::constant_folding::take_visits();
+    assert_eq!(small_visits, 127);
     let large = lower_fixture_expr(CoreType::int(), |anchor| balanced_add_tree(anchor, 7).kind)
         .expect("large tree should lower");
     assert_eq!(large.kind, IrExprKind::IntConstant(128));
     let large_visits = super::constant_folding::take_visits();
+    assert_eq!(large_visits, 255);
     assert_eq!(large_visits, small_visits * 2 + 1);
 }
 
@@ -505,7 +518,7 @@ fn deep_trees_use_the_existing_lowering_walk() {
     let deep = lower_fixture_expr(CoreType::int(), |anchor| deep_add_chain(anchor, 128).kind)
         .expect("deep tree should lower on the existing expression walk");
     assert_eq!(deep.kind, IrExprKind::IntConstant(128));
-    super::constant_folding::take_visits();
+    assert_eq!(super::constant_folding::take_visits(), 257);
 }
 
 #[test]

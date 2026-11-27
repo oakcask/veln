@@ -149,6 +149,66 @@ fn dynamic_parent_retains_only_its_runtime_operator_helper() {
 }
 
 #[test]
+fn module_initializer_retains_operator_while_function_body_folds() {
+    if Command::new("javap").arg("-version").output().is_err() {
+        return;
+    }
+    let ir = lower_to_ir(concat!(
+        "let stored: Int = -3\n",
+        "pub fn main() -> Int\n",
+        "  -3\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let module_part = program
+        .classes
+        .iter()
+        .find(|class| class.path.contains("$ModuleValues0$Value0Part"))
+        .expect("module initializer part class");
+    let module_part_name = module_part
+        .path
+        .strip_suffix(".class")
+        .expect("class path suffix");
+    let root = temp_dir("constant-folding-module-boundary-javap");
+    write_jvm_program(&root, &program);
+
+    let module_output = Command::new("javap")
+        .arg("-c")
+        .arg("-p")
+        .arg("-classpath")
+        .arg(&root)
+        .arg(module_part_name)
+        .output()
+        .expect("javap should inspect the module initializer part");
+    let function_output = Command::new("javap")
+        .arg("-c")
+        .arg("-p")
+        .arg("-classpath")
+        .arg(&root)
+        .arg("VelnProgram")
+        .output()
+        .expect("javap should inspect function methods");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(module_output.status.success());
+    assert!(function_output.status.success());
+    let module_instructions = String::from_utf8_lossy(&module_output.stdout);
+    assert!(
+        module_instructions.contains("VelnRuntime.moduleValueNegate"),
+        "{module_instructions}"
+    );
+    let function_instructions = String::from_utf8_lossy(&function_output.stdout);
+    assert!(
+        function_instructions.contains("long -3l"),
+        "{function_instructions}"
+    );
+    assert!(
+        !function_instructions.contains("VelnRuntime.negate"),
+        "{function_instructions}"
+    );
+}
+
+#[test]
 fn excluded_float_and_mixed_equality_operations_retain_runtime_helpers() {
     if Command::new("javap").arg("-version").output().is_err() {
         return;
@@ -216,7 +276,53 @@ fn computed_zero_remainder_preserves_output_cleanup_and_source_context() {
 }
 
 #[test]
-fn dynamic_operands_are_not_removed_or_duplicated() {
+fn dynamic_operands_execute_exactly_once_on_success() {
+    for (name, expression) in [
+        ("multiply", "0 * observe_int()"),
+        ("and", "false and observe_bool()"),
+        ("or", "true or observe_bool()"),
+    ] {
+        let source = format!(
+            concat!(
+                "fn observe_int() -> Int effects [stdio]\n",
+                "  stdio::println(\"called\")\n",
+                "  7\n",
+                "end\n",
+                "fn observe_bool() -> Bool effects [stdio]\n",
+                "  stdio::println(\"called\")\n",
+                "  true\n",
+                "end\n",
+                "pub fn main() -> () effects [stdio]\n",
+                "  let _ = {}\n",
+                "  stdio::println(\"done\")\n",
+                "end\n",
+            ),
+            expression
+        );
+        let ir = lower_to_ir(&source);
+        let program = generate_classfiles_with_entry(&ir, "main");
+        let Some(output) = run_jvm_program_when_java_is_available(
+            &format!("constant-folding-dynamic-once-{name}"),
+            &program,
+            &[],
+        ) else {
+            return;
+        };
+        assert!(
+            output.status.success(),
+            "{name}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            "called\ndone\n",
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn dynamic_operand_failures_preserve_call_and_failure_ordering() {
     for (name, expression) in [
         ("multiply", "0 * fail_int()"),
         ("and", "false and fail_bool()"),
