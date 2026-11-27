@@ -672,8 +672,10 @@ a missing closing `end`. Recovery leaves an enclosing declaration's `end` and
 the following top-level item available to their owners. `handle::member()`
 remains a qualified call path rather than a handler expression. The contextual
 name `handler` remains available as a bare or qualified handler application in
-a terminated list; a following handler declaration remains a top-level
-recovery boundary.
+a terminated list. An unclosed handler-argument delimiter does not take
+ownership of the terminated list's `end` or the enclosing declaration's `end`;
+recovery also stops before a following top-level declaration. A following
+handler declaration remains a top-level recovery boundary.
 
 The syntax tree distinguishes an expression body from a block body, retains
 whether the form is terminated, and preserves the ordered entries, each
