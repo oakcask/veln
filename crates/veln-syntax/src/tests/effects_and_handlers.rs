@@ -457,16 +457,6 @@ fn formatter_keeps_ineligible_nested_short_handler_chains_nested() {
         ),
         (
             concat!(
-                "fn multiline_complete_chain() -> Int\n",
-                "  handle (\n",
-                "    handle (handle value() with inner()) with middle()\n",
-                "  ) with outer()\n",
-                "end\n",
-            ),
-            "handle handle handle value() with inner() with middle() with outer()",
-        ),
-        (
-            concat!(
                 "fn mixed() -> Int\n",
                 "  handle (handle (handle value() with\n",
                 "    listed()\n",
@@ -503,6 +493,42 @@ fn formatter_keeps_ineligible_nested_short_handler_chains_nested() {
         let formatted = format_tree(&output.tree);
         assert!(formatted.contains(retained), "{formatted}");
     }
+}
+
+#[test]
+fn formatter_stabilizes_multiline_nested_short_handler_chains() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn multiline_complete_chain() -> Int\n",
+            "  handle (\n",
+            "    handle (handle value() with inner()) with middle()\n",
+            "  ) with outer()\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn multiline_complete_chain() -> Int\n",
+            "\thandle (\n",
+            "\t\thandle handle value() with inner() with middle()\n",
+            "\t) with outer()\n",
+            "end\n",
+        )
+    );
+
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
 }
 
 #[test]
