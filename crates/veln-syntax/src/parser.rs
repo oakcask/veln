@@ -574,6 +574,45 @@ trait TokenCursor {
         self.cursor_index() >= self.token_slice().len()
     }
 
+    fn skip_cleanup_region(&mut self, fallback: TextRange) -> TextRange {
+        let mut depth = 1usize;
+        let mut end = fallback;
+        let mut previous_kind = None;
+        let mut at_line_start = true;
+        let mut delimiter_depth = 0usize;
+        while !self.is_at_end() && (!self.holds_at_eof() || !self.at(TokenKind::Eof)) {
+            let token = self.bump();
+            let kind = token.kind;
+            match kind {
+                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
+                    delimiter_depth += 1;
+                }
+                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                    delimiter_depth = delimiter_depth.saturating_sub(1);
+                }
+                TokenKind::Match | TokenKind::Begin => depth += 1,
+                TokenKind::Handle
+                    if at_line_start && delimiter_depth == 0 && self.at(TokenKind::Newline) =>
+                {
+                    depth += 1;
+                }
+                TokenKind::Defer if at_line_start && delimiter_depth == 0 => depth += 1,
+                TokenKind::If if previous_kind != Some(TokenKind::Else) => depth += 1,
+                TokenKind::End => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return token.range;
+                    }
+                }
+                _ => {}
+            }
+            at_line_start = kind == TokenKind::Newline;
+            previous_kind = Some(kind);
+            end = token.range;
+        }
+        end
+    }
+
     fn eat_newlines(&mut self) {
         while self.at(TokenKind::Newline) {
             self.bump();
