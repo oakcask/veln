@@ -20,6 +20,8 @@ material.
 
 - Documentation structure, metadata, presentation, and specification writing:
   [documentation-authoring.md](documentation-authoring.md).
+- Source-syntax expression and block forms, token boundaries, scopes, and
+  design-review evidence: [source-syntax-design.md](source-syntax-design.md).
 - Standard-library public API scope, cardinality, generic dependencies, outcomes,
   capabilities, progress, and canonical ownership:
   [standard-library-api-design.md](standard-library-api-design.md).

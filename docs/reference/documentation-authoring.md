@@ -216,6 +216,14 @@ produce the value or keep the work explicitly incomplete.
 
 ### Proposal Canonical Form
 
+For source-syntax design and review, follow the
+[Source Syntax Design Policy](source-syntax-design.md). Classify each changed
+form as a single expression, a block, or a supported pair; explain token
+boundaries, scope and cleanup behavior, and the evidence that will verify
+those choices. A block does not imply that a corresponding expression form
+must exist. Proposed syntax remains proposed until implementation evidence
+supports promotion to the current specification.
+
 A proposal that adds or changes language syntax must define its canonical
 source form and the intended `veln fmt` behavior in the proposal itself. This
 lets reviewers assess accepted syntax and the source users will maintain
