@@ -374,15 +374,12 @@ fn flattenable_short_handle_chain<'a>(
 
     let mut current = expr;
     let mut entries = Vec::new();
-    loop {
-        let ExprKind::Handle {
-            body: HandleBody::Expression(body),
-            entries: current_entries,
-            terminated: false,
-        } = &current.kind
-        else {
-            break;
-        };
+    while let ExprKind::Handle {
+        body: HandleBody::Expression(body),
+        entries: current_entries,
+        terminated: false,
+    } = &current.kind
+    {
         let [entry] = current_entries.as_slice() else {
             return None;
         };
