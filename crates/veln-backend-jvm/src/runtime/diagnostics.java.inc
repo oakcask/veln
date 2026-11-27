@@ -50,8 +50,8 @@
             System.err.println("  note: " + remainder.sourceFile + ":"
                 + remainder.operationStartLine + ":" + remainder.operationStartColumn
                 + ": Remainder operation is here.");
-        } else if (failure instanceof LocatedOperatorFailure) {
-            LocatedOperatorFailure operator = (LocatedOperatorFailure) failure;
+        } else if (locatedOperatorFailure(failure) != null) {
+            LocatedOperatorFailure operator = locatedOperatorFailure(failure);
             System.err.println(operator.sourceFile + ":" + operator.operandStartLine + ":"
                 + operator.operandStartColumn + ": error[" + operator.id + "]: "
                 + operator.getMessage());
@@ -66,6 +66,24 @@
             System.err.println("related cleanup failure: " + related.getMessage());
         }
         recordCleanupFailures(relatedFailures);
+    }
+
+    public static void printHostFailure(Throwable failure) {
+        if (failure instanceof LocatedDivisionFailure) {
+            printFailure(failure);
+        } else {
+            failure.printStackTrace();
+        }
+    }
+
+    private static LocatedOperatorFailure locatedOperatorFailure(Throwable failure) {
+        if (failure instanceof LocatedDivisionFailure) {
+            return ((LocatedDivisionFailure) failure).diagnostic;
+        }
+        if (failure instanceof LocatedOperatorFailure) {
+            return (LocatedOperatorFailure) failure;
+        }
+        return null;
     }
 
     private static void recordRuntimeFailure(Throwable failure) {
@@ -90,8 +108,8 @@
                 + "\t" + remainder.operationEndColumn
                 + "\t" + remainder.operationEndOffset
                 + System.lineSeparator();
-        } else if (failure instanceof LocatedOperatorFailure) {
-            LocatedOperatorFailure operator = (LocatedOperatorFailure) failure;
+        } else if (locatedOperatorFailure(failure) != null) {
+            LocatedOperatorFailure operator = locatedOperatorFailure(failure);
             line = "operator\t" + hex(operator.id)
                 + "\t" + hex(operator.getMessage())
                 + "\t" + hex(operator.operator)

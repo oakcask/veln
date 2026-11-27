@@ -413,6 +413,51 @@
         }
     }
 
+    private static final class LocatedDivisionFailure extends ArithmeticException {
+        private final LocatedOperatorFailure diagnostic;
+
+        private LocatedDivisionFailure(
+            String id,
+            String message,
+            String operator,
+            long actual,
+            String sourceFile,
+            int operandStartLine,
+            int operandStartColumn,
+            int operandStartOffset,
+            int operandEndLine,
+            int operandEndColumn,
+            int operandEndOffset,
+            int operationStartLine,
+            int operationStartColumn,
+            int operationStartOffset,
+            int operationEndLine,
+            int operationEndColumn,
+            int operationEndOffset
+        ) {
+            super("/ by zero");
+            this.diagnostic = new LocatedOperatorFailure(
+                id,
+                message,
+                operator,
+                actual,
+                sourceFile,
+                operandStartLine,
+                operandStartColumn,
+                operandStartOffset,
+                operandEndLine,
+                operandEndColumn,
+                operandEndOffset,
+                operationStartLine,
+                operationStartColumn,
+                operationStartOffset,
+                operationEndLine,
+                operationEndColumn,
+                operationEndOffset
+            );
+        }
+    }
+
     private static final class TransportFailure extends RuntimeFailure {
         private final String operation;
         private final String category;

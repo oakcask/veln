@@ -95,7 +95,7 @@
     ) {
         long divisor = asLong(right);
         if (divisor == 0L) {
-            throw new LocatedOperatorFailure(
+            throw new LocatedDivisionFailure(
                 "runtime.division_by_zero",
                 "division divisor is zero",
                 "/",

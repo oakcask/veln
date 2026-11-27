@@ -274,3 +274,36 @@ fn computed_division_and_shift_failures_retain_source_context() {
         assert!(stderr.contains("Operator `"), "{name}: {stderr}");
     }
 }
+
+#[test]
+fn computed_division_failure_retains_task_join_error_boundary() {
+    let ir = lower_to_ir(concat!(
+        "fn divide() -> Int\n",
+        "  7 / (1 - 1)\n",
+        "end\n",
+        "pub fn main() -> () effects [concurrency, stdio]\n",
+        "  let worker = task::spawn(divide)\n",
+        "  match task::join(worker)\n",
+        "    Ok(_) => stdio::println(\"unexpected success\")\n",
+        "    Err(_) => stdio::println(\"join error\")\n",
+        "  end\n",
+        "  stdio::println(\"after\")\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("constant-folding-division-task", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "join error\nafter\n"
+    );
+}

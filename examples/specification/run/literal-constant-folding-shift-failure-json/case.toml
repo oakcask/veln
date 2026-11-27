@@ -22,5 +22,25 @@ path = "error.related.0.kind"
 equals = "operation"
 
 [[json_assert]]
+path = "error.details.count_span.start.line"
+equals = 6
+
+[[json_assert]]
+path = "error.details.count_span.start.column"
+equals = 9
+
+[[json_assert]]
+path = "error.details.count_span.end.column"
+equals = 18
+
+[[json_assert]]
+path = "error.details.operation_span.start.column"
+equals = 2
+
+[[json_assert]]
+path = "error.details.operation_span.end.column"
+equals = 18
+
+[[json_assert]]
 path = "stdout"
 equals_file = "case-text/stdout.txt"

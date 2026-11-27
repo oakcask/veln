@@ -2496,6 +2496,9 @@ Float and mixed-type operations are not in this folding domain. The compiler
 does not propagate constants through bindings, apply algebraic identities,
 remove branches, or execute functions.
 
+Schema expressions and textual contract predicates do not use this executable
+folding pass. Their existing static reasoning remains independent.
+
 A division or remainder by a computed zero and a shift by a computed count
 outside `0..63` remain runtime operations. Their successful children can fold,
 but the failing operation retains its operand and operation spans. Literal
@@ -2503,6 +2506,8 @@ source errors are diagnosed before folding, and all source in either branch of
 a closed condition is still checked. The checked
 [`literal-constant-folding-source-checking`](../../examples/specification/check/literal-constant-folding-source-checking/)
 case exercises that source-checking boundary.
+
+### Schema predicate operators
 
 Schema field `where` predicates and schema-level `validate` predicates accept
 decoded `Int` and `Bool` references. A `Bool` reference can form the predicate
