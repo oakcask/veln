@@ -845,10 +845,27 @@ fn format_call_expr(
 }
 
 fn format_expr_args(args: &[Expr], indent: usize, comments: Option<&LineComments>) -> String {
-    args.iter()
-        .map(|arg| format_expr_at_indent_ctx(arg, indent, comments))
-        .collect::<Vec<_>>()
-        .join(", ")
+    // A later argument can start on the source line where the preceding argument ends.
+    // Let that later source subject claim its internal lines before joining in order. Keep the
+    // final line for the enclosing call because it can own a comment after the closing delimiter.
+    let mut formatted_args = args
+        .iter()
+        .rev()
+        .map(|arg| {
+            let formatted = format_expr_at_indent_ctx(arg, indent, comments);
+            match comments {
+                Some(comments) if formatted.contains('\n') => format_source_lines_through(
+                    comments,
+                    arg.span.start.line,
+                    span_end_line(&arg.span).saturating_sub(1),
+                    formatted,
+                ),
+                Some(_) | None => formatted,
+            }
+        })
+        .collect::<Vec<_>>();
+    formatted_args.reverse();
+    formatted_args.join(", ")
 }
 
 fn format_record_expr(

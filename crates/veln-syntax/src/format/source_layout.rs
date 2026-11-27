@@ -27,6 +27,22 @@ pub(super) fn push_source_lines_through(
 ) {
     comments.emit_before(source_line, out, indent);
     push_indent(out, indent);
+    out.push_str(&format_source_lines_through(
+        comments,
+        source_line,
+        through_line,
+        content,
+    ));
+    out.push('\n');
+}
+
+pub(super) fn format_source_lines_through(
+    comments: &LineComments,
+    source_line: usize,
+    through_line: usize,
+    content: String,
+) -> String {
+    let mut out = String::new();
     for (index, line) in content.split('\n').enumerate() {
         if index > 0 {
             out.push('\n');
@@ -34,10 +50,10 @@ pub(super) fn push_source_lines_through(
         out.push_str(line);
         let rendered_source_line = source_line.saturating_add(index);
         if rendered_source_line <= through_line {
-            comments.emit_after(rendered_source_line, out);
+            comments.emit_after(rendered_source_line, &mut out);
         }
     }
-    out.push('\n');
+    out
 }
 
 pub(super) fn span_end_line(span: &veln_source::SourceSpan) -> usize {
