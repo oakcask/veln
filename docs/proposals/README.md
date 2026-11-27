@@ -16,6 +16,10 @@ also states it.
 
 ## Ready
 
+- [Named ADT Variant Fields](named-variant-fields.md): distinguish named and
+  positional variants, add named construction and patterns, preserve evaluation
+  order through formatting and tooling, and complete stdlib adoption plus its
+  API design-guideline update before closing the proposal.
 - [Preserve Callback Results Through Tracing](tracing-result-polymorphism.md):
   generalize tracing wrappers after ordinary generic-function support; preserve
   callback values, typed errors, effects, and cleanup behavior.
