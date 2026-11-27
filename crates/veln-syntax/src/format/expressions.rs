@@ -95,9 +95,17 @@ fn take_continued_begin_comments(
                     }
                 }
             }
-            for entry in entries {
-                for arg in &entry.args {
-                    visit(arg, true);
+            if matches!(
+                expr.kind,
+                ExprKind::Handle {
+                    terminated: false,
+                    ..
+                }
+            ) {
+                for entry in entries {
+                    for arg in &entry.args {
+                        visit(arg, true);
+                    }
                 }
             }
         }
@@ -383,12 +391,23 @@ fn format_handle_expr(
         }
     }
     for (index, entry) in entries.iter().enumerate() {
+        let mut trailing_comments = Vec::new();
+        if let Some(comments) = comments {
+            for arg in &entry.args {
+                take_continued_begin_comments(arg, true, comments, &mut trailing_comments);
+            }
+            trailing_comments.extend(comments.take_after(entry.span.end.line));
+        }
         let mut line = entry.handler.join("::");
         line.push('(');
         line.push_str(&format_expr_args(&entry.args, indent + 1, comments));
         line.push(')');
         if index + 1 < entries.len() {
             line.push(',');
+        }
+        for comment in trailing_comments {
+            line.push_str("  ");
+            line.push_str(&comment);
         }
         if let Some(comments) = comments {
             push_source_line(&mut text, comments, entry.span.start.line, indent + 1, line);

@@ -437,6 +437,44 @@ fn parses_and_formats_terminated_multiple_handler_forms() {
 }
 
 #[test]
+fn terminated_handlers_accept_multiline_bodies_arguments_and_contextual_names() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn expression_body() -> Int\n",
+            "  handle identity(\n",
+            "    1\n",
+            "  ) with\n",
+            "    outer(\n",
+            "      first()\n",
+            "    )\n",
+            "  end\n",
+            "end\n\n",
+            "fn block_body(handler: Int) -> Int\n",
+            "  handle\n",
+            "    handler\n",
+            "  with\n",
+            "    outer()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(output.tree.items.len(), 2);
+
+    let formatted = format_tree(&output.tree);
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
 fn formats_terminated_handler_entries_with_comments_canonically() {
     let source = SourceFile::new(
         "main.veln",
@@ -479,6 +517,51 @@ fn formats_terminated_handler_entries_with_comments_canonically() {
 }
 
 #[test]
+fn preserves_trailing_comments_on_multiline_handler_entries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn commented() -> Int\n",
+            "  handle 1 with\n",
+            "    outer(begin\n",
+            "      1\n",
+            "    end), # outer entry\n",
+            "    inner(begin\n",
+            "      2\n",
+            "    end), # inner entry\n",
+            "  end # handler list\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn commented() -> Int\n",
+            "\thandle 1 with\n",
+            "\t\touter(begin\n",
+            "\t\t\t1\n",
+            "\t\tend),  # outer entry\n",
+            "\t\tinner(begin\n",
+            "\t\t\t2\n",
+            "\t\tend)  # inner entry\n",
+            "\tend  # handler list\n",
+            "end\n",
+        )
+    );
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
 fn terminated_handler_recovery_preserves_the_enclosing_function_end_and_next_item() {
     for invalid in [
         "handle value() with\nend",
@@ -504,6 +587,77 @@ fn terminated_handler_recovery_preserves_the_enclosing_function_end_and_next_ite
             panic!("expected following function for {invalid}");
         };
         assert_eq!(survivor.name.as_deref(), Some("survivor"), "{invalid}");
+    }
+}
+
+#[test]
+fn missing_handler_application_at_eof_reports_a_diagnostic_without_panicking() {
+    let source = SourceFile::new("main.veln", "fn broken() -> Int\n  handle 1 with");
+
+    let output = parse(&source);
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.handle_expression")
+    );
+}
+
+#[test]
+fn missing_handler_end_preserves_enclosing_control_flow_boundaries() {
+    for (control, unexpected_diagnostic) in [
+        (
+            concat!(
+                "if true\n",
+                "    handle 1 with\n",
+                "      outer()\n",
+                "  else\n",
+                "    2\n",
+                "  end",
+            ),
+            "parse.if_missing_else",
+        ),
+        (
+            concat!(
+                "match 0\n",
+                "    0 => handle 1 with\n",
+                "      outer()\n",
+                "    _ => 2\n",
+                "  end",
+            ),
+            "parse.match_arm",
+        ),
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("fn broken() -> Int\n  {control}\nend\n\nfn survivor() -> Int\n  1\nend\n"),
+        );
+        let output = parse(&source);
+        let diagnostic_ids = output
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id)
+            .collect::<Vec<_>>();
+
+        assert!(
+            diagnostic_ids.contains(&"parse.handle_missing_end"),
+            "{:#?}",
+            output.diagnostics
+        );
+        assert!(
+            !diagnostic_ids.contains(&unexpected_diagnostic),
+            "{:#?}",
+            output.diagnostics
+        );
+        assert!(matches!(
+            output.tree.items.as_slice(),
+            [SyntaxItem::Function(broken), SyntaxItem::Function(survivor)]
+                if broken.name.as_deref() == Some("broken")
+                    && broken.end_present
+                    && survivor.name.as_deref() == Some("survivor")
+                    && survivor.end_present
+        ));
     }
 }
 

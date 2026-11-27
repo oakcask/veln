@@ -332,7 +332,7 @@ impl<'a> ExprParser<'a> {
             .map_or_else(|| lhs_range(expr), |token| token.range)
     }
 
-    fn at_cleanup_region_boundary(&self) -> bool {
+    pub(super) fn at_cleanup_region_boundary(&self) -> bool {
         (self.at(TokenKind::Else) && self.control_blocks.contains(&TokenKind::If))
             || (self.control_blocks.contains(&TokenKind::Match)
                 && line_starts_match_arm(self.tokens, self.cursor))

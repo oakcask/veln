@@ -96,7 +96,7 @@ impl ExpressionLineCollector {
             && !(parser.at(TokenKind::Handler)
                 && matches!(
                     parser.tokens.get(parser.cursor + 1).map(|token| token.kind),
-                    Some(TokenKind::LParen | TokenKind::DoubleColon)
+                    Some(TokenKind::LParen | TokenKind::DoubleColon | TokenKind::Newline)
                 ))
     }
 
@@ -158,10 +158,12 @@ impl ExpressionLineCollector {
                 }
             }
             TokenKind::Newline => {
-                let block_depth = self.block_stack.len();
-                self.handle_candidates
-                    .retain(|(_, candidate_depth)| *candidate_depth < block_depth);
-                self.continued_handle_after_with = None;
+                if self.delimiter_depth == 0 {
+                    let block_depth = self.block_stack.len();
+                    self.handle_candidates
+                        .retain(|(_, candidate_depth)| *candidate_depth < block_depth);
+                    self.continued_handle_after_with = None;
+                }
             }
             TokenKind::Defer if !self.block_stack.is_empty() && self.at_line_start => {
                 self.block_stack.push(token_kind);

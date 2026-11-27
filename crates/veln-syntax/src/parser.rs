@@ -443,7 +443,10 @@ struct ExprParser<'a> {
 }
 
 fn is_cleanup_block(kind: TokenKind) -> bool {
-    matches!(kind, TokenKind::Begin | TokenKind::Defer)
+    matches!(
+        kind,
+        TokenKind::Begin | TokenKind::Defer | TokenKind::Handle
+    )
 }
 
 fn recover_cleanup_blocks_before_branch(blocks: &mut Vec<TokenKind>, owner: TokenKind) {

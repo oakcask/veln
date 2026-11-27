@@ -150,7 +150,11 @@ impl<'a> ExprParser<'a> {
         self.cleanup_depth += 1;
         let mut body = Vec::new();
         self.eat_newlines();
-        while !self.at(TokenKind::With) && !self.at(TokenKind::End) && !self.is_at_end() {
+        while !self.at(TokenKind::With)
+            && !self.at(TokenKind::End)
+            && !self.at_cleanup_region_boundary()
+            && !self.is_at_end()
+        {
             body.push(self.parse_cleanup_body_line());
             self.eat_newlines();
         }
@@ -182,7 +186,7 @@ impl<'a> ExprParser<'a> {
         let mut entries = Vec::new();
         let mut previous_had_comma = true;
         self.eat_newlines();
-        while !self.at(TokenKind::End) && !self.is_at_end() {
+        while !self.at(TokenKind::End) && !self.at_cleanup_region_boundary() && !self.is_at_end() {
             if !entries.is_empty() && !previous_had_comma {
                 self.error_current(
                     "parse.handle_entry",
@@ -249,7 +253,33 @@ impl<'a> ExprParser<'a> {
     }
 
     fn parse_handler_entry(&mut self) -> HandlerEntry {
-        let handler_start = self.current().range;
+        let Some(handler_token) = self.tokens.get(self.cursor).cloned() else {
+            let fallback = self
+                .previous()
+                .map_or_else(|| TextRange::new(0, 0), |token| token.range);
+            if let Some(token) = self.previous().cloned() {
+                self.error_at_token(
+                    &token,
+                    DiagnosticRequest {
+                        id: "parse.handle_expression",
+                        message: "handle expression is missing a handler application".to_string(),
+                        parser_context: "handle_expression",
+                        expected: vec!["handler application"],
+                        strategy: RecoveryStrategy::InsertToken,
+                        anchor: Some("with"),
+                        repair_candidates: Vec::new(),
+                    },
+                );
+            }
+            let span = self.source.span(fallback);
+            return HandlerEntry {
+                handler: Vec::new(),
+                handler_span: span.clone(),
+                args: Vec::new(),
+                span,
+            };
+        };
+        let handler_start = handler_token.range;
         let handler = self.parse_name_path_segments("handle_expression", "handler name");
         let handler_end = self.previous().map_or(handler_start, |token| token.range);
         let open = self.expect_expr_token(
@@ -283,9 +313,12 @@ impl<'a> ExprParser<'a> {
         missing_separator_message: &'static str,
     ) -> (Vec<Expr>, TextRange, bool) {
         let mut arguments = Vec::new();
+        self.eat_newlines();
         while !self.at(TokenKind::RParen) && !self.is_at_end() {
             arguments.push(self.parse_expr(0));
+            self.eat_newlines();
             if self.eat(TokenKind::Comma).is_some() {
+                self.eat_newlines();
                 continue;
             }
             if self.at(TokenKind::RParen) || self.is_at_end() {
