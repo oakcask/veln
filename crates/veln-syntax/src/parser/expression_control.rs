@@ -42,7 +42,7 @@ impl<'a> ExprParser<'a> {
         }
     }
 
-    fn parse_cleanup_body_line(&mut self) -> BodyLine {
+    pub(super) fn parse_cleanup_body_line(&mut self) -> BodyLine {
         let start = self.current().range;
         if self.at(TokenKind::Defer) {
             return self.parse_nested_defer();

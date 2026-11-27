@@ -9,6 +9,8 @@ struct ExpressionLineCollector {
     tokens: Vec<Token>,
     delimiter_depth: usize,
     block_stack: Vec<TokenKind>,
+    handle_candidates: Vec<(bool, usize)>,
+    continued_handle_after_with: Option<bool>,
     previous_kind: Option<TokenKind>,
     at_line_start: bool,
 }
@@ -57,18 +59,30 @@ impl ExpressionLineCollector {
             tokens: Vec::new(),
             delimiter_depth: 0,
             block_stack: Vec::new(),
+            handle_candidates: Vec::new(),
+            continued_handle_after_with: None,
             previous_kind: None,
             at_line_start: false,
         }
     }
 
     fn stops_before(&self, parser: &Parser<'_>) -> bool {
-        if self.delimiter_depth == 0 && self.block_stack.is_empty() && parser.at(TokenKind::Newline)
+        if self.delimiter_depth == 0
+            && self.block_stack.is_empty()
+            && parser.at(TokenKind::Newline)
+            && !matches!(
+                self.previous_kind,
+                Some(TokenKind::Handle | TokenKind::With)
+            )
         {
             return true;
         }
         parser.at(TokenKind::End)
-            && self.block_stack.iter().copied().any(is_cleanup_block)
+            && self
+                .block_stack
+                .iter()
+                .copied()
+                .any(|kind| is_cleanup_block(kind) || kind == TokenKind::Handle)
             && parser.end_closes_enclosing_declaration()
     }
 
@@ -83,7 +97,7 @@ impl ExpressionLineCollector {
         }
     }
 
-    fn push(&mut self, token: Token) {
+    fn push(&mut self, token: Token, next_kind: Option<TokenKind>) {
         self.end = token.range;
         let token_kind = token.kind;
         match token_kind {
@@ -94,6 +108,30 @@ impl ExpressionLineCollector {
                 self.delimiter_depth = self.delimiter_depth.saturating_sub(1);
             }
             TokenKind::Match | TokenKind::Begin => self.block_stack.push(token_kind),
+            TokenKind::Handle if next_kind != Some(TokenKind::DoubleColon) => {
+                self.handle_candidates.push((false, self.block_stack.len()));
+            }
+            TokenKind::With => {
+                self.continued_handle_after_with =
+                    self.handle_candidates.pop().map(|(started, _)| started);
+            }
+            TokenKind::Newline if self.previous_kind == Some(TokenKind::Handle) => {
+                if let Some((started, _)) = self.handle_candidates.last_mut() {
+                    *started = true;
+                }
+                self.block_stack.push(TokenKind::Handle);
+            }
+            TokenKind::Newline if self.previous_kind == Some(TokenKind::With) => {
+                if self.continued_handle_after_with.take() == Some(false) {
+                    self.block_stack.push(TokenKind::Handle);
+                }
+            }
+            TokenKind::Newline => {
+                let block_depth = self.block_stack.len();
+                self.handle_candidates
+                    .retain(|(_, candidate_depth)| *candidate_depth < block_depth);
+                self.continued_handle_after_with = None;
+            }
             TokenKind::Defer
                 if self.delimiter_depth == 0
                     && !self.block_stack.is_empty()
@@ -447,7 +485,8 @@ impl<'a> Parser<'a> {
                     "newline",
                 ));
             }
-            collector.push(token);
+            let next_kind = self.tokens.get(self.cursor).map(|token| token.kind);
+            collector.push(token, next_kind);
         }
         if self.at(TokenKind::Newline) {
             collector.end = self.bump().range;

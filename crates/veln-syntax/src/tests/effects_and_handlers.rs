@@ -280,9 +280,14 @@ fn parses_and_formats_lexical_handler_declarations_and_expressions() {
     };
     assert!(matches!(
         &expr.kind,
-        ExprKind::Handle { handler, args, body, .. }
-            if handler == &vec!["ask".to_string()]
-                && args.len() == 1
+        ExprKind::Handle {
+            body: HandleBody::Expression(body),
+            entries,
+            terminated: false,
+        }
+            if entries.len() == 1
+                && entries[0].handler == vec!["ask".to_string()]
+                && entries[0].args.len() == 1
                 && matches!(&body.kind, ExprKind::Perform { operation, .. } if operation == "value")
     ));
     let formatted = format_tree(&output.tree);
@@ -337,6 +342,171 @@ fn accepts_handles_in_ordinary_identifier_positions() {
     };
     assert_eq!(function.name.as_deref(), Some("handles"));
     assert_eq!(function.params[0].name, "handles");
+}
+
+#[test]
+fn parses_and_formats_terminated_multiple_handler_forms() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn expression_body() -> Int\n",
+            "  handle value() with\n",
+            "    outer(first()),\n",
+            "    inner(second()),\n",
+            "  end\n",
+            "end\n\n",
+            "fn block_body() -> Int\n",
+            "  handle\n",
+            "    let value = first()\n",
+            "    value\n",
+            "  with\n",
+            "    outer(),\n",
+            "    inner()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(expression) = &output.tree.items[0] else {
+        panic!("expected expression-body function");
+    };
+    let BodyLine::Expr { expr, .. } = &expression.body[0] else {
+        panic!("expected expression-body handle");
+    };
+    let ExprKind::Handle {
+        body: HandleBody::Expression(body),
+        entries,
+        terminated: true,
+    } = &expr.kind
+    else {
+        panic!("expected terminated expression handle");
+    };
+    assert!(matches!(body.kind, ExprKind::Call { .. }));
+    assert_eq!(entries.len(), 2);
+    assert_eq!(entries[0].handler, vec!["outer"]);
+    assert_eq!(entries[1].handler, vec!["inner"]);
+    assert_eq!(entries[0].args.len(), 1);
+    assert!(entries[0].span.start.offset < entries[0].args[0].span.start.offset);
+    assert!(entries[0].args[0].span.end.offset < entries[0].span.end.offset);
+
+    let SyntaxItem::Function(block) = &output.tree.items[1] else {
+        panic!("expected block-body function");
+    };
+    let BodyLine::Expr { expr, .. } = &block.body[0] else {
+        panic!("expected block-body handle");
+    };
+    assert!(matches!(
+        &expr.kind,
+        ExprKind::Handle {
+            body: HandleBody::Block { body, .. },
+            entries,
+            terminated: true,
+        } if body.len() == 2 && entries.len() == 2
+    ));
+
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn expression_body() -> Int\n",
+            "\thandle value() with\n",
+            "\t\touter(first()),\n",
+            "\t\tinner(second())\n",
+            "\tend\n",
+            "end\n\n",
+            "fn block_body() -> Int\n",
+            "\thandle\n",
+            "\t\tlet value = first()\n",
+            "\t\tvalue\n",
+            "\twith\n",
+            "\t\touter(),\n",
+            "\t\tinner()\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
+fn terminated_handler_recovery_preserves_the_enclosing_function_end_and_next_item() {
+    for invalid in [
+        "handle value() with\nend",
+        "handle value() with\n  outer()\n  inner()\nend",
+        "handle value() with\n  outer\nend",
+        "handle value() with outer(), inner()",
+        "handle value() with\n  outer()",
+        "handle\n  value()\nwith outer()\nend",
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("fn broken() -> Int\n  {invalid}\nend\n\nfn survivor() -> Int\n  1\nend\n"),
+        );
+        let output = parse(&source);
+        assert!(!output.diagnostics.is_empty(), "{invalid}");
+        assert_eq!(
+            output.tree.items.len(),
+            2,
+            "{invalid}: {:#?}",
+            output.diagnostics
+        );
+        let SyntaxItem::Function(survivor) = &output.tree.items[1] else {
+            panic!("expected following function for {invalid}");
+        };
+        assert_eq!(survivor.name.as_deref(), Some("survivor"), "{invalid}");
+    }
+}
+
+#[test]
+fn parses_terminated_handlers_inside_calls_and_records() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn embedded() -> { call: Int, field: Int }\n",
+            "  {\n",
+            "    call: consume(handle value() with\n",
+            "      outer()\n",
+            "    end),\n",
+            "    field: handle value() with\n",
+            "      outer(),\n",
+            "    end,\n",
+            "  }\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(function) = &output.tree.items[0] else {
+        panic!("expected function");
+    };
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected record expression");
+    };
+    let ExprKind::Record(fields) = &expr.kind else {
+        panic!("expected record");
+    };
+    assert_eq!(fields.len(), 2);
+    assert!(matches!(
+        fields[0].expr.kind,
+        ExprKind::Call { ref args, .. }
+            if matches!(args[0].kind, ExprKind::Handle { terminated: true, .. })
+    ));
+    assert!(matches!(
+        fields[1].expr.kind,
+        ExprKind::Handle {
+            terminated: true,
+            ..
+        }
+    ));
 }
 
 #[test]

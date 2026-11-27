@@ -104,35 +104,157 @@ impl<'a> ExprParser<'a> {
     pub(super) fn parse_handle_primary(&mut self, token: Token) -> Expr {
         let start = token.range;
         self.bump();
-        let body = self.parse_expr(0);
+        if self.at(TokenKind::Newline) {
+            return self.parse_block_handle(start);
+        }
+
+        let body = HandleBody::Expression(Box::new(self.parse_expr(0)));
         self.expect_expr_token(
             TokenKind::With,
             "parse.handle_expression",
             "handle expression is missing `with`",
             vec!["with"],
         );
+        if self.eat(TokenKind::Newline).is_some() {
+            return self.parse_terminated_handle(start, body);
+        }
+        let entry = self.parse_handler_entry();
+        let end = TextRange::new(entry.span.start.offset, entry.span.end.offset);
+        Expr {
+            span: self.source.span(start.cover(end)),
+            kind: ExprKind::Handle {
+                body,
+                entries: vec![entry],
+                terminated: false,
+            },
+        }
+    }
+
+    fn parse_block_handle(&mut self, start: TextRange) -> Expr {
+        let header_end = self.bump().range;
+        let mut body = Vec::new();
+        self.eat_newlines();
+        while !self.at(TokenKind::With) && !self.at(TokenKind::End) && !self.is_at_end() {
+            body.push(self.parse_cleanup_body_line());
+            self.eat_newlines();
+        }
+        let block_end = self.current().range.start.max(header_end.end);
+        self.expect_expr_token(
+            TokenKind::With,
+            "parse.handle_expression",
+            "handled block is missing `with`",
+            vec!["with"],
+        );
+        self.expect_expr_token(
+            TokenKind::Newline,
+            "parse.handle_expression",
+            "handled block requires a newline after `with`",
+            vec!["newline"],
+        );
+        self.parse_terminated_handle(
+            start,
+            HandleBody::Block {
+                body,
+                block_span: self.source.span(TextRange::new(header_end.end, block_end)),
+            },
+        )
+    }
+
+    fn parse_terminated_handle(&mut self, start: TextRange, body: HandleBody) -> Expr {
+        let mut entries = Vec::new();
+        let mut previous_had_comma = true;
+        self.eat_newlines();
+        while !self.at(TokenKind::End) && !self.is_at_end() {
+            if !entries.is_empty() && !previous_had_comma {
+                self.error_current(
+                    "parse.handle_entry",
+                    "handler entries must be separated by commas",
+                    vec![","],
+                    RecoveryStrategy::InsertToken,
+                    Some(","),
+                );
+            }
+            let entry = self.parse_handler_entry();
+            previous_had_comma = self.eat(TokenKind::Comma).is_some();
+            entries.push(entry);
+            if self.eat(TokenKind::Newline).is_none() {
+                self.error_current(
+                    "parse.handle_entry",
+                    "handler entries must occupy separate lines",
+                    vec!["newline"],
+                    RecoveryStrategy::InsertToken,
+                    Some("newline"),
+                );
+                while !self.at(TokenKind::Newline) && !self.at(TokenKind::End) && !self.is_at_end()
+                {
+                    self.bump();
+                }
+                self.eat(TokenKind::Newline);
+            }
+            self.eat_newlines();
+        }
+        if entries.is_empty() {
+            self.error_current(
+                "parse.handle_entry_required",
+                "multiple-handler expression requires at least one handler entry",
+                vec!["handler application"],
+                RecoveryStrategy::InsertToken,
+                Some("end"),
+            );
+        }
+        let close = self.eat(TokenKind::End);
+        if close.is_none() {
+            self.error_current(
+                "parse.handle_missing_end",
+                "multiple-handler expression is missing `end`",
+                vec!["end"],
+                RecoveryStrategy::CloseBlock,
+                Some("end"),
+            );
+        }
+        let end = close
+            .map(|token| token.range)
+            .or_else(|| {
+                entries
+                    .last()
+                    .map(|entry| TextRange::new(entry.span.start.offset, entry.span.end.offset))
+            })
+            .unwrap_or(start);
+        Expr {
+            span: self.source.span(start.cover(end)),
+            kind: ExprKind::Handle {
+                body,
+                entries,
+                terminated: true,
+            },
+        }
+    }
+
+    fn parse_handler_entry(&mut self) -> HandlerEntry {
         let handler_start = self.current().range;
         let handler = self.parse_name_path_segments("handle_expression", "handler name");
         let handler_end = self.previous().map_or(handler_start, |token| token.range);
-        self.expect_expr_token(
+        let open = self.expect_expr_token(
             TokenKind::LParen,
             "parse.handle_expression",
             "handle expression is missing handler context arguments",
             vec!["("],
         );
-        let (args, end, _) = self.parse_parenthesized_arguments(
-            handler_end,
-            "parse.handle_argument",
-            "handler context argument is missing `,` or `)`",
-        );
-        Expr {
-            span: self.source.span(start.cover(end)),
-            kind: ExprKind::Handle {
-                body: Box::new(body),
-                handler,
-                handler_span: self.source.span(handler_start.cover(handler_end)),
-                args,
-            },
+        let (args, end) = if open.is_some() {
+            let (args, end, _) = self.parse_parenthesized_arguments(
+                handler_end,
+                "parse.handle_argument",
+                "handler context argument is missing `,` or `)`",
+            );
+            (args, end)
+        } else {
+            (Vec::new(), handler_end)
+        };
+        HandlerEntry {
+            handler,
+            handler_span: self.source.span(handler_start.cover(handler_end)),
+            args,
+            span: self.source.span(handler_start.cover(end)),
         }
     }
 

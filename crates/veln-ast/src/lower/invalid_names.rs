@@ -365,9 +365,20 @@ fn collect_invalid_expr_names(
             collect_invalid_expr_list(args, invalid, enclosing);
         }
         SyntaxExprKind::Perform { args, .. } => collect_invalid_expr_list(args, invalid, enclosing),
-        SyntaxExprKind::Handle { body, args, .. } => {
-            collect_invalid_expr_names(body, invalid, enclosing.clone());
-            collect_invalid_expr_list(args, invalid, enclosing);
+        SyntaxExprKind::Handle { body, entries, .. } => {
+            match body {
+                veln_syntax::HandleBody::Expression(expr) => {
+                    collect_invalid_expr_names(expr, invalid, enclosing.clone());
+                }
+                veln_syntax::HandleBody::Block { body, .. } => {
+                    for line in body {
+                        collect_invalid_body_line_names(line, invalid, enclosing.clone());
+                    }
+                }
+            }
+            for entry in entries {
+                collect_invalid_expr_list(&entry.args, invalid, enclosing.clone());
+            }
         }
         SyntaxExprKind::SchemaDecode { input, base, .. } => {
             collect_invalid_expr_names(input, invalid, enclosing.clone());

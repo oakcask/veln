@@ -2,11 +2,47 @@ use super::*;
 
 impl AstBuilder {
     pub(super) fn lower_expr(&mut self, expr: &SyntaxExpr) -> Expr {
+        if let SyntaxExprKind::Handle { body, entries, .. } = &expr.kind {
+            return self.lower_handle_expr(expr, body, entries);
+        }
         Expr {
             node_id: self.alloc(),
             kind: self.lower_expr_kind(expr),
             span: expr.span.clone(),
         }
+    }
+
+    fn lower_handle_expr(
+        &mut self,
+        source: &SyntaxExpr,
+        body: &veln_syntax::HandleBody,
+        entries: &[veln_syntax::HandlerEntry],
+    ) -> Expr {
+        let mut lowered = match body {
+            veln_syntax::HandleBody::Expression(expr) => self.lower_expr(expr),
+            veln_syntax::HandleBody::Block { body, block_span } => Expr {
+                node_id: self.alloc(),
+                kind: ExprKind::Begin {
+                    body: body.iter().map(|line| self.lower_body_line(line)).collect(),
+                    block_span: block_span.clone(),
+                },
+                span: block_span.clone(),
+            },
+        };
+        for entry in entries.iter().rev() {
+            lowered = Expr {
+                node_id: self.alloc(),
+                kind: ExprKind::Handle {
+                    body: Box::new(lowered),
+                    handler: entry.handler.clone(),
+                    handler_span: entry.handler_span.clone(),
+                    args: self.lower_exprs(&entry.args),
+                },
+                span: entry.span.clone(),
+            };
+        }
+        lowered.span = source.span.clone();
+        lowered
     }
 
     fn lower_expr_kind(&mut self, expr: &SyntaxExpr) -> ExprKind {
@@ -95,17 +131,9 @@ impl AstBuilder {
                 operation_span: operation_span.clone(),
                 args: self.lower_exprs(args),
             }),
-            SyntaxExprKind::Handle {
-                body,
-                handler,
-                handler_span,
-                args,
-            } => Some(ExprKind::Handle {
-                body: Box::new(self.lower_expr(body)),
-                handler: handler.clone(),
-                handler_span: handler_span.clone(),
-                args: self.lower_exprs(args),
-            }),
+            SyntaxExprKind::Handle { .. } => {
+                unreachable!("handle expressions are lowered with their nested source entries")
+            }
             _ => None,
         }
     }

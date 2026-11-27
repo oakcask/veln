@@ -1,0 +1,16 @@
+fn expression_body() -> Int
+	handle value() with
+		outer(first()),
+		inner(second()),
+	end
+end
+
+fn block_body() -> Int
+	handle
+		let value = first()
+		value
+	with
+		outer(),
+		inner()
+	end
+end

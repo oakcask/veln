@@ -657,6 +657,18 @@ that can start the target, recovery rejects the first `handles` as the former
 separator and retains the following member path as the target. Both forms keep
 the optional retained-effect list and the boundary of the next declaration.
 
+A lexical handler expression has three source forms. The existing
+`handle Expr with Handler(arguments)` form applies one handler without a
+closing `end`. An expression body can instead put a newline after `with`, then
+write one or more handler applications on separate lines and close the list
+with `end`. A handled block starts with a newline after `handle`, contains an
+ordinary body, and uses the same newline-separated handler list. Entries are
+separated by commas; the final comma is optional. The list form rejects an
+empty list, a missing comma, a handler application without parentheses, or a
+missing closing `end`. Recovery leaves an enclosing declaration's `end` and
+the following top-level item available to their owners. `handle::member()`
+remains a qualified call path rather than a handler expression.
+
 <!-- source-surface-grammar:start -->
 ```text
 Module        ::= ModuleHeader? UseDecl* Item*
@@ -788,7 +800,12 @@ SchemaDecode  ::= "decode" MemberPath "from" Expr "at" Expr
 SchemaEncode  ::= "encode" MemberPath "from" Expr
 SchemaValidate ::= "validate" MemberPath "from" Expr "at" Expr
 Perform       ::= "perform" MemberPath "::" Name "(" ArgList? ")"
-Handle        ::= "handle" Expr "with" MemberPath "(" ArgList? ")"
+Handle        ::= SingleHandle | ExpressionHandle | BlockHandle
+SingleHandle  ::= "handle" Expr "with" HandlerApplication
+ExpressionHandle ::= "handle" Expr "with" NL HandlerEntries "end"
+BlockHandle   ::= "handle" NL Body "with" NL HandlerEntries "end"
+HandlerApplication ::= MemberPath "(" ArgList? ")"
+HandlerEntries ::= HandlerApplication ("," NL HandlerApplication)* ","? NL
 Call          ::= "(" ArgList? ")"
 ArgList       ::= Expr ("," Expr)* ","?
 TypeArgs      ::= "<" TypeText ("," TypeText)* ","? ">"

@@ -166,7 +166,10 @@ non-transitive. Bare names, missing imports, wrong-target companions,
 private effect access.
 
 Lexical handlers provide all operations of one nominal effect for the dynamic
-evaluation of one `handle Body with Handler(arguments)` expression. A handler
+evaluation of a handled expression or block. The short
+`handle Body with Handler(arguments)` form applies one handler. The terminated
+forms apply an ordered, nonempty list. The first listed entry is outermost and
+the last entry is innermost. A handler
 declaration names context parameters, the handled effect, an optional
 `effects [...]` list, and one operation clause per handled operation. An
 operation clause binds the operation arguments and evaluates an ordinary
@@ -194,12 +197,22 @@ handler export can suppress the derivative `handler.unknown` diagnostic, but
 private targets, wrong-kind targets, missing targets, and missing modules remain
 independently reported.
 
-The checker evaluates the effect set of a handle expression as the union of
-context argument effects, body effects with the handled nominal effect removed,
-and the handler declaration effects. Handler context arguments are evaluated
-left to right before the body. Handling is deep for calls made during the body,
-and nested handlers for the same operation shadow outer handlers until the
-nested body finishes. Handler state is lexical to the current task. Task
+For a list, let entry `i` handle `E_i`, let `A_i` be its context-argument
+effects, let `D_i` be its handler declaration effects, and let `R_(n+1)` be
+the body effects. The remaining effects are `R_1`, where
+`R_i = A_i union (R_(i+1) minus {E_i}) union D_i`. Thus an entry does not
+discharge its own arguments or effects retained by an earlier outer handler.
+The rule reduces to the existing single-handler rule for one entry.
+
+The runtime evaluates entries from first to last. It evaluates each entry's
+arguments once from left to right before entering that handler, then evaluates
+the next entry. All entries are active for the body. Repeated effects are
+allowed, and the last matching entry shadows earlier entries during the body.
+The handled block has the binding, result, and cleanup boundary of
+`begin Body end`; its bindings are unavailable to handler arguments and to
+code after the expression. Both body forms preserve the body's result type and
+value. Handling is deep for calls made during the body. Handler state is
+lexical to the current task. Task
 creation expressions expose their job effect rows at the call expression, so a
 lexical handler around the task creation expression can discharge a handled
 nominal job effect before the runnable entry boundary is checked.

@@ -278,12 +278,22 @@ fn queue_cleanup_expr_children<'a>(
         | ExprKind::Prefix { expr: callee, .. } => {
             pending.push(CleanupReferenceWork::Expr(callee));
         }
-        ExprKind::Call { callee, args }
-        | ExprKind::Handle {
-            body: callee, args, ..
-        } => {
+        ExprKind::Call { callee, args } => {
             pending.push(CleanupReferenceWork::Expr(callee));
             pending.extend(args.iter().map(CleanupReferenceWork::Expr));
+        }
+        ExprKind::Handle { body, entries, .. } => {
+            match body {
+                veln_syntax::HandleBody::Expression(expr) => {
+                    pending.push(CleanupReferenceWork::Expr(expr));
+                }
+                veln_syntax::HandleBody::Block { body, .. } => {
+                    pending.extend(body.iter().map(CleanupReferenceWork::BodyLine));
+                }
+            }
+            for entry in entries {
+                pending.extend(entry.args.iter().map(CleanupReferenceWork::Expr));
+            }
         }
         ExprKind::Perform { args, .. } | ExprKind::List(args) => {
             pending.extend(args.iter().map(CleanupReferenceWork::Expr));

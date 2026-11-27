@@ -1,0 +1,40 @@
+effect Ask
+	value() -> Int
+end
+
+handler ask(value: Int) for Ask
+	value() => value
+end
+
+fn context(label: String, value: Int) -> Int effects [stdio]
+	stdio::println(label)
+	value
+end
+
+fn expression_value() -> Int effects [Ask, stdio]
+	stdio::println("expression body")
+	perform Ask::value()
+end
+
+fn expression_body() -> Int effects [stdio]
+	handle expression_value() with
+		ask(context("expression outer", 1)),
+		ask(context("expression inner", 2))
+	end
+end
+
+fn block_body() -> Int effects [stdio]
+	handle
+		stdio::println("block body")
+		let value = perform Ask::value()
+		value + 40
+	with
+		ask(context("block outer", 3)),
+		ask(context("block inner", 4))
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	stdio::println(int_to_string(expression_body()))
+	stdio::println(int_to_string(block_body()))
+end

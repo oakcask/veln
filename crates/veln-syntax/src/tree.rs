@@ -417,6 +417,24 @@ fn collect_outer_begin_exprs<'a>(expr: &'a Expr, begins: &mut Vec<&'a Expr>) {
                 pending.push(head);
                 pending.extend(children);
             }
+            ExprChildren::Handle(body, entries) => {
+                match body {
+                    crate::HandleBody::Expression(expr) => pending.push(expr),
+                    crate::HandleBody::Block { body, .. } => {
+                        for line in body {
+                            match line {
+                                BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => {
+                                    pending.push(expr);
+                                }
+                                BodyLine::Defer { .. } => {}
+                            }
+                        }
+                    }
+                }
+                for entry in entries {
+                    pending.extend(&entry.args);
+                }
+            }
             ExprChildren::Record(fields) => {
                 pending.extend(fields.iter().map(|field| &field.expr));
             }

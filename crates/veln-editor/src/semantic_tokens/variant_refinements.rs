@@ -105,9 +105,16 @@ fn collect_expr(expr: &Expr, classifications: &mut BTreeMap<usize, SemanticToken
         ExprKind::Perform { args, .. } | ExprKind::List(args) => {
             collect_exprs(args, classifications);
         }
-        ExprKind::Handle { body, args, .. } => {
-            collect_expr(body, classifications);
-            collect_exprs(args, classifications);
+        ExprKind::Handle { body, entries, .. } => {
+            match body {
+                veln_syntax::HandleBody::Expression(expr) => collect_expr(expr, classifications),
+                veln_syntax::HandleBody::Block { body, .. } => {
+                    collect_body(body, classifications);
+                }
+            }
+            for entry in entries {
+                collect_exprs(&entry.args, classifications);
+            }
         }
         ExprKind::SchemaDecode { input, base, .. } => {
             collect_expr(input, classifications);

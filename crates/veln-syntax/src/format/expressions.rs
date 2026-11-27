@@ -1,5 +1,6 @@
 use super::cleanup::{
-    format_cleanup_region, format_cleanup_region_with_comments,
+    format_cleanup_body_line, format_cleanup_body_line_with_comments, format_cleanup_region,
+    format_cleanup_region_with_comments,
     format_defer_statement_with_comments as format_cleanup_defer_with_comments,
 };
 use super::match_formatting::format_match_expr;
@@ -81,6 +82,23 @@ fn take_continued_begin_comments(
             visit(head, true);
             for child in children {
                 visit(child, true);
+            }
+        }
+        ExprChildren::Handle(body, entries) => {
+            match body {
+                HandleBody::Expression(expr) => visit(expr, true),
+                HandleBody::Block { body, .. } => {
+                    for line in body {
+                        if let BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } = line {
+                            visit(expr, true);
+                        }
+                    }
+                }
+            }
+            for entry in entries {
+                for arg in &entry.args {
+                    visit(arg, true);
+                }
             }
         }
         ExprChildren::Record(fields) => {
@@ -267,17 +285,10 @@ fn format_keyword_expr(kind: &ExprKind, indent: usize, comments: Option<&LineCom
         }
         ExprKind::Handle {
             body,
-            handler,
-            args,
+            entries,
+            terminated,
             ..
-        } => {
-            let args = format_expr_args(args, indent, comments);
-            format!(
-                "handle {} with {}({args})",
-                format_expr_at_indent_ctx(body, indent, comments),
-                handler.join("::")
-            )
-        }
+        } => format_handle_expr(body, entries, *terminated, indent, comments),
         ExprKind::SchemaDecode {
             schema,
             input,
@@ -310,6 +321,81 @@ fn format_keyword_expr(kind: &ExprKind, indent: usize, comments: Option<&LineCom
         }
         _ => unreachable!("keyword formatter received a non-keyword expression"),
     }
+}
+
+fn format_handle_expr(
+    body: &HandleBody,
+    entries: &[HandlerEntry],
+    terminated: bool,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    if !terminated {
+        let HandleBody::Expression(body) = body else {
+            unreachable!("unterminated handle must have an expression body");
+        };
+        let entry = entries
+            .first()
+            .expect("unterminated handle must have one handler entry");
+        let args = format_expr_args(&entry.args, indent, comments);
+        return format!(
+            "handle {} with {}({args})",
+            format_expr_at_indent_ctx(body, indent, comments),
+            entry.handler.join("::")
+        );
+    }
+
+    let mut text = String::from("handle");
+    match body {
+        HandleBody::Expression(body) => {
+            text.push(' ');
+            text.push_str(&format_expr_at_indent_ctx(body, indent, comments));
+            text.push_str(" with\n");
+        }
+        HandleBody::Block { body, .. } => {
+            text.push('\n');
+            for line in body {
+                match comments {
+                    Some(comments) => {
+                        let (source_line, content) = format_cleanup_body_line_with_comments(
+                            line,
+                            indent + 1,
+                            comments,
+                            &|expr, child_indent| {
+                                format_expr_at_indent_with_comments(expr, child_indent, comments)
+                            },
+                        );
+                        push_source_line(&mut text, comments, source_line, indent + 1, content);
+                    }
+                    None => {
+                        push_indent(&mut text, indent + 1);
+                        text.push_str(&format_cleanup_body_line(
+                            line,
+                            indent + 1,
+                            &format_expr_at_indent,
+                        ));
+                        text.push('\n');
+                    }
+                }
+            }
+            push_indent(&mut text, indent);
+            text.push_str("with\n");
+        }
+    }
+    for (index, entry) in entries.iter().enumerate() {
+        push_indent(&mut text, indent + 1);
+        text.push_str(&entry.handler.join("::"));
+        text.push('(');
+        text.push_str(&format_expr_args(&entry.args, indent + 1, comments));
+        text.push(')');
+        if index + 1 < entries.len() {
+            text.push(',');
+        }
+        text.push('\n');
+    }
+    push_indent(&mut text, indent);
+    text.push_str("end");
+    text
 }
 
 fn format_collection_expr(

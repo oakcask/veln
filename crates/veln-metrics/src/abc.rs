@@ -136,9 +136,14 @@ fn count_expr_children(expr: &Expr, vector: &mut AbcVector) {
             count_expr(callee, vector);
             count_exprs(args, vector);
         }
-        ExprKind::Handle { body, args, .. } => {
-            count_expr(body, vector);
-            count_exprs(args, vector);
+        ExprKind::Handle { body, entries, .. } => {
+            match body {
+                veln_syntax::HandleBody::Expression(expr) => count_expr(expr, vector),
+                veln_syntax::HandleBody::Block { body, .. } => count_body(body, vector),
+            }
+            for entry in entries {
+                count_exprs(&entry.args, vector);
+            }
         }
         ExprKind::Record(fields) => count_exprs(fields.iter().map(|field| &field.expr), vector),
         ExprKind::Dict(entries) => count_exprs(

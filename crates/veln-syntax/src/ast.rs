@@ -387,6 +387,23 @@ pub struct Expr {
 }
 
 #[derive(Clone, Debug)]
+pub struct HandlerEntry {
+    pub handler: Vec<String>,
+    pub handler_span: SourceSpan,
+    pub args: Vec<Expr>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub enum HandleBody {
+    Expression(Box<Expr>),
+    Block {
+        body: Vec<BodyLine>,
+        block_span: SourceSpan,
+    },
+}
+
+#[derive(Clone, Debug)]
 pub enum ExprKind {
     Missing,
     Hole {
@@ -423,10 +440,9 @@ pub enum ExprKind {
         args: Vec<Expr>,
     },
     Handle {
-        body: Box<Expr>,
-        handler: Vec<String>,
-        handler_span: SourceSpan,
-        args: Vec<Expr>,
+        body: HandleBody,
+        entries: Vec<HandlerEntry>,
+        terminated: bool,
     },
     SchemaDecode {
         schema: Vec<String>,
@@ -499,6 +515,7 @@ pub(crate) enum ExprChildren<'a> {
     },
     Slice(&'a [Expr]),
     HeadAndSlice(&'a Expr, &'a [Expr]),
+    Handle(&'a HandleBody, &'a [HandlerEntry]),
     Record(&'a [RecordField]),
     Dict(&'a [DictEntry]),
     Match(&'a Expr, &'a [MatchArm]),
@@ -547,10 +564,8 @@ impl Expr {
                 second_followed_by_parent_syntax: false,
             },
             ExprKind::Perform { args, .. } | ExprKind::List(args) => ExprChildren::Slice(args),
-            ExprKind::Call { callee: head, args }
-            | ExprKind::Handle {
-                body: head, args, ..
-            } => ExprChildren::HeadAndSlice(head, args),
+            ExprKind::Call { callee: head, args } => ExprChildren::HeadAndSlice(head, args),
+            ExprKind::Handle { body, entries, .. } => ExprChildren::Handle(body, entries),
             ExprKind::Record(fields) => ExprChildren::Record(fields),
             ExprKind::Dict(entries) => ExprChildren::Dict(entries),
             ExprKind::Match { scrutinee, arms } => ExprChildren::Match(scrutinee, arms),

@@ -231,7 +231,12 @@ grammar_line(305, "SchemaDecode  ::= \"decode\" MemberPath \"from\" Expr \"at\" 
 grammar_line(307, "SchemaEncode  ::= \"encode\" MemberPath \"from\" Expr").
 grammar_line(309, "SchemaValidate ::= \"validate\" MemberPath \"from\" Expr \"at\" Expr").
 grammar_line(308, "Perform       ::= \"perform\" MemberPath \"::\" Name \"(\" ArgList? \")\"").
-grammar_line(309, "Handle        ::= \"handle\" Expr \"with\" MemberPath \"(\" ArgList? \")\"").
+grammar_line(309, "Handle        ::= SingleHandle | ExpressionHandle | BlockHandle").
+grammar_line(309, "SingleHandle  ::= \"handle\" Expr \"with\" HandlerApplication").
+grammar_line(309, "ExpressionHandle ::= \"handle\" Expr \"with\" NL HandlerEntries \"end\"").
+grammar_line(309, "BlockHandle   ::= \"handle\" NL Body \"with\" NL HandlerEntries \"end\"").
+grammar_line(309, "HandlerApplication ::= MemberPath \"(\" ArgList? \")\"").
+grammar_line(309, "HandlerEntries ::= HandlerApplication (\",\" NL HandlerApplication)* \",\"? NL").
 grammar_line(310, "Call          ::= \"(\" ArgList? \")\"").
 grammar_line(320, "ArgList       ::= Expr (\",\" Expr)* \",\"?").
 grammar_line(330, "TypeArgs      ::= \"<\" TypeText (\",\" TypeText)* \",\"? \">\"").
@@ -829,8 +834,19 @@ expr_line -->
     { Tokens \= [], phrase(expr, Tokens) }.
 
 expr_line_tokens(Tokens, S0, S) :-
+    terminated_handle_line_tokens(Tokens, S0, S),
+    !.
+expr_line_tokens(Tokens, S0, S) :-
     collect_expr_line(S0, S, 0, 0, none, [], Reversed),
     reverse(Reversed, Tokens).
+
+terminated_handle_line_tokens(Tokens, S0, S) :-
+    S0 = [t(handle, _) | _],
+    append(Prefix, [t(end, EndText), t(nl, _) | S], S0),
+    (   Prefix = [t(handle, _), t(nl, _) | _]
+    ;   append(_, [t(with, _), t(nl, _) | _], Prefix)
+    ),
+    append(Prefix, [t(end, EndText)], Tokens).
 
 collect_expr_line([t(nl, _) | Rest], Rest, 0, 0, _, Acc, Acc) :- !.
 collect_expr_line([], [], 0, 0, _, Acc, Acc) :- !.
@@ -1208,10 +1224,46 @@ perform_expr -->
     nls,
     tok(rparen).
 
-handle_expr -->
+handle_expr --> expression_handle, !.
+handle_expr --> block_handle, !.
+handle_expr --> single_handle.
+
+single_handle -->
     tok(handle),
     expr,
     tok(with),
+    handler_application.
+
+expression_handle -->
+    tok(handle),
+    expr,
+    tok(with),
+    nl,
+    handler_entries,
+    tok(end).
+
+block_handle -->
+    tok(handle),
+    nl,
+    handle_body,
+    tok(with),
+    nl,
+    handler_entries,
+    tok(end).
+
+handle_body(S0, S) :-
+    nls(S0, S1),
+    (   S1 = [t(with, _) | _]
+    ->  S = S1
+    ;   body_line(S1, S2),
+        handle_body(S2, S)
+    ).
+
+handler_entries --> handler_application, handler_entries_tail.
+handler_entries_tail --> tok(comma), nl, handler_application, !, handler_entries_tail.
+handler_entries_tail --> trailing_comma_opt, nl.
+
+handler_application -->
     member_path,
     tok(lparen),
     nls,
