@@ -36,6 +36,9 @@ thread_local! {
     static COMMENT_RANGE_KEYS_INSPECTED: std::cell::Cell<usize> = const {
         std::cell::Cell::new(0)
     };
+    static MIXED_HANDLE_CHAIN_CANDIDATES: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
 }
 
 #[cfg(test)]
@@ -62,4 +65,19 @@ fn record_comment_range_query() {
 #[cfg(test)]
 fn record_comment_range_key_inspected() {
     COMMENT_RANGE_KEYS_INSPECTED.set(COMMENT_RANGE_KEYS_INSPECTED.get().saturating_add(1));
+}
+
+#[cfg(test)]
+pub(crate) fn reset_mixed_handle_chain_candidates() {
+    MIXED_HANDLE_CHAIN_CANDIDATES.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn mixed_handle_chain_candidates() -> usize {
+    MIXED_HANDLE_CHAIN_CANDIDATES.get()
+}
+
+#[cfg(test)]
+fn record_mixed_handle_chain_candidate() {
+    MIXED_HANDLE_CHAIN_CANDIDATES.set(MIXED_HANDLE_CHAIN_CANDIDATES.get().saturating_add(1));
 }

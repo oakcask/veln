@@ -401,14 +401,20 @@ fn format_mixed_handle_chain(
     comments: Option<&LineComments>,
 ) -> Option<String> {
     let (body, entries) = direct_mixed_handle_chain(expr)?;
+    #[cfg(test)]
+    super::record_mixed_handle_chain_candidate();
 
     if comments.is_some_and(|comments| comments.has_comment_in_span(&expr.span)) {
         return None;
     }
 
-    let formatted_body = format_expr_at_indent_ctx(body, indent + 1, None);
+    let formatted_body = format_expr_at_indent_ctx(body, indent, None);
     if formatted_body.contains('\n') {
-        return None;
+        return Some(format_retained_mixed_handle_chain(
+            expr,
+            formatted_body,
+            indent,
+        ));
     }
 
     Some(format_flattened_short_handle_chain(
@@ -416,6 +422,42 @@ fn format_mixed_handle_chain(
         &entries,
         indent,
     ))
+}
+
+fn format_retained_mixed_handle_chain(
+    expr: &Expr,
+    formatted_body: String,
+    indent: usize,
+) -> String {
+    let mut current = expr;
+    let mut levels = Vec::new();
+    while let ExprKind::Handle {
+        body: HandleBody::Expression(body),
+        entries,
+        terminated,
+    } = &current.kind
+    {
+        levels.push((entries.as_slice(), *terminated));
+        current = body;
+    }
+
+    let mut text = formatted_body;
+    for (entries, terminated) in levels.into_iter().rev() {
+        if terminated {
+            let mut retained = format!("handle {text} with\n");
+            format_terminated_handler_entries(&mut retained, entries, indent, None);
+            push_indent(&mut retained, indent);
+            retained.push_str("end");
+            text = retained;
+        } else {
+            let entry = entries
+                .first()
+                .expect("unterminated handle must have one handler entry");
+            let args = format_expr_args(&entry.args, indent, None);
+            text = format!("handle {text} with {}({args})", entry.handler.join("::"));
+        }
+    }
+    text
 }
 
 fn direct_mixed_handle_chain(expr: &Expr) -> Option<(&Expr, Vec<&HandlerEntry>)> {

@@ -548,6 +548,22 @@ fn formatter_keeps_mixed_handler_chains_across_excluded_boundaries() {
         ),
         (
             concat!(
+                "fn call_boundary() -> Int\n",
+                "  handle wrap(handle value() with inner()) with\n",
+                "    outer()\n",
+                "  end\n",
+                "end\n",
+            ),
+            concat!(
+                "fn call_boundary() -> Int\n",
+                "\thandle wrap(handle value() with inner()) with\n",
+                "\t\touter()\n",
+                "\tend\n",
+                "end\n",
+            ),
+        ),
+        (
+            concat!(
                 "fn branch_boundary() -> Int\n",
                 "  handle if condition()\n",
                 "    handle value() with inner()\n",
@@ -801,6 +817,15 @@ fn formatter_stabilizes_nested_migrations_across_call_boundaries() {
 fn formatter_scales_across_repeated_call_boundary_migrations() {
     assert_nested_call_boundary_format_stable(16);
     assert_nested_call_boundary_format_stable(20);
+
+    let original = mixed_call_boundary_candidate_visits(8);
+    let larger = mixed_call_boundary_candidate_visits(16);
+    assert!(original <= 2 * 8, "unexpected original visits: {original}");
+    assert!(larger <= 2 * 16, "unexpected larger visits: {larger}");
+    assert!(
+        larger <= original.saturating_mul(2),
+        "doubling mixed call-boundary depth grew visits from {original} to {larger}"
+    );
 }
 
 fn assert_nested_call_boundary_format_stable(depth: usize) {
@@ -825,6 +850,24 @@ fn assert_nested_call_boundary_format_stable(depth: usize) {
         reparsed.diagnostics
     );
     assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+fn mixed_call_boundary_candidate_visits(depth: usize) -> usize {
+    let mut expr = "value()".to_string();
+    for _ in 0..depth {
+        expr = format!("handle (handle wrap({expr}) with\n  inner()\nend) with outer()");
+    }
+    let source = SourceFile::new(
+        "main.veln",
+        format!("fn nested_mixed_call_boundary() -> Int\n  {expr}\nend\n"),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    crate::format::reset_mixed_handle_chain_candidates();
+    let formatted = format_tree(&output.tree);
+    assert!(formatted.contains("outer()"), "{formatted}");
+    crate::format::mixed_handle_chain_candidates()
 }
 
 #[test]
