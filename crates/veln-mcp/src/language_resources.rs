@@ -68,6 +68,45 @@ impl WorkspaceNavigation {
     }
 }
 
+#[derive(Clone, Default)]
+struct WorkspaceNavigationCaches {
+    mutable: Option<WorkspaceNavigation>,
+    read_only: Option<WorkspaceNavigation>,
+}
+
+impl WorkspaceNavigationCaches {
+    fn get(&self, slot: WorkspaceNavigationSlot) -> &Option<WorkspaceNavigation> {
+        match slot {
+            WorkspaceNavigationSlot::Mutable => &self.mutable,
+            WorkspaceNavigationSlot::ReadOnly => &self.read_only,
+        }
+    }
+
+    fn get_mut(&mut self, slot: WorkspaceNavigationSlot) -> &mut Option<WorkspaceNavigation> {
+        match slot {
+            WorkspaceNavigationSlot::Mutable => &mut self.mutable,
+            WorkspaceNavigationSlot::ReadOnly => &mut self.read_only,
+        }
+    }
+
+    fn clear(&mut self) {
+        self.mutable = None;
+        self.read_only = None;
+    }
+
+    fn retain_matching(&mut self, accepted_identity: Option<&Arc<()>>) {
+        for cached in [&mut self.mutable, &mut self.read_only] {
+            *cached = cached.take().filter(|cached| {
+                accepted_identity.is_some_and(|identity| cached.matches_accepted(identity))
+            });
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &WorkspaceNavigation> {
+        self.mutable.iter().chain(self.read_only.iter())
+    }
+}
+
 #[derive(Clone)]
 struct AnalyzedDependencies {
     revision: DependencyRevisionKey,
@@ -277,8 +316,7 @@ pub(crate) struct LanguageResources {
     standard_library_snapshot: Option<DirectDependencySnapshot>,
     standard_library_navigation: EffectiveProjectSnapshot,
     dependency_navigation: Option<(Vec<RetainedPackageKey>, EffectiveProjectSnapshot)>,
-    workspace_navigation: Option<WorkspaceNavigation>,
-    read_only_workspace_navigation: Option<WorkspaceNavigation>,
+    workspace_navigation_caches: WorkspaceNavigationCaches,
     analysis_scopes: BTreeMap<DependencyAnalysisScope, AnalysisScopeState>,
     analyzed_dependency_scope_order: VecDeque<DependencyAnalysisScope>,
     analysis_scope_history_saturated: bool,
@@ -470,8 +508,7 @@ impl LanguageResources {
             standard_library_snapshot,
             standard_library_navigation,
             dependency_navigation: None,
-            workspace_navigation: None,
-            read_only_workspace_navigation: None,
+            workspace_navigation_caches: WorkspaceNavigationCaches::default(),
             analysis_scopes: BTreeMap::new(),
             analyzed_dependency_scope_order: VecDeque::new(),
             analysis_scope_history_saturated: false,
@@ -666,8 +703,7 @@ impl LanguageResources {
             .retain(|retained| retained != &scope);
         self.analyzed_dependency_scope_order.push_back(scope);
         self.evict_analyzed_dependency_scopes();
-        self.workspace_navigation = None;
-        self.read_only_workspace_navigation = None;
+        self.workspace_navigation_caches.clear();
         Ok(())
     }
 
@@ -755,8 +791,7 @@ impl LanguageResources {
         self.analyzed_dependency_scope_order
             .retain(|scope| self.analysis_scopes.contains_key(scope));
         if self.analysis_scopes.len() != previous_len {
-            self.workspace_navigation = None;
-            self.read_only_workspace_navigation = None;
+            self.workspace_navigation_caches.clear();
         }
     }
 
@@ -802,17 +837,8 @@ impl LanguageResources {
             .get(&scope)
             .and_then(|state| state.accepted.as_ref())
             .map(|accepted| Arc::clone(&accepted.navigation_identity));
-        self.workspace_navigation = self.workspace_navigation.take().filter(|cached| {
-            retained_identity
-                .as_ref()
-                .is_some_and(|identity| cached.matches_accepted(identity))
-        });
-        self.read_only_workspace_navigation =
-            self.read_only_workspace_navigation.take().filter(|cached| {
-                retained_identity
-                    .as_ref()
-                    .is_some_and(|identity| cached.matches_accepted(identity))
-            });
+        self.workspace_navigation_caches
+            .retain_matching(retained_identity.as_ref());
     }
 
     fn ensure_dependency_capacity(
@@ -1088,7 +1114,8 @@ impl LanguageResources {
         slot: WorkspaceNavigationSlot,
         workspace_key: &Value,
     ) -> Option<Arc<EffectiveProjectSnapshot>> {
-        self.navigation_cache(slot)
+        self.workspace_navigation_caches
+            .get(slot)
             .as_ref()
             .filter(|cached| &cached.workspace_key == workspace_key)
             .map(|cached| Arc::clone(&cached.snapshot))
@@ -1103,7 +1130,7 @@ impl LanguageResources {
         let mut cached = self.cached_accepted_navigation(accepted_identity)?;
         cached.workspace_key = workspace_key.clone();
         let snapshot = Arc::clone(&cached.snapshot);
-        *self.navigation_cache_mut(slot) = Some(cached);
+        *self.workspace_navigation_caches.get_mut(slot) = Some(cached);
         Some(snapshot)
     }
 
@@ -1118,30 +1145,13 @@ impl LanguageResources {
         #[cfg(test)]
         WORKSPACE_NAVIGATION_BUILDS.set(WORKSPACE_NAVIGATION_BUILDS.get() + 1);
         let snapshot = Arc::new(snapshot);
-        *self.navigation_cache_mut(slot) = Some(WorkspaceNavigation {
+        *self.workspace_navigation_caches.get_mut(slot) = Some(WorkspaceNavigation {
             workspace_key,
             accepted_identity,
             documentation_revisions,
             snapshot: Arc::clone(&snapshot),
         });
         snapshot
-    }
-
-    fn navigation_cache(&self, slot: WorkspaceNavigationSlot) -> &Option<WorkspaceNavigation> {
-        match slot {
-            WorkspaceNavigationSlot::Mutable => &self.workspace_navigation,
-            WorkspaceNavigationSlot::ReadOnly => &self.read_only_workspace_navigation,
-        }
-    }
-
-    fn navigation_cache_mut(
-        &mut self,
-        slot: WorkspaceNavigationSlot,
-    ) -> &mut Option<WorkspaceNavigation> {
-        match slot {
-            WorkspaceNavigationSlot::Mutable => &mut self.workspace_navigation,
-            WorkspaceNavigationSlot::ReadOnly => &mut self.read_only_workspace_navigation,
-        }
     }
 
     pub(crate) fn navigation_source_text(
@@ -1185,7 +1195,8 @@ impl LanguageResources {
         location: &veln_language_service::NavigationLocation,
     ) -> Option<&str> {
         let workspace_revisions = self
-            .workspace_navigation
+            .workspace_navigation_caches
+            .get(WorkspaceNavigationSlot::Mutable)
             .as_ref()
             .map(|navigation| navigation.documentation_revisions.as_slice())
             .unwrap_or_default();
@@ -1226,9 +1237,8 @@ impl LanguageResources {
         identity: Option<&Arc<()>>,
     ) -> Option<WorkspaceNavigation> {
         let identity = identity?;
-        self.workspace_navigation
+        self.workspace_navigation_caches
             .iter()
-            .chain(self.read_only_workspace_navigation.iter())
             .find(|cached| cached.matches_accepted(identity))
             .cloned()
     }
