@@ -52,9 +52,10 @@ A handler header places `for` between its formatted parameter list and nominal
 effect path, followed by any retained-effect list. Reformatting that output is
 idempotent and preserves the same effect path and retained effects.
 
-A directly written terminated handler list keeps its body form and entry
-order. An expression body begins on the `handle` header and retains any of its
-own multiline delimiters before `with`. A block body begins on the next line.
+A directly written terminated handler list that is not part of an eligible
+nested-chain migration keeps its body form and entry order. An expression body
+begins on the `handle` header and retains any of its own multiline delimiters
+before `with`. A block body begins on the next line.
 Body lines and handler entries use one additional tab; `with` for a block and
 the closing `end` align with `handle`. The formatter writes one entry per line,
 writes commas only between entries, removes an input final comma, and preserves

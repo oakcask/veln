@@ -679,8 +679,9 @@ handler declaration remains a top-level recovery boundary.
 
 All three forms remain accepted after formatting. The
 [format command](command-fmt.md#formatting-rules) defines when a directly
-nested chain of short forms is rewritten as one terminated expression-body
-list and when the formatter preserves a nested form.
+nested chain of short forms, or a chain that mixes short and terminated
+expression-body forms, is rewritten as one terminated expression-body list
+and when the formatter preserves a nested form.
 
 The syntax tree distinguishes an expression body from a block body, retains
 whether the form is terminated, and preserves the ordered entries, each
