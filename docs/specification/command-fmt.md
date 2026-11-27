@@ -69,10 +69,12 @@ chain may use grouping parentheses. The result is one terminated
 expression-body list whose entries run from the outermost handler to the
 innermost handler. The migration preserves the handled body and each handler
 context expression. Reformatting the migrated result produces identical
-bytes. The formatter leaves the chain nested if it contains comments, mixes
-short and terminated forms, uses a handled block or `begin`, spans multiple
-source lines, or reaches another handler only through a statement, `defer`,
-call, branch, or postfix operator.
+bytes. During one formatting pass, the formatter leaves the chain nested if
+it contains comments, mixes short and terminated forms, uses a handled block
+or `begin`, spans multiple source lines, or reaches another handler only
+through a statement, `defer`, call, branch, or postfix operator. Ordinary
+argument formatting can collapse a multiline short chain onto one line. In
+that case the first pass leaves the chain nested and a second pass migrates it.
 
 In structurally recognized variant-refinement type text, the formatter writes
 one space on each side of `|`. It preserves the written alternative order,

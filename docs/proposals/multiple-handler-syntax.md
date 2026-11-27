@@ -10,7 +10,8 @@ defines the implemented terminated expression-body and block-body handler
 lists. The [effects specification](../specification/effects.md) defines their
 outermost-first ordered semantics, and the
 [format specification](../specification/command-fmt.md) defines canonical
-formatting for directly written lists.
+formatting for directly written lists and the implemented short-chain
+migration.
 
 This proposal now covers only the remaining migration forms and
 ordered-contract cases that are not yet accepted by focused executable
@@ -23,10 +24,13 @@ rather than future work.
 
 The current [format specification](../specification/command-fmt.md) defines the
 implemented migration for comment-free, single-line chains made only of short
-handler expressions. Remaining migration should combine directly nested
-mixtures of short and list forms without crossing a statement, `defer`,
-function call, branch, or postfix operator. A `begin` used as the direct outer
-body should become a handled block without removing the cleanup boundary.
+handler expressions. Its source-line gate runs before ordinary argument
+formatting, so a multiline short chain that collapses onto one line can require
+a second formatting pass before migration. Remaining migration should converge
+such multiline inputs in one pass and combine directly nested mixtures of
+short and list forms without crossing a statement, `defer`, function call,
+branch, or postfix operator. A `begin` used as the direct outer body should
+become a handled block without removing the cleanup boundary.
 
 The migrated output should use the short single-handler form when one handler
 and a one-line body remain. Multiple handlers with a one-line body should use
