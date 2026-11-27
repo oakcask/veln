@@ -160,7 +160,8 @@ mixed chains as adjacent function-body expressions and as sibling call
 arguments. Exact formatter cases cover comments owned by an inner handler
 closing token, a call delimiter, same-line sibling arguments, and list, record,
 and dictionary siblings. These checks reparse the first output and require
-byte-identical second output. The checked formatter case also covers call and
-list comment ownership through two command passes. Formatter tests preserve
-comments after `if` and `else if` conditions and require byte-identical output
-on a second pass.
+byte-identical second output. The inner-delimiter case also compares the
+comment's preceding token before and after formatting. The checked formatter
+case covers call and list comment ownership through two command passes.
+Formatter tests preserve comments after `if` and `else if` conditions and
+require byte-identical output on a second pass.

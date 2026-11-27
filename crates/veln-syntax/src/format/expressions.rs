@@ -612,11 +612,38 @@ fn format_unterminated_handle(
         .first()
         .expect("unterminated handle must have one handler entry");
     let args = format_parenthesized_expr_args(&entry.args, indent, comments);
-    format!(
-        "handle {} with {}{args}",
-        format_expr_prec_ctx(body, 0, ExprSide::Root, indent, comments, false),
-        entry.handler.join("::")
-    )
+    let body = format_continued_handle_body(body, indent, comments);
+    format!("handle {} with {}{args}", body, entry.handler.join("::"))
+}
+
+fn format_continued_handle_body(
+    body: &Expr,
+    indent: usize,
+    comments: Option<&LineComments>,
+) -> String {
+    let formatted = format_expr_prec_ctx(body, 0, ExprSide::Root, indent, comments, false);
+    let trailing_comments = match (&body.kind, comments) {
+        (
+            ExprKind::Handle {
+                terminated: true, ..
+            },
+            Some(comments),
+        ) => comments.take_after_last_end_in_span(&body.span),
+        _ => Vec::new(),
+    };
+    if trailing_comments.is_empty() {
+        return formatted;
+    }
+
+    let mut grouped = format!("({formatted}");
+    for comment in trailing_comments {
+        grouped.push_str("  ");
+        grouped.push_str(&comment);
+    }
+    grouped.push('\n');
+    push_indent(&mut grouped, indent);
+    grouped.push(')');
+    grouped
 }
 
 fn format_terminated_handle_body(
@@ -629,14 +656,7 @@ fn format_terminated_handle_body(
     match body {
         HandleBody::Expression(body) => {
             text.push(' ');
-            text.push_str(&format_expr_prec_ctx(
-                body,
-                0,
-                ExprSide::Root,
-                indent,
-                comments,
-                false,
-            ));
+            text.push_str(&format_continued_handle_body(body, indent, comments));
             text.push_str(" with");
             for comment in header_trailing_comments {
                 text.push_str("  ");

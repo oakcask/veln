@@ -96,10 +96,10 @@ fn migrate_list_over_short() -> Int
 end
 
 fn preserve_inner_closing_comment() -> Int
-	wrap(handle handle value() with
+	wrap(handle (handle value() with
 		inner(second())
-	end with outer(first())  # inner closing
-	)
+	end  # inner closing
+	) with outer(first()))
 end
 
 fn preserve_list_sibling_comment() -> Vec<Int>

@@ -74,6 +74,7 @@ pub(super) struct LineComments {
     after: std::cell::RefCell<TrailingComments>,
     owner_offsets: std::collections::BTreeSet<usize>,
     owner_start_by_end: std::collections::BTreeMap<usize, usize>,
+    end_token_offsets: std::collections::BTreeSet<usize>,
     separator_owner_offsets: std::collections::BTreeSet<usize>,
     pub(super) requires_lossless_preservation: bool,
 }
@@ -165,6 +166,7 @@ impl LineComments {
         let mut after = TrailingComments::default();
         let mut owner_offsets = std::collections::BTreeSet::new();
         let mut owner_start_by_end = std::collections::BTreeMap::new();
+        let mut end_token_offsets = std::collections::BTreeSet::new();
         let mut separator_owner_offsets = std::collections::BTreeSet::new();
         let mut last_code_offset = None;
         let mut last_code_end_offset = None;
@@ -199,6 +201,9 @@ impl LineComments {
                 }
                 TokenKind::Eof => {}
                 _ => {
+                    if token.kind == TokenKind::End {
+                        end_token_offsets.insert(token.range.start);
+                    }
                     if !seen_code_on_line && !pending.is_empty() {
                         owner_offsets.insert(token.range.start);
                         before.entry(line).or_default().append(&mut pending);
@@ -220,6 +225,7 @@ impl LineComments {
             after: std::cell::RefCell::new(after),
             owner_offsets,
             owner_start_by_end,
+            end_token_offsets,
             separator_owner_offsets,
             requires_lossless_preservation,
         }
@@ -283,6 +289,21 @@ impl LineComments {
 
     pub(super) fn take_after_owner_ending_at(&self, end_offset: usize) -> Vec<String> {
         let Some(owner_offset) = self.owner_start_by_end.get(&end_offset).copied() else {
+            return Vec::new();
+        };
+        self.after.borrow_mut().take_owner(owner_offset)
+    }
+
+    pub(super) fn take_after_last_end_in_span(
+        &self,
+        span: &veln_source::SourceSpan,
+    ) -> Vec<String> {
+        let Some(owner_offset) = self
+            .end_token_offsets
+            .range(span.start.offset..span.end.offset)
+            .next_back()
+            .copied()
+        else {
             return Vec::new();
         };
         self.after.borrow_mut().take_owner(owner_offset)

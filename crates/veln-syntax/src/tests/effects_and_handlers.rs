@@ -641,10 +641,10 @@ fn formatter_preserves_delimited_mixed_chain_comment_ownership() {
             ),
             concat!(
                 "fn sample() -> Int\n",
-                "\twrap(handle handle value() with\n",
+                "\twrap(handle (handle value() with\n",
                 "\t\tinner()\n",
-                "\tend with outer()  # inner closing\n",
-                "\t)\n",
+                "\tend  # inner closing\n",
+                "\t) with outer())\n",
                 "end\n",
             ),
         ),
@@ -697,10 +697,10 @@ fn formatter_preserves_delimited_mixed_chain_comment_ownership() {
             ),
             concat!(
                 "fn same_line_siblings() -> Int\n",
-                "\twrap(handle handle first() with\n",
+                "\twrap(handle (handle first() with\n",
                 "\t\tfirst_inner()\n",
-                "\tend with first_outer(),  # first closing\n",
-                "\t\thandle handle second() with  # second header\n",
+                "\tend  # first closing\n",
+                "\t) with first_outer(), handle handle second() with  # second header\n",
                 "\t\tsecond_inner()\n",
                 "\tend with second_outer())\n",
                 "end\n",
@@ -780,7 +780,29 @@ fn assert_commented_format_round_trip(source_text: &str, expected: &str) {
         "{formatted}\n{:#?}",
         reparsed.diagnostics
     );
+    if source_text.contains("# inner closing") {
+        assert_eq!(
+            preceding_comment_owner(&parsed.tree, "# inner closing"),
+            preceding_comment_owner(&reparsed.tree, "# inner closing")
+        );
+    }
     assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+fn preceding_comment_owner(tree: &SyntaxTree, comment_text: &str) -> (TokenKind, String) {
+    let mut preceding = None;
+    for token in tree.lossless_tokens() {
+        match token.kind {
+            TokenKind::Newline => preceding = None,
+            TokenKind::Whitespace => {}
+            TokenKind::Comment if token.text.trim_start() == comment_text => {
+                return preceding.expect("comment must have a preceding owner token");
+            }
+            TokenKind::Comment | TokenKind::Eof => {}
+            _ => preceding = Some((token.kind, token.text.clone())),
+        }
+    }
+    panic!("missing comment {comment_text}");
 }
 
 #[test]
