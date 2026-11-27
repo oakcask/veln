@@ -79,7 +79,8 @@ fn accepted_navigation_reuse_excludes_unanalyzed_workspace_overlays() {
     assert!(!Arc::ptr_eq(&first, &overlay));
     assert!(
         resources
-            .read_only_workspace_navigation
+            .workspace_navigation_caches
+            .get(WorkspaceNavigationSlot::ReadOnly)
             .as_ref()
             .unwrap()
             .accepted_identity
@@ -151,6 +152,54 @@ fn rejected_navigation_reuses_one_accepted_snapshot_across_both_cache_slots() {
 }
 
 #[test]
+fn rejected_analysis_discards_unaccepted_read_only_overlay() {
+    let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
+    let scope = DependencyAnalysisScope::Project("project".to_string());
+    let accepted_files = vec![SourceFile::new(
+        "main.veln",
+        "fn accepted() -> Int\n  dependency::value()\nend\n",
+    )];
+    let rejected_files = vec![SourceFile::new(
+        "main.veln",
+        "fn rejected() -> Int\n  changed::value()\nend\n",
+    )];
+    let accepted_dependencies = test_dependency("dependency", "accepted");
+    let rejected_dependencies = test_dependency("changed", "rejected");
+    resources
+        .admit_analyzed_dependencies(
+            scope.clone(),
+            accepted_files.clone(),
+            &accepted_dependencies,
+        )
+        .unwrap();
+    let accepted = resources
+        .navigation_snapshot(
+            accepted_files,
+            &accepted_dependencies,
+            scope.clone(),
+            json!("accepted"),
+        )
+        .unwrap();
+    let overlay = resources.read_only_navigation_snapshot(
+        rejected_files.clone(),
+        &accepted_dependencies,
+        scope.clone(),
+        json!("shared-key"),
+    );
+    assert!(!Arc::ptr_eq(&accepted, &overlay));
+
+    resources.reject_dependency_analysis(scope.clone(), &rejected_dependencies);
+    let retained = resources.read_only_navigation_snapshot(
+        rejected_files,
+        &rejected_dependencies,
+        scope,
+        json!("shared-key"),
+    );
+
+    assert!(Arc::ptr_eq(&accepted, &retained));
+}
+
+#[test]
 fn successful_analysis_replaces_a_rejected_scope() {
     let mut resources = LanguageResources::for_test(Vec::new(), Vec::new());
     let scope = DependencyAnalysisScope::Project("first".to_string());
@@ -161,8 +210,18 @@ fn successful_analysis_replaces_a_rejected_scope() {
     resources
         .admit_analyzed_dependencies(scope.clone(), Vec::new(), &first)
         .unwrap();
-    assert!(resources.workspace_navigation.is_none());
-    assert!(resources.read_only_workspace_navigation.is_none());
+    assert!(
+        resources
+            .workspace_navigation_caches
+            .get(WorkspaceNavigationSlot::Mutable)
+            .is_none()
+    );
+    assert!(
+        resources
+            .workspace_navigation_caches
+            .get(WorkspaceNavigationSlot::ReadOnly)
+            .is_none()
+    );
     assert!(matches!(
         resources.dependency_analysis_selection(&scope, &first),
         DependencyAnalysisSelection::Admitted(_)
