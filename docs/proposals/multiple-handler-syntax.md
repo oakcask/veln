@@ -24,8 +24,9 @@ preservation are current behavior rather than future work.
 
 The current [format specification](../specification/command-fmt.md) defines the
 implemented migration for comment-free, single-line chains made only of short
-handler expressions. It retains multiline chains as a stable multiline nested
-form. Remaining migration should migrate such multiline inputs in one pass and
+handler expressions. It retains a comment-free multiline chain that otherwise
+meets those direct short-chain conditions as a stable multiline nested form.
+Remaining migration should migrate such multiline inputs in one pass and
 combine directly nested mixtures of
 short and list forms without crossing a statement, `defer`, function call,
 branch, or postfix operator. A `begin` used as the direct outer body should

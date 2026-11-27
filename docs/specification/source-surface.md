@@ -677,6 +677,11 @@ ownership of the terminated list's `end` or the enclosing declaration's `end`;
 recovery also stops before a following top-level declaration. A following
 handler declaration remains a top-level recovery boundary.
 
+All three forms remain accepted after formatting. The
+[format command](command-fmt.md#formatting-rules) defines when a directly
+nested chain of short forms is rewritten as one terminated expression-body
+list and when the formatter preserves a nested form.
+
 The syntax tree distinguishes an expression body from a block body, retains
 whether the form is terminated, and preserves the ordered entries, each
 complete handler path and span, argument expressions, block span, and complete

@@ -73,8 +73,9 @@ bytes. During one formatting pass, the formatter leaves the chain nested if
 it contains comments, mixes short and terminated forms, uses a handled block
 or `begin`, spans multiple source lines, or reaches another handler only
 through a statement, `defer`, call, branch, or postfix operator. The formatter
-writes an excluded multiline chain in a canonical multiline nested form, so
-the chain remains ineligible and byte-identical on a second pass.
+keeps a comment-free multiline chain that otherwise meets the direct
+short-chain conditions in a canonical multiline nested form. That chain
+remains ineligible and is byte-identical on a second pass.
 Eligibility applies to the complete directly nested chain: when an outer form
 is ineligible, no directly nested suffix of that chain migrates on its own. A
 statement, `defer`, call, branch, or postfix operator ends that direct chain,
