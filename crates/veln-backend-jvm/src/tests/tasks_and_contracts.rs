@@ -145,6 +145,49 @@ fn bytecode_backend_entry_reports_contract_failures_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_keeps_unsound_float_contracts_at_runtime() {
+    let cases = [
+        (
+            "9007199254740993.0 + 0.0 > 9007199254740992.0",
+            "checked(9007199254740992.0)",
+        ),
+        (
+            "not (value >= 9007199254740993.0 and value <= 9007199254740992.0)",
+            "checked(9007199254740992.0)",
+        ),
+        ("9007199254740993 == 9007199254740992.0", "checked(0.0)"),
+        ("-0.0 == 0.0", "checked(0.0)"),
+    ];
+    for (predicate, call) in cases {
+        let ir = lower_to_ir(&format!(
+            "fn checked(value: Float) -> Float\nrequire {predicate}\n  value\nend\n\
+             pub fn main() -> ()\n  {call}\n  ()\nend\n"
+        ));
+        assert_eq!(
+            ir.functions[0].contracts[0].obligation_status,
+            veln_core::ContractObligationStatus::RuntimeRequired
+        );
+        let normalized_predicate = ir.functions[0].contracts[0].predicate.clone();
+        let program = generate_classfiles_with_entry(&ir, "main");
+        let Some(output) = run_jvm_program_when_java_is_available(
+            "bytecode-float-contract-runtime-required",
+            &program,
+            &[],
+        ) else {
+            return;
+        };
+        assert!(!output.status.success(), "{predicate}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(&format!(
+                "contract failure: require `{normalized_predicate}`"
+            )),
+            "{predicate}: {stderr}"
+        );
+    }
+}
+
+#[test]
 fn bytecode_backend_evaluates_prefixed_contract_integers_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn bounded(value: Int) -> Int\n",
@@ -393,6 +436,75 @@ fn contract_callsite_metadata_work_grows_linearly() {
     assert_eq!(smaller, smaller_count * 2);
     assert_eq!(larger, larger_count * 2);
     assert_eq!(larger, smaller * 2);
+}
+
+fn balanced_float_contract(values: &[String]) -> String {
+    match values {
+        [value] => format!("value == {value}"),
+        _ => {
+            let middle = values.len() / 2;
+            format!(
+                "({}) or ({})",
+                balanced_float_contract(&values[..middle]),
+                balanced_float_contract(&values[middle..])
+            )
+        }
+    }
+}
+
+fn indexed_float_contract(count: usize, distinct: bool) -> TypedProgram {
+    let values = (0..count)
+        .map(|index| {
+            if distinct {
+                format!("1.{index:06}")
+            } else {
+                "1.000000".to_string()
+            }
+        })
+        .collect::<Vec<_>>();
+    let predicate = balanced_float_contract(&values);
+    lower_to_ir(&format!(
+        "fn guarded(value: Float) -> Float\nrequire {predicate}\n  value\nend\npub fn main() -> Float\n  guarded(1.0)\nend\n"
+    ))
+}
+
+#[test]
+fn indexed_float_contract_generation_scales_across_adjacent_sizes() {
+    for count in [512, 1_024] {
+        for distinct in [false, true] {
+            let ir = indexed_float_contract(count, distinct);
+            assert_eq!(
+                ir.functions[0].contracts[0].float_literals.len(),
+                if distinct { count } else { 1 }
+            );
+            let _program = generate_classfiles_with_entry(&ir, "main");
+        }
+    }
+}
+
+#[test]
+fn runtime_float_contract_emits_long_predicate_text_in_chunks() {
+    let zero = format!("0.{}", "0".repeat(65_540));
+    let ir = lower_to_ir(&format!(
+        "fn guarded(value: Float) -> Float\nrequire value == {zero}\n  value\nend\npub fn main() -> Float\n  guarded(0.0)\nend\n"
+    ));
+    assert_eq!(
+        ir.functions[0].contracts[0].obligation_status,
+        veln_core::ContractObligationStatus::RuntimeRequired
+    );
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "runtime-long-float-contract-predicate",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 fn flat_remainder_contract(operator_count: usize) -> TypedProgram {

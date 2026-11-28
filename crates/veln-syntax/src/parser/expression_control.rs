@@ -514,6 +514,7 @@ impl<'a> ExprParser<'a> {
             &predicate_tokens,
             &predicate,
             true,
+            self.float_literals,
         )
         .parse();
         self.diagnostics.extend(predicate_output.diagnostics);

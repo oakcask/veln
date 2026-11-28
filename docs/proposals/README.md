@@ -58,8 +58,9 @@ also states it.
   comparison checks are completion requirements.
 - [Floating-point Exponent Literals](floating-point-literals.md): implement
   decimal and hexadecimal exponent notation with the specified token,
-  rounding, and range-error rules; shared conversion is implementation work.
-  Independent of numeric constants API delivery.
+  conversion-extension, and tooling rules on the implemented shared
+  dotted-decimal conversion boundary. Independent of numeric constants API
+  delivery.
 - [Filesystem And Shared Byte IO](filesystem-io.md): implement the remaining
   production filesystem, shared IO, and adapter rollout under the fixed
   capability, outcome, and ownership contract. Complete and reuse F4–F5

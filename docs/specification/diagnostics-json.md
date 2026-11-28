@@ -400,6 +400,21 @@ hole predicates, the span is the count expression. In a schema field `where`
 predicate or schema-level `validate` predicate, the span is the containing
 predicate clause.
 
+A dotted-decimal Float literal whose nonzero value rounds to infinity or zero
+reports `parse.float_literal` at the complete literal span. The message
+distinguishes a value that is too large for a finite `Float` from a value that
+is too small for a nonzero `Float`. Details use `float_literal` as the parser
+context, retain the complete Float token as `unexpected`, and name the required
+outcome in `expected`: overflow uses `["finite Float value"]`, and nonzero
+underflow uses `["nonzero Float value"]`. Recovery uses `none`, drops no
+tokens, and supplies no repair candidate. The checked
+[`float literal range errors`](../../examples/specification/check/float-literal-range-errors/)
+case fixes the human messages.
+The checked
+[`Float literal range error JSON`](../../examples/specification/check/float-literal-range-errors-json/)
+case fixes the diagnostic id, complete spans, unexpected-token kind, expected
+values, and recovery fields.
+
 A remainder divisor written as an integer zero literal reports one
 `type.remainder_by_zero` diagnostic with kind `type`, message
 `remainder divisor is zero`, and details `operator: "%"` and `divisor: 0`.

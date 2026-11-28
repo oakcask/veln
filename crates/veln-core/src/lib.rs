@@ -7,10 +7,10 @@ pub mod types;
 pub use model::{
     CheckedProgram, ContractObligationStatus, CoreCallTarget, CoreCallbackTarget,
     CoreCleanupRegion, CoreContract, CoreContractCall, CoreDeferredBlock, CoreDeferredCapture,
-    CoreDictEntry, CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction,
-    CoreHandlerApplication, CoreHandlerProvider, CoreMatchArm, CoreModuleValueDecl,
-    CoreModuleValueIdentity, CoreParam, CorePattern, CorePatternField, CorePatternKind,
-    CoreRecordField, CoreSchemaRefinementField, CoreSchemaRefinementPayload,
+    CoreDictEntry, CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind,
+    CoreFloatLiteral, CoreFunction, CoreHandlerApplication, CoreHandlerProvider, CoreMatchArm,
+    CoreModuleValueDecl, CoreModuleValueIdentity, CoreParam, CorePattern, CorePatternField,
+    CorePatternKind, CoreRecordField, CoreSchemaRefinementField, CoreSchemaRefinementPayload,
     CoreSchemaRefinementPlan, CoreSchemaRefinementPlanNode, CoreSchemaRefinementValidationSpec,
     CoreSchemaRefinementVariant, CoreStmt, CoreStmtKind,
 };

@@ -35,8 +35,11 @@ fn folded_remainder_float_arithmetic_does_not_create_false_repairs() {
         );
     }
     let true_float = holes[2].details.to_json();
-    assert!(true_float.contains("safe_repair_candidate"), "{true_float}");
-    assert!(true_float.contains("statically_satisfied"), "{true_float}");
+    assert!(
+        !true_float.contains("safe_repair_candidate"),
+        "{true_float}"
+    );
+    assert!(!true_float.contains("statically_satisfied"), "{true_float}");
     let independent = holes[3].details.to_json();
     assert!(
         independent.contains("safe_repair_candidate"),

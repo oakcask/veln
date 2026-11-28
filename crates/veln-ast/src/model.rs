@@ -598,7 +598,10 @@ pub enum ExprKind {
     },
     StringLiteral(String),
     IntLiteral(String),
-    FloatLiteral(String),
+    FloatLiteral {
+        spelling: String,
+        bits: Result<u64, veln_literals::FloatLiteralError>,
+    },
     BoolLiteral(bool),
     Unit,
     TypeApply {
@@ -747,7 +750,7 @@ impl Pattern {
             PatternKind::Wildcard
             | PatternKind::StringLiteral(_)
             | PatternKind::IntLiteral(_)
-            | PatternKind::FloatLiteral(_)
+            | PatternKind::FloatLiteral { .. }
             | PatternKind::BoolLiteral(_)
             | PatternKind::Unit => {}
         }
@@ -760,7 +763,10 @@ pub enum PatternKind {
     Binding(String),
     StringLiteral(String),
     IntLiteral(String),
-    FloatLiteral(String),
+    FloatLiteral {
+        spelling: String,
+        bits: Result<u64, veln_literals::FloatLiteralError>,
+    },
     BoolLiteral(bool),
     Unit,
     Record(Vec<PatternField>),

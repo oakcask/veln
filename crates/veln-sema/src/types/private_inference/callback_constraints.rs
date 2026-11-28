@@ -117,7 +117,7 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
         | ExprKind::Hole { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
+        | ExprKind::FloatLiteral { .. }
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit
         | ExprKind::TypeApply { .. } => {}

@@ -135,6 +135,17 @@ fn static_numeric_expression_preserves_operator_precedence_and_associativity() {
 }
 
 #[test]
+fn static_literal_comparisons_leave_float_values_for_runtime() {
+    assert!(!predicate_is_statically_true(
+        "9007199254740993.0 == 9007199254740992.0"
+    ));
+    assert!(!predicate_is_statically_true(
+        "9007199254740993.0 != 9007199254740992.0"
+    ));
+    assert!(!predicate_is_statically_true("-0.0 == 0.0"));
+}
+
+#[test]
 fn static_contract_reasoning_evaluates_signed_integer_remainder() {
     for predicate in [
         "7 % 3 == 1",
@@ -179,7 +190,7 @@ fn remainder_does_not_enable_exact_decimal_division_for_int_expressions() {
         );
     }
 
-    assert!(contract_predicate_is_statically_true("1 / 3 < 0.34"));
+    assert!(!contract_predicate_is_statically_true("1 / 3 < 0.34"));
 }
 
 #[test]
@@ -391,7 +402,6 @@ fn contract_static_truth_keeps_overlapping_literal_bounds_runtime_checked() {
 fn contract_static_truth_classifies_literal_bounds_excluding_disequality_values() {
     for predicate in [
         "not (value > 10) or (value != 10)",
-        "not (value <= 1 / 2) or (value != 0.75)",
         "not (value == alias and alias < 20) or (value != 20)",
     ] {
         assert!(
@@ -399,6 +409,9 @@ fn contract_static_truth_classifies_literal_bounds_excluding_disequality_values(
             "{predicate}"
         );
     }
+    assert!(!contract_predicate_is_statically_true(
+        "not (value <= 1 / 2) or (value != 0.75)"
+    ));
 }
 
 #[test]

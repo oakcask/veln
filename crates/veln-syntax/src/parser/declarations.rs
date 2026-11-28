@@ -2,7 +2,9 @@ use super::*;
 
 impl<'a> Parser<'a> {
     pub(super) fn new(source: &'a SourceFile, tokens: Vec<Token>) -> Self {
-        let diagnostics = integer_literal_diagnostics(source, &tokens);
+        let mut diagnostics = integer_literal_diagnostics(source, &tokens);
+        let float_literals = validated_float_literals(&tokens);
+        diagnostics.extend(float_literal_diagnostics(source, &tokens, &float_literals));
         let parse_tokens = tokens
             .iter()
             .filter(|token| !token.kind.is_trivia())
@@ -18,6 +20,7 @@ impl<'a> Parser<'a> {
             top_level_boundary_cache: Cell::new(None),
             module_value_suffixes: ModuleValueSuffixClassifier::new(),
             diagnostics,
+            float_literals,
         }
     }
 

@@ -1,7 +1,9 @@
 use veln_ast::{ContractKind, PredicateRemainder};
 use veln_literals::parse_integer_literal;
+use veln_source::SourceFile;
+use veln_syntax::{TokenKind, lex};
 
-use std::ops::Range;
+use std::{collections::HashMap, ops::Range};
 
 use crate::semantic_model::{Binding, Type};
 
@@ -31,7 +33,8 @@ pub(crate) fn contract_kind_text(kind: ContractKind) -> &'static str {
 }
 
 pub(crate) fn predicate_is_statically_true(predicate: &str) -> bool {
-    !predicate_has_nonfoldable_remainder(predicate)
+    !predicate_has_float_literal(predicate)
+        && !predicate_has_nonfoldable_remainder(predicate)
         && static_boolean_value(predicate) == StaticBooleanValue::True
 }
 
@@ -41,8 +44,16 @@ pub(crate) fn predicate_is_statically_true_with_literal_bounds(predicate: &str) 
 }
 
 pub(crate) fn contract_predicate_is_statically_true(predicate: &str) -> bool {
-    !predicate_has_nonfoldable_remainder(predicate)
+    !predicate_has_float_literal(predicate)
+        && !predicate_has_nonfoldable_remainder(predicate)
         && static_boolean_value_for_contract(predicate) == StaticBooleanValue::True
+}
+
+fn predicate_has_float_literal(predicate: &str) -> bool {
+    lex(&SourceFile::new("<contract-predicate>", predicate))
+        .tokens
+        .iter()
+        .any(|token| token.kind == TokenKind::Float)
 }
 
 pub(crate) fn contract_predicate_is_statically_true_with_remainders(
@@ -56,6 +67,92 @@ pub(crate) fn contract_predicate_is_statically_true_with_remainders(
         return false;
     };
     static_boolean_value_for_remainder_contract(&folded) == StaticBooleanValue::True
+}
+
+pub(crate) fn contract_predicate_is_statically_true_with_float_literals(
+    predicate: &str,
+    remainders: &[PredicateRemainder],
+    float_literals: &HashMap<String, u64>,
+) -> bool {
+    if float_literals.is_empty() {
+        return contract_predicate_is_statically_true_with_remainders(predicate, remainders);
+    }
+    remainders.is_empty()
+        && static_boolean_value_with_float_literals(predicate, float_literals)
+            == StaticBooleanValue::True
+}
+
+fn static_boolean_value_with_float_literals(
+    predicate: &str,
+    float_literals: &HashMap<String, u64>,
+) -> StaticBooleanValue {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    let clauses = split_top_level_keyword(predicate, "or");
+    if clauses.len() > 1 {
+        return if clauses.into_iter().any(|clause| {
+            static_boolean_value_with_float_literals(clause, float_literals)
+                == StaticBooleanValue::True
+        }) {
+            StaticBooleanValue::True
+        } else {
+            StaticBooleanValue::Unknown
+        };
+    }
+    let clauses = split_top_level_keyword(predicate, "and");
+    if clauses.len() > 1 {
+        return if clauses.into_iter().all(|clause| {
+            static_boolean_value_with_float_literals(clause, float_literals)
+                == StaticBooleanValue::True
+        }) {
+            StaticBooleanValue::True
+        } else {
+            StaticBooleanValue::Unknown
+        };
+    }
+    for operators in [&["==", "!="][..], &["<=", ">=", "<", ">"][..]] {
+        let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
+        else {
+            continue;
+        };
+        let (Some(left_bits), Some(right_bits)) = (
+            indexed_float_literal_bits(left, float_literals),
+            indexed_float_literal_bits(right, float_literals),
+        ) else {
+            return static_non_float_boolean_value(predicate);
+        };
+        let value = match operator {
+            "==" => left_bits == right_bits,
+            "!=" => left_bits != right_bits,
+            "<" => f64::from_bits(left_bits) < f64::from_bits(right_bits),
+            "<=" => f64::from_bits(left_bits) <= f64::from_bits(right_bits),
+            ">" => f64::from_bits(left_bits) > f64::from_bits(right_bits),
+            ">=" => f64::from_bits(left_bits) >= f64::from_bits(right_bits),
+            _ => return StaticBooleanValue::Unknown,
+        };
+        return if value {
+            StaticBooleanValue::True
+        } else {
+            StaticBooleanValue::False
+        };
+    }
+    static_non_float_boolean_value(predicate)
+}
+
+fn static_non_float_boolean_value(predicate: &str) -> StaticBooleanValue {
+    if predicate_has_float_literal(predicate) {
+        StaticBooleanValue::Unknown
+    } else {
+        static_boolean_value_for_contract(predicate)
+    }
+}
+
+fn indexed_float_literal_bits(text: &str, float_literals: &HashMap<String, u64>) -> Option<u64> {
+    let text = strip_balanced_outer_parens(text.trim());
+    if let Some(magnitude) = text.strip_prefix('-') {
+        return indexed_float_literal_bits(magnitude, float_literals)
+            .map(|bits| bits ^ (1_u64 << 63));
+    }
+    float_literals.get(text).copied()
 }
 
 pub(crate) fn predicate_with_folded_literal_remainders(

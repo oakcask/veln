@@ -258,7 +258,7 @@ pub(crate) fn collect_private_call_site_expr_constraints(
         | ExprKind::Hole { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
+        | ExprKind::FloatLiteral { .. }
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit
         | ExprKind::TypeApply { .. } => {}

@@ -10,6 +10,10 @@ impl<'a> ContractPredicateParser<'a> {
         tokens: &'a [Token],
         predicate: &'a str,
         allow_remainder: bool,
+        float_literals: &'a std::collections::HashMap<
+            (usize, usize),
+            Result<u64, veln_literals::FloatLiteralError>,
+        >,
     ) -> Self {
         let token_text_ranges = predicate_token_text_ranges(predicate, tokens);
         Self {
@@ -23,6 +27,7 @@ impl<'a> ContractPredicateParser<'a> {
             diagnostics: Vec::new(),
             perform_effect_spans: Vec::new(),
             remainder_spans: Vec::new(),
+            float_literals,
         }
     }
 
@@ -108,6 +113,8 @@ impl<'a> ContractPredicateParser<'a> {
             .map(|(token, text_range)| crate::PredicateTokenSpan {
                 text_range: text_range.clone(),
                 source_span: self.source.span(token.range),
+                float_bits: (token.kind == TokenKind::Float)
+                    .then(|| self.float_literals[&(token.range.start, token.range.end)]),
             })
             .collect()
     }

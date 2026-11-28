@@ -324,7 +324,7 @@ impl<'a> CoreLowerer<'a> {
             PatternKind::Wildcard
             | PatternKind::StringLiteral(_)
             | PatternKind::IntLiteral(_)
-            | PatternKind::FloatLiteral(_)
+            | PatternKind::FloatLiteral { .. }
             | PatternKind::BoolLiteral(_)
             | PatternKind::Unit => Vec::new(),
             PatternKind::Binding(name) => vec![CoreBinding {
@@ -365,7 +365,7 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn lower_pattern(
-        &self,
+        &mut self,
         pattern: &Pattern,
         scrutinee_type: Option<&CoreType>,
     ) -> CorePattern {
@@ -380,7 +380,13 @@ impl<'a> CoreLowerer<'a> {
                         .map(|literal| literal.value.to_string())
                         .unwrap_or_else(|_| value.clone()),
                 ),
-                PatternKind::FloatLiteral(value) => CorePatternKind::FloatLiteral(value.clone()),
+                PatternKind::FloatLiteral { bits, .. } => match bits {
+                    Ok(bits) => CorePatternKind::FloatLiteral(f64::from_bits(*bits)),
+                    Err(error) => {
+                        self.invalid_float_literal(*error, &pattern.span);
+                        CorePatternKind::Wildcard
+                    }
+                },
                 PatternKind::BoolLiteral(value) => CorePatternKind::BoolLiteral(*value),
                 PatternKind::Unit => CorePatternKind::Unit,
                 PatternKind::Record(fields) => self.lower_record_pattern(fields, scrutinee_type),
@@ -393,7 +399,7 @@ impl<'a> CoreLowerer<'a> {
     }
 
     fn lower_record_pattern(
-        &self,
+        &mut self,
         fields: &[PatternField],
         scrutinee_type: Option<&CoreType>,
     ) -> CorePatternKind {
@@ -414,7 +420,7 @@ impl<'a> CoreLowerer<'a> {
     }
 
     fn lower_constructor_pattern(
-        &self,
+        &mut self,
         name: &[String],
         args: &[Pattern],
         scrutinee_type: Option<&CoreType>,

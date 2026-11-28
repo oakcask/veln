@@ -539,7 +539,7 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
         | ExprKind::Hole { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
+        | ExprKind::FloatLiteral { .. }
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit
         | ExprKind::TypeApply { .. } => false,

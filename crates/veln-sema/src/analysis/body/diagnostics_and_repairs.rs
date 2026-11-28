@@ -898,7 +898,12 @@ impl<'a> FunctionChecker<'a> {
         folded_satisfy.predicate =
             predicate_with_folded_literal_remainders(&satisfy.predicate, &satisfy.remainder_spans)?;
         folded_satisfy.remainder_spans.clear();
-        let allow_static_truth = self.valid_static_satisfy_predicate(satisfy, expected);
+        let has_float_literal = satisfy
+            .predicate_tokens
+            .iter()
+            .any(|token| token.float_bits.is_some());
+        let allow_static_truth =
+            !has_float_literal && self.valid_static_satisfy_predicate(satisfy, expected);
         let mut direct_constraint =
             SatisfyRepairConstraint::from_satisfy(&folded_satisfy, allow_static_truth);
         if direct_constraint
@@ -908,7 +913,7 @@ impl<'a> FunctionChecker<'a> {
             return direct_constraint;
         }
         let candidate = satisfy.candidate.as_ref()?;
-        let required_predicates = self
+        let required_contracts = self
             .function
             .contracts
             .iter()
@@ -919,10 +924,20 @@ impl<'a> FunctionChecker<'a> {
                     ContractValidation::Valid
                 )
             })
+            .collect::<Vec<_>>();
+        let required_predicates = required_contracts
+            .iter()
             .map(|contract| contract.text.clone())
             .collect::<Vec<_>>();
-        let proof_context = (!required_predicates.is_empty())
-            .then(|| RequiredPredicateProofContext::new(&required_predicates));
+        let proof_context = (!has_float_literal
+            && !required_contracts.iter().any(|contract| {
+                contract
+                    .predicate_tokens
+                    .iter()
+                    .any(|token| token.float_bits.is_some())
+            })
+            && !required_predicates.is_empty())
+        .then(|| RequiredPredicateProofContext::new(&required_predicates));
         let allowed_bindings = self.satisfy_allowed_bindings(
             &folded_satisfy,
             candidate,

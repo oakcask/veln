@@ -281,6 +281,16 @@ command-specific execution or write policy. Holes, missing expressions,
 constructor or call arity failures, and recognized concurrency blockers
 prevent execution.
 
+Checked core and typed IR store the validated binary64 value of each accepted
+dotted-decimal Float literal. JVM expression and pattern emission load that
+value directly; they do not parse source text or substitute zero after a
+conversion failure. Contract emission uses the same validated conversion
+boundary. Consequently, ordinary expressions, patterns, and contracts agree
+at rounding boundaries. The
+[`Float literal conversion`](../../examples/specification/run/float-literal-conversion/)
+evidence covers that agreement together with finite-subnormal and positive-
+and negative-zero execution.
+
 Typed-IR lowering replaces each successfully evaluated closed `Int` or `Bool`
 operator subtree in a function or test body with one scalar constant before
 JVM emission. An executable function method whose result is entirely closed
@@ -506,7 +516,11 @@ If one generated class cannot represent its constant pool, a constant-pool
 string requires more than 65,535 bytes in JVM modified UTF-8, a method requires
 more than 65,535 bytes of code, or a method requires more than 65,535 operand
 stack slots, classfile generation returns a bounded backend failure before it
-writes an invalid or truncated classfile. Module immutable-value materialization
+writes an invalid or truncated classfile. Runtime contract predicate source is
+split across valid constant-pool strings and reconstructed without changing
+the diagnostic text. A predicate is therefore not rejected solely because its
+complete source exceeds the per-string modified UTF-8 limit; the method and
+class-wide limits still apply. Module immutable-value materialization
 splits admitted strings and initializer trees before those per-entry,
 per-method, and class-wide constant-pool limits apply. It also isolates
 construction resources for initializers that share declaration storage.

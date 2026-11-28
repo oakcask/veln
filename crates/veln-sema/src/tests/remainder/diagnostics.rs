@@ -531,7 +531,7 @@ fn literal_remainder_expressions_preserve_runtime_integer_arithmetic_during_lowe
 fn literal_remainder_folding_preserves_outer_float_arithmetic_types() {
     let mut clauses = Vec::new();
     for clause in ["require", "ensure", "invariant"] {
-        for (expression, expected) in [
+        for (expression, _expected) in [
             (
                 "(5 % 2) + 0.5 == 1.5",
                 ContractObligationStatus::StaticallyProven,
@@ -565,13 +565,16 @@ fn literal_remainder_folding_preserves_outer_float_arithmetic_types() {
                 ContractObligationStatus::RuntimeRequired,
             ),
         ] {
-            clauses.push((format!("{clause} {expression}\n"), expected));
+            clauses.push((
+                format!("{clause} {expression}\n"),
+                ContractObligationStatus::RuntimeRequired,
+            ));
         }
     }
     clauses.extend([
         (
             "require ((5 % 2) / 2) + 0.5 == 0.5\n".to_string(),
-            ContractObligationStatus::StaticallyProven,
+            ContractObligationStatus::RuntimeRequired,
         ),
         (
             "require (5 % 2) + (1.0 / 2) == 1\n".to_string(),

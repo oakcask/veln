@@ -435,6 +435,33 @@ produce one `parse.integer_literal` diagnostic at the failed source fact. The
 same rule applies in expression, pattern, schema, formatter, and diagnostic
 contexts.
 
+## Float Literals
+
+`Float` literals use decimal digits on both sides of one decimal point, such
+as `1.5` or `0.0`. The decimal value is rounded once to binary64 with
+round-to-nearest, ties-to-even. The same converted value is used in ordinary
+expressions, Float-literal patterns, and contract predicates. Formatting
+preserves the accepted dotted spelling. Decimal exponent notation,
+hexadecimal Float notation, leading-dot forms, and trailing-dot forms are not
+accepted.
+
+Zero and finite subnormal results are valid. A nonzero decimal that would
+round to infinity or zero reports `parse.float_literal` at the complete
+literal span. A leading minus remains unary negation, so negating `0.0`
+produces negative zero. The checked
+command examples corroborate expression, pattern, contract, subnormal,
+signed-zero, overflow, and nonzero-to-zero underflow behavior.
+
+The lowered AST preserves both the source spelling and the conversion result
+for each Float expression or pattern. An accepted literal carries its binary64
+bits. A rejected literal carries its invalid-syntax, overflow, or underflow
+result so diagnostic recovery can cross the public lowering boundary without
+inventing a value. Contract and `satisfy` predicate-token records retain the
+optional conversion result for each Float token. The AST wire form serializes
+the spellings and tagged results. The current wire header is `VLNAST28`, and
+the decoder rejects the preceding layout. AST round-trip tests cover the
+spelling and conversion result together.
+
 ## Integer Bitwise Tokens
 
 Expressions accept unary `~` and binary `&`, `|`, `^`, `<<`, `>>`, and

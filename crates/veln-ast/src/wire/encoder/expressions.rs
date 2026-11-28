@@ -14,7 +14,7 @@ impl Writer {
             | ExprKind::NamePath { .. }
             | ExprKind::StringLiteral(_)
             | ExprKind::IntLiteral(_)
-            | ExprKind::FloatLiteral(_)
+            | ExprKind::FloatLiteral { .. }
             | ExprKind::BoolLiteral(_)
             | ExprKind::Unit => self.scalar_expr_kind(value),
             ExprKind::TypeApply { .. } | ExprKind::Call { .. } => {
@@ -64,9 +64,10 @@ impl Writer {
                 self.u8(4);
                 self.string(value);
             }
-            ExprKind::FloatLiteral(value) => {
+            ExprKind::FloatLiteral { spelling, bits } => {
                 self.u8(5);
-                self.string(value);
+                self.string(spelling);
+                self.float_literal_result(bits);
             }
             ExprKind::BoolLiteral(value) => {
                 self.u8(6);
@@ -327,9 +328,10 @@ impl Writer {
                 self.u8(3);
                 self.string(value);
             }
-            PatternKind::FloatLiteral(value) => {
+            PatternKind::FloatLiteral { spelling, bits } => {
                 self.u8(4);
-                self.string(value);
+                self.string(spelling);
+                self.float_literal_result(bits);
             }
             PatternKind::BoolLiteral(value) => {
                 self.u8(5);

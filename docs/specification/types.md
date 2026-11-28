@@ -2453,8 +2453,13 @@ ordinary assignment, return, record, vec, and call argument checking still
 require `Float` where `Float` is declared.
 
 Float arithmetic and comparison operators lower as calls to compiler-known
-prelude functions. `Float` values follow the backend floating-point value
-space, including infinities and NaN values.
+prelude functions. A dotted-decimal Float literal is rounded once to binary64
+before typed execution. Literal spelling does not change its type, and a
+Float-literal pattern compares the rounded value with the existing Float
+matching semantics. `Float` values follow the backend floating-point value
+space, including infinities and NaN values, although source literals admit
+only finite results. Arithmetic may still produce non-finite values. Unary
+negation flips the sign of zero, so `-0.0` produces negative zero.
 
 An integer remainder whose divisor is written as an integer zero literal
 reports `type.remainder_by_zero` at the divisor with the operation as related

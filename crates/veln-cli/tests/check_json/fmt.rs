@@ -684,6 +684,26 @@ fn fmt_preserves_files_when_any_input_has_parse_errors() {
 }
 
 #[test]
+fn fmt_preserves_mixed_files_when_a_float_literal_is_out_of_range() {
+    let project = TestProject::new("fmt-float-range-error");
+    let overflow = format!("1{}.0", "0".repeat(309));
+    let bad = format!("fn bad() -> Float\n  {overflow}\nend\n");
+    let good = "fn   ok ( ) -> ()\n()\nend\n";
+    project.write("bad.veln", &bad);
+    project.write("good.veln", good);
+
+    let output = project.fmt(&["bad.veln", "good.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(project.read("bad.veln"), bad);
+    assert_eq!(project.read("good.veln"), good);
+    assert_contains_all(
+        stderr(&output),
+        &["bad.veln:2:3: error[parse.float_literal]: Float literal is too large"],
+    );
+}
+
+#[test]
 fn fmt_preserves_overdeep_handled_block_input() {
     let mut text = String::from("fn deep() -> ()\n");
     for _ in 0..800 {

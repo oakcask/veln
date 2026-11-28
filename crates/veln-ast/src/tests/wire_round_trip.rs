@@ -36,8 +36,8 @@ fn surface_wire_preserves_interleaved_source_and_generated_origin_paths() {
 #[test]
 fn surface_wire_rejects_the_previous_layout_header() {
     let mut encoded = encode_surface_module(&lower_source("fn main() -> ()\n  ()\nend\n"));
-    assert_eq!(&encoded[..9], b"VLNAST27\n");
-    encoded.splice(..9, b"VLNAST26\n".iter().copied());
+    assert_eq!(&encoded[..9], b"VLNAST28\n");
+    encoded.splice(..9, b"VLNAST27\n".iter().copied());
 
     let error =
         decode_surface_module(&encoded).expect_err("previous wire layout should be rejected");

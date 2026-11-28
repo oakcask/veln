@@ -74,7 +74,7 @@ pub(crate) fn infer_pattern_type_from_constructor_patterns(
     match &pattern.kind {
         PatternKind::StringLiteral(_) => Some(Type::string()),
         PatternKind::IntLiteral(_) => Some(Type::int()),
-        PatternKind::FloatLiteral(_) => Some(Type::float()),
+        PatternKind::FloatLiteral { .. } => Some(Type::float()),
         PatternKind::BoolLiteral(_) => Some(Type::bool()),
         PatternKind::Unit => Some(Type::unit()),
         PatternKind::Record(fields) => Some(Type::Record(

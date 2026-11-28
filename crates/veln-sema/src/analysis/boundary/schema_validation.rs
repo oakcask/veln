@@ -294,7 +294,7 @@ fn schedule_schema_predicate_expression(
         },
         ExprKind::BoolLiteral(_) => schema_predicate_typed_leaf(Type::bool()),
         ExprKind::StringLiteral(_) => schema_predicate_typed_leaf(Type::string()),
-        ExprKind::FloatLiteral(_) => schema_predicate_typed_leaf(Type::float()),
+        ExprKind::FloatLiteral { .. } => schema_predicate_typed_leaf(Type::float()),
         ExprKind::Prefix { op, expr } => {
             tasks.push(SchemaPredicateAnalysisTask::FinishPrefix(op));
             tasks.push(SchemaPredicateAnalysisTask::Visit(expr));

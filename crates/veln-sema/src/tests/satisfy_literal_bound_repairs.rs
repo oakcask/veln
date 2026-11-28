@@ -130,7 +130,7 @@ fn marks_strict_integer_upper_bound_as_adjacent_inclusive_satisfy_repair() {
 }
 
 #[test]
-fn marks_stronger_float_literal_lower_bound_as_satisfy_repair_evidence() {
+fn leaves_stronger_float_literal_lower_bound_for_manual_review() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -155,10 +155,10 @@ fn marks_stronger_float_literal_lower_bound_as_satisfy_repair_evidence() {
     )));
     assert!(details.contains(concat!(
         "{\"candidate_id\":\"symbol-2\",\"name\":\"ratio\",",
-        "\"type\":\"Float\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
-        "\"application_policy\":\"safe_repair_candidate\","
+        "\"type\":\"Float\",\"rank\":2,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
     )));
-    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+    assert!(!details.contains("\"satisfy_status\":\"statically_satisfied\""));
 }
 
 #[test]
@@ -189,7 +189,7 @@ fn leaves_equal_inclusive_float_literal_bound_as_manual_for_strict_satisfy_repai
 }
 
 #[test]
-fn marks_stronger_negative_float_literal_lower_bound_as_satisfy_repair_evidence() {
+fn leaves_stronger_negative_float_literal_lower_bound_for_manual_review() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -209,10 +209,10 @@ fn marks_stronger_negative_float_literal_lower_bound_as_satisfy_repair_evidence(
     let details = diagnostics[0].details.to_json();
     assert!(details.contains(concat!(
         "{\"candidate_id\":\"symbol-2\",\"name\":\"ratio\",",
-        "\"type\":\"Float\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
-        "\"application_policy\":\"safe_repair_candidate\","
+        "\"type\":\"Float\",\"rank\":2,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
     )));
-    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+    assert!(!details.contains("\"satisfy_status\":\"statically_satisfied\""));
 }
 
 #[test]
@@ -433,7 +433,7 @@ fn marks_subtracted_literal_arithmetic_bound_as_satisfy_repair_evidence() {
 }
 
 #[test]
-fn marks_inexact_literal_arithmetic_bound_as_satisfy_repair_evidence() {
+fn leaves_inexact_float_literal_arithmetic_bound_for_manual_review() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -453,10 +453,10 @@ fn marks_inexact_literal_arithmetic_bound_as_satisfy_repair_evidence() {
     let details = diagnostics[0].details.to_json();
     assert!(details.contains(concat!(
         "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
-        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
-        "\"application_policy\":\"safe_repair_candidate\","
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
     )));
-    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+    assert!(!details.contains("\"satisfy_status\":\"statically_satisfied\""));
 }
 
 #[test]
@@ -656,7 +656,7 @@ fn leaves_equal_inclusive_literal_bound_as_manual_for_disequality_repair() {
 }
 
 #[test]
-fn marks_upper_float_literal_bound_as_disequality_repair_evidence() {
+fn leaves_upper_float_literal_bound_for_manual_review() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -676,8 +676,8 @@ fn marks_upper_float_literal_bound_as_disequality_repair_evidence() {
     let details = diagnostics[0].details.to_json();
     assert!(details.contains(concat!(
         "{\"candidate_id\":\"symbol-2\",\"name\":\"ratio\",",
-        "\"type\":\"Float\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
-        "\"application_policy\":\"safe_repair_candidate\","
+        "\"type\":\"Float\",\"rank\":2,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
     )));
-    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+    assert!(!details.contains("\"satisfy_status\":\"statically_satisfied\""));
 }

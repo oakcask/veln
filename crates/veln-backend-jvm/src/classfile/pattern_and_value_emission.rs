@@ -206,9 +206,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     "(Ljava/lang/Object;Ljava/lang/Object;)Z",
                 );
             }
-            IrPatternKind::FloatLiteral(text) => {
+            IrPatternKind::FloatLiteral(value_float) => {
                 value.emit_load(code);
-                code.ldc_double(text.parse::<f64>().unwrap_or(0.0));
+                code.ldc_double(*value_float);
                 code.invokestatic("java/lang/Double", "valueOf", "(D)Ljava/lang/Double;");
                 code.invokestatic(
                     "java/util/Objects",

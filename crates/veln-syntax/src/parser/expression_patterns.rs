@@ -21,7 +21,14 @@ impl<'a> ExprParser<'a> {
             TokenKind::MalformedInt => self.parse_atomic_pattern(token, PatternKind::Wildcard),
             TokenKind::Float => {
                 let text = token.text.clone();
-                self.parse_atomic_pattern(token, PatternKind::FloatLiteral(text))
+                let bits = self.float_literal_bits(&token);
+                self.parse_atomic_pattern(
+                    token,
+                    PatternKind::FloatLiteral {
+                        spelling: text,
+                        bits,
+                    },
+                )
             }
             TokenKind::LParen => self.parse_parenthesized_pattern(),
             TokenKind::LBrace => self.parse_record_pattern(),

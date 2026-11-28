@@ -34,6 +34,18 @@ impl Writer {
         self.u8(u8::from(value));
     }
 
+    fn float_literal_result(&mut self, value: &Result<u64, veln_literals::FloatLiteralError>) {
+        match value {
+            Ok(bits) => {
+                self.u8(0);
+                self.u64(*bits);
+            }
+            Err(veln_literals::FloatLiteralError::InvalidSyntax) => self.u8(1),
+            Err(veln_literals::FloatLiteralError::Overflow) => self.u8(2),
+            Err(veln_literals::FloatLiteralError::Underflow) => self.u8(3),
+        }
+    }
+
     fn string(&mut self, value: &str) {
         self.u32(value.len() as u32);
         self.bytes.extend_from_slice(value.as_bytes());
@@ -448,6 +460,7 @@ impl Writer {
         self.usize(value.text_range.start);
         self.usize(value.text_range.end);
         self.span(&value.source_span);
+        self.option(&value.float_bits, Self::float_literal_result);
     }
 
     fn contract_kind(&mut self, value: ContractKind) {

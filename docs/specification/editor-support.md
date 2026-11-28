@@ -79,7 +79,9 @@ The implemented semantic token types are standard LSP token types:
 Lexical fallback also classifies `#` comments, strings, numbers, keywords, and
 operators with the matching standard LSP token types. Decimal, lowercase `0b`
 binary, and lowercase `0x` hexadecimal integer literals are each one `number`
-token. The remainder token `%` is an `operator` without modifiers in semantic
+token. A dotted-decimal Float literal is also one `number` token; exponent
+notation remains outside the accepted token surface. The remainder token `%`
+is an `operator` without modifiers in semantic
 fallback and in the VSCode TextMate grammar. The contextual `satisfy` marker
 and boolean literals are highlighted as keywords. `begin` and `defer` are
 keyword tokens in the lexical fallback and the VSCode grammar. A handler
@@ -229,7 +231,10 @@ For documents outside resolved workspace roots, diagnostics remain
 document-scoped and are computed from the in-editor document text. Parse
 diagnostics are reported first. This includes
 `parse.variant_refinement_type` for malformed variant-refinement-shaped type
-text; its LSP range is the parser's incomplete or misplaced source span. When
+text; its LSP range is the parser's incomplete or misplaced source span. It
+also includes `parse.float_literal` for range-invalid dotted-decimal Float
+literals; the LSP range covers the complete literal, and that parse failure
+produces no formatting edits. When
 parsing succeeds, the server lowers the document into the surface module model
 and publishes semantic diagnostics from the checked surface module. Parse-clean
 source invalid-name records are passed to that checked surface model, so

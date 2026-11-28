@@ -307,6 +307,7 @@ pub struct PredicateRemainder {
 pub struct PredicateTokenSpan {
     pub text_range: std::ops::Range<usize>,
     pub source_span: SourceSpan,
+    pub float_bits: Option<Result<u64, veln_literals::FloatLiteralError>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -416,7 +417,10 @@ pub enum ExprKind {
     },
     StringLiteral(String),
     IntLiteral(String),
-    FloatLiteral(String),
+    FloatLiteral {
+        spelling: String,
+        bits: Result<u64, veln_literals::FloatLiteralError>,
+    },
     BoolLiteral(bool),
     Unit,
     TypeApply {
@@ -586,7 +590,7 @@ impl Expr {
             | ExprKind::NamePath { .. }
             | ExprKind::StringLiteral(_)
             | ExprKind::IntLiteral(_)
-            | ExprKind::FloatLiteral(_)
+            | ExprKind::FloatLiteral { .. }
             | ExprKind::BoolLiteral(_)
             | ExprKind::Unit => ExprChildren::None,
         }
@@ -644,7 +648,10 @@ pub enum PatternKind {
     Binding(String),
     StringLiteral(String),
     IntLiteral(String),
-    FloatLiteral(String),
+    FloatLiteral {
+        spelling: String,
+        bits: Result<u64, veln_literals::FloatLiteralError>,
+    },
     BoolLiteral(bool),
     Unit,
     Record(Vec<PatternField>),

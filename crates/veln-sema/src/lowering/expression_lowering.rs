@@ -10,7 +10,7 @@ impl<'a> CoreLowerer<'a> {
             }
             ExprKind::StringLiteral(_)
             | ExprKind::IntLiteral(_)
-            | ExprKind::FloatLiteral(_)
+            | ExprKind::FloatLiteral { .. }
             | ExprKind::BoolLiteral(_)
             | ExprKind::Unit
             | ExprKind::TypeApply { .. } => self.lower_literal_expr(expr),
@@ -43,11 +43,11 @@ impl<'a> CoreLowerer<'a> {
         }
     }
 
-    fn lower_literal_expr(&self, expr: &Expr) -> CoreExpr {
+    fn lower_literal_expr(&mut self, expr: &Expr) -> CoreExpr {
         match &expr.kind {
             ExprKind::StringLiteral(value) => self.lower_string_literal(expr, value),
             ExprKind::IntLiteral(value) => self.lower_int_literal(expr, value),
-            ExprKind::FloatLiteral(value) => self.lower_float_literal(expr, value),
+            ExprKind::FloatLiteral { bits, .. } => self.lower_float_literal(expr, *bits),
             ExprKind::BoolLiteral(value) => self.lower_bool_literal(expr, *value),
             ExprKind::Unit => self.lower_unit_literal(expr),
             ExprKind::TypeApply { .. } => {
@@ -174,12 +174,22 @@ impl<'a> CoreLowerer<'a> {
         self.core_expr(expr, CoreType::int(), CoreExprKind::IntLiteral(value))
     }
 
-    pub(super) fn lower_float_literal(&self, expr: &Expr, value: &str) -> CoreExpr {
-        self.core_expr(
-            expr,
-            CoreType::float(),
-            CoreExprKind::FloatLiteral(value.to_string()),
-        )
+    pub(super) fn lower_float_literal(
+        &mut self,
+        expr: &Expr,
+        bits: Result<u64, FloatLiteralError>,
+    ) -> CoreExpr {
+        match bits {
+            Ok(bits) => self.core_expr(
+                expr,
+                CoreType::float(),
+                CoreExprKind::FloatLiteral(f64::from_bits(bits)),
+            ),
+            Err(error) => {
+                self.invalid_float_literal(error, &expr.span);
+                self.core_expr(expr, CoreType::float(), CoreExprKind::Missing)
+            }
+        }
     }
 
     pub(super) fn lower_bool_literal(&self, expr: &Expr, value: bool) -> CoreExpr {
@@ -373,7 +383,7 @@ impl<'a> CoreLowerer<'a> {
         match &expr.kind {
             ExprKind::StringLiteral(_)
             | ExprKind::IntLiteral(_)
-            | ExprKind::FloatLiteral(_)
+            | ExprKind::FloatLiteral { .. }
             | ExprKind::BoolLiteral(_)
             | ExprKind::Unit => self.shallow_literal_type(expr),
             ExprKind::Record(_) | ExprKind::List(_) => self.shallow_collection_type(expr),
@@ -390,7 +400,7 @@ impl<'a> CoreLowerer<'a> {
         match &expr.kind {
             ExprKind::StringLiteral(_) => Some(CoreType::string()),
             ExprKind::IntLiteral(_) => Some(CoreType::int()),
-            ExprKind::FloatLiteral(_) => Some(CoreType::float()),
+            ExprKind::FloatLiteral { .. } => Some(CoreType::float()),
             ExprKind::BoolLiteral(_) => Some(CoreType::bool()),
             ExprKind::Unit => Some(CoreType::unit()),
             _ => unreachable!("shallow literal dispatcher received another expression kind"),

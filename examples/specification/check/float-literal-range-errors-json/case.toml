@@ -1,0 +1,126 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "parse.float_literal"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 314
+
+[[json_assert]]
+path = "diagnostics.0.details.unexpected.kind"
+equals = "float"
+
+[[json_assert]]
+path = "diagnostics.0.details.unexpected.text"
+equals = "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected.0"
+equals = "finite Float value"
+
+[[json_assert]]
+path = "diagnostics.0.details.recovery.strategy"
+equals = "none"
+
+[[json_assert]]
+path = "diagnostics.0.details.recovery.anchor"
+equals = null
+
+[[json_assert]]
+path = "diagnostics.0.details.recovery.dropped_token_count"
+equals = 0
+
+[[diagnostics]]
+id = "parse.float_literal"
+kind = "parse"
+message = "Float literal is too large to round to a finite Float value"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "parse.float_literal"
+
+[[json_assert]]
+path = "diagnostics.1.span.file"
+equals = "main.veln"
+
+[[json_assert]]
+path = "diagnostics.1.span.start.line"
+equals = 6
+
+[[json_assert]]
+path = "diagnostics.1.span.start.column"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.1.span.start.offset"
+equals = 367
+
+[[json_assert]]
+path = "diagnostics.1.span.end.line"
+equals = 6
+
+[[json_assert]]
+path = "diagnostics.1.span.end.column"
+equals = 328
+
+[[json_assert]]
+path = "diagnostics.1.span.end.offset"
+equals = 693
+
+[[json_assert]]
+path = "diagnostics.1.details.parser_context"
+equals = "float_literal"
+
+[[json_assert]]
+path = "diagnostics.1.details.unexpected.kind"
+equals = "float"
+
+[[json_assert]]
+path = "diagnostics.1.details.unexpected.text"
+equals = "0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002"
+
+[[json_assert]]
+path = "diagnostics.1.details.expected.0"
+equals = "nonzero Float value"
+
+[[json_assert]]
+path = "diagnostics.1.details.recovery.strategy"
+equals = "none"
+
+[[json_assert]]
+path = "diagnostics.1.details.recovery.anchor"
+equals = null
+
+[[json_assert]]
+path = "diagnostics.1.details.recovery.dropped_token_count"
+equals = 0
+
+[[diagnostics]]
+id = "parse.float_literal"
+kind = "parse"
+message = "nonzero Float literal is too small to round to a nonzero Float value"

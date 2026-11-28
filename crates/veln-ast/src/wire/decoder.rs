@@ -82,6 +82,18 @@ impl<'a> Reader<'a> {
         }
     }
 
+    fn float_literal_result(
+        &mut self,
+    ) -> Result<Result<u64, veln_literals::FloatLiteralError>, String> {
+        match self.u8()? {
+            0 => Ok(Ok(self.u64()?)),
+            1 => Ok(Err(veln_literals::FloatLiteralError::InvalidSyntax)),
+            2 => Ok(Err(veln_literals::FloatLiteralError::Overflow)),
+            3 => Ok(Err(veln_literals::FloatLiteralError::Underflow)),
+            value => Err(format!("invalid Float literal result tag {value}")),
+        }
+    }
+
     fn string(&mut self) -> Result<String, String> {
         let len = self.u32()? as usize;
         let bytes = self.take(len)?;
@@ -622,6 +634,7 @@ impl<'a> Reader<'a> {
         Ok(PredicateTokenSpan {
             text_range: self.usize()?..self.usize()?,
             source_span: self.span()?,
+            float_bits: self.option(Self::float_literal_result)?,
         })
     }
 

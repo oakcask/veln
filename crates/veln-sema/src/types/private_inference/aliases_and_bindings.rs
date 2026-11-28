@@ -246,7 +246,7 @@ pub(crate) fn collect_let_pattern_bindings(
         PatternKind::Wildcard
         | PatternKind::StringLiteral(_)
         | PatternKind::IntLiteral(_)
-        | PatternKind::FloatLiteral(_)
+        | PatternKind::FloatLiteral { .. }
         | PatternKind::BoolLiteral(_)
         | PatternKind::Unit
         | PatternKind::Constructor { .. } => {}

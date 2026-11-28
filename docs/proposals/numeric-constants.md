@@ -20,14 +20,14 @@ and [name resolution](../specification/name-resolution.md#namespaces-and-use-rol
 Those mechanisms supply the intended public surface without a new `const`
 keyword, uppercase value names, associated constants, or implicit prelude names.
 
-At investigation revision `d83fb79b4`,
 `crates/veln-sema/src/analysis/module_values/admission.rs` admits integer
 literals and integer literal negation, but not floating-point literals or
 arbitrary arithmetic in module initializers. The source literal range ends at
 `9223372036854775807`; negating that literal cannot express `Int`'s lower bound.
-The JVM backend uses boxed JVM longs and doubles, and parses floating-point
-literal text as Rust `f64` in
-`crates/veln-backend-jvm/src/classfile/function_flow.rs`.
+Ordinary Float expressions and patterns already carry their validated binary64
+bits from parsing through checked lowering, and the JVM backend loads those
+bits without reparsing source text. That path admits only finite literal
+results and does not make Float values available as module data.
 [Module-value execution](../specification/execution.md#runtime-readiness-and-host-boundaries)
 currently documents a data surface without floating-point leaves. A library
 file containing decimal constants alone therefore cannot deliver this proposal.

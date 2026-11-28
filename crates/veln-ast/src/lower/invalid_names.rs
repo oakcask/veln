@@ -330,7 +330,7 @@ fn collect_invalid_pattern_names(
         SyntaxPatternKind::Wildcard
         | SyntaxPatternKind::StringLiteral(_)
         | SyntaxPatternKind::IntLiteral(_)
-        | SyntaxPatternKind::FloatLiteral(_)
+        | SyntaxPatternKind::FloatLiteral { .. }
         | SyntaxPatternKind::BoolLiteral(_)
         | SyntaxPatternKind::Unit => {}
     }
@@ -468,7 +468,7 @@ fn collect_invalid_remaining_expr_names(
         | SyntaxExprKind::SchemaValidate { .. }
         | SyntaxExprKind::StringLiteral(_)
         | SyntaxExprKind::IntLiteral(_)
-        | SyntaxExprKind::FloatLiteral(_)
+        | SyntaxExprKind::FloatLiteral { .. }
         | SyntaxExprKind::BoolLiteral(_)
         | SyntaxExprKind::Missing
         | SyntaxExprKind::Unit => {}

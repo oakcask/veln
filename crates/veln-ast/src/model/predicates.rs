@@ -32,6 +32,7 @@ pub struct PredicateRemainder {
 pub struct PredicateTokenSpan {
     pub text_range: Range<usize>,
     pub source_span: SourceSpan,
+    pub float_bits: Option<Result<u64, veln_literals::FloatLiteralError>>,
 }
 
 impl PredicateRemainder {

@@ -101,6 +101,9 @@ pub(crate) fn predicate_has_nonfoldable_remainder(predicate: &str) -> bool {
 }
 
 pub(super) fn static_numeric_expression(predicate: &str) -> Option<StaticNumber> {
+    if predicate.contains('.') {
+        return None;
+    }
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if predicate.is_empty() {
         return None;
@@ -385,10 +388,13 @@ impl StaticLiteral {
             "false" => return Some(Self::Bool(false)),
             _ => {}
         }
+        if let Some(value) = parse_static_string_literal(text) {
+            return Some(Self::String(value));
+        }
         if let Some(number) = StaticNumber::parse(text) {
             return Some(Self::Number(number));
         }
-        parse_static_string_literal(text).map(Self::String)
+        None
     }
 }
 

@@ -722,6 +722,59 @@ fn repair_override_applies_manual_review_candidate_and_records_confirmation() {
 }
 
 #[test]
+fn rounded_float_collision_repair_requires_override_and_fails_execution_contract() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("repair-rounded-float-collision");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn choose(ratio: Float, fallback: Float) -> Float\n",
+            "  require ratio >= 9007199254740993.0\n",
+            "  _value satisfy candidate => candidate > 9007199254740992.0\n",
+            "end\n\n",
+            "pub fn main() -> result: Float\n",
+            "  ensure result > 9007199254740992.0\n",
+            "  choose(9007199254740992.0, 0.0)\n",
+            "end\n",
+        ),
+    );
+
+    let preview = project.repair(&["--json", "main.veln"]);
+    let preview_stdout = stdout(&preview);
+    assert!(preview.status.success(), "{}", stderr(&preview));
+    assert!(preview_stdout.contains(concat!(
+        "\"name\":\"ratio\",\"type\":\"Float\",\"rank\":2,",
+        "\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\""
+    )));
+    assert!(!preview_stdout.contains(concat!(
+        "\"name\":\"ratio\",\"type\":\"Float\",\"rank\":2,",
+        "\"reason\":\"satisfy_require_match\""
+    )));
+
+    let applied = project.repair(&[
+        "--apply",
+        "--override",
+        "--confirm",
+        "symbol-2",
+        "main.veln",
+    ]);
+    assert!(applied.status.success(), "{}", stdout(&applied));
+    assert!(stdout(&applied).contains("verification passed"));
+
+    let executed = project.run(&["main", "main.veln"]);
+    assert!(!executed.status.success(), "{}", stdout(&executed));
+    assert!(
+        stderr(&executed).contains("contract failure: ensure"),
+        "{}",
+        stderr(&executed)
+    );
+}
+
+#[test]
 fn repair_rolls_back_when_verification_fails() {
     let project = TestProject::new("repair-verification-failure");
     let source = concat!(

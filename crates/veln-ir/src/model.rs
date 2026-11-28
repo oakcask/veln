@@ -2,6 +2,8 @@ use veln_ast::{BinaryOp, ContractKind, NodeId, PredicateRemainder, PrefixOp, Vis
 use veln_core::{ContractObligationStatus, CoreContractCall, CoreModuleValueIdentity, CoreType};
 use veln_source::SourceSpan;
 
+use std::collections::HashMap;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct TypedProgram {
     pub functions: Vec<IrFunction>,
@@ -267,6 +269,7 @@ pub struct IrContract {
     pub node_id: NodeId,
     pub kind: ContractKind,
     pub predicate: String,
+    pub float_literals: HashMap<String, u64>,
     pub remainder_spans: Vec<PredicateRemainder>,
     pub callsite_calls: Vec<CoreContractCall>,
     pub obligation_status: ContractObligationStatus,
@@ -324,7 +327,7 @@ pub enum IrExprKind {
     IntLiteral(String),
     /// An optimizer-produced integer that is not subject to source-literal admission.
     IntConstant(i64),
-    FloatLiteral(String),
+    FloatLiteral(f64),
     Unit,
     FunctionValue {
         name: String,
@@ -461,7 +464,7 @@ pub enum IrPatternKind {
     Binding(String),
     StringLiteral(String),
     IntLiteral(String),
-    FloatLiteral(String),
+    FloatLiteral(f64),
     BoolLiteral(bool),
     Unit,
     Record(Vec<IrPatternField>),

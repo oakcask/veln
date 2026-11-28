@@ -46,7 +46,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             ContractKind::Invariant => "invariant",
         };
         code.ldc_string(clause);
-        code.ldc_string(&contract.predicate);
+        emit_contract_source_string(code, &contract.predicate);
         code.ldc_string(&self.function.name);
         code.ldc_string(blame);
         code.ldc_string(&contract.node_id.display("contract"));
@@ -75,7 +75,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         {
             return;
         }
-        match parse_contract_value(text) {
+        match parse_contract_value(text, contract) {
             ContractValue::Not(value) => self.emit_contract_unary(
                 code,
                 value,
@@ -456,6 +456,30 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .get(name)
             .unwrap_or_else(|| panic!("missing JVM local `{name}`"))
     }
+}
+
+fn emit_contract_source_string(code: &mut MethodCode, value: &str) {
+    let chunks = modified_utf8_chunks(value);
+    if let [chunk] = chunks.as_slice() {
+        code.ldc_string(chunk);
+        return;
+    }
+    code.new_class("java/lang/StringBuilder");
+    code.dup();
+    code.invokespecial("java/lang/StringBuilder", "<init>", "()V");
+    for chunk in chunks {
+        code.ldc_string(chunk);
+        code.invokevirtual(
+            "java/lang/StringBuilder",
+            "append",
+            "(Ljava/lang/String;)Ljava/lang/StringBuilder;",
+        );
+    }
+    code.invokevirtual(
+        "java/lang/StringBuilder",
+        "toString",
+        "()Ljava/lang/String;",
+    );
 }
 
 fn remainder_operator_count_before(predicate: &str, operator_offset: usize) -> usize {

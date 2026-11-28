@@ -10,7 +10,12 @@ struct ParsedTypeArgumentList {
 }
 
 impl<'a> ExprParser<'a> {
-    pub(super) fn new(source: &'a SourceFile, context: &'static str, tokens: &'a [Token]) -> Self {
+    pub(super) fn new(
+        source: &'a SourceFile,
+        context: &'static str,
+        tokens: &'a [Token],
+        float_literals: &'a HashMap<(usize, usize), Result<u64, veln_literals::FloatLiteralError>>,
+    ) -> Self {
         Self {
             source,
             context,
@@ -20,7 +25,15 @@ impl<'a> ExprParser<'a> {
             cleanup_depth: 0,
             control_blocks: Vec::new(),
             diagnostics: Vec::new(),
+            float_literals,
         }
+    }
+
+    pub(super) fn float_literal_bits(
+        &self,
+        token: &Token,
+    ) -> Result<u64, veln_literals::FloatLiteralError> {
+        self.float_literals[&(token.range.start, token.range.end)]
     }
 
     pub(super) fn with_cleanup_depth(mut self, cleanup_depth: usize) -> Self {

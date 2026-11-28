@@ -111,7 +111,7 @@ fn count_expr_children(expr: &Expr, vector: &mut AbcVector) {
         | ExprKind::NamePath { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
+        | ExprKind::FloatLiteral { .. }
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
         ExprKind::TypeApply { callee: child, .. }

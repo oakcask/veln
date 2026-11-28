@@ -129,6 +129,15 @@ type when known. Unsupported constructs, non-boolean predicates, missing
 fields, and unresolved names are hole diagnostics; names unresolved within the
 predicate use the `satisfy_predicate` namespace.
 
+Float tokens use the shared [Float literal admission
+boundary](source-surface.md#float-literals). A range-invalid Float reports
+`parse.float_literal` before hole repair analysis and cannot contribute a
+candidate proof. An accepted Float literal in the `satisfy` predicate disables
+numeric and general static-truth proofs that depend on that value. Rounded
+binary64 values are not used by the repair proof engine. Direct structural
+matching remains available, but candidates that rely on a Float bound stay
+under manual review and omit `satisfy_status`.
+
 Remainder validation preserves those specific operand failures. A missing
 field reports `hole.satisfy_field_missing`, and a prefixed non-`Int` operand
 reports `type.mismatch`. A composite arithmetic operand reports a non-`Int`
@@ -181,8 +190,13 @@ Requirement discharge reuses contract static truth and preserves its limits:
 - non-strict paths in both directions imply equality, while strict paths do not;
 - transitive chains preserve strictness when any edge is strict;
 - disjunctive requirements contribute only facts common to every branch;
-- numeric literal bounds use exact decimal/rational ordering and pure literal
-  `+`, `-`, `*`, and comparison-only `/` expressions;
+- dedicated hole numeric-bound analysis uses exact integer/rational ordering
+  and pure literal `+`, `-`, `*`, and comparison-only `/` expressions only
+  when the `satisfy` predicate contains no Float literal; if any valid
+  function-entry `require` or `invariant` contains a Float literal, requirement
+  discharge is unavailable even for another entry clause, while an
+  independently reflexive or tautological `satisfy` predicate remains
+  eligible under the direct matching rules;
 - a literal-only `%` subexpression with a nonzero `Int` divisor is folded with
   runtime signed-`Int` remainder behavior; each enclosing arithmetic node keeps
   its normal inferred `Int` or `Float` type when the folded predicate is used

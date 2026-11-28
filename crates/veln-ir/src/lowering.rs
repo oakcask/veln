@@ -167,6 +167,11 @@ fn lower_function(function: &veln_core::CoreFunction) -> Result<IrFunction, IrLo
                 node_id: contract.node_id,
                 kind: contract.kind,
                 predicate: contract.predicate.clone(),
+                float_literals: contract
+                    .float_literals
+                    .iter()
+                    .map(|literal| (literal.spelling.clone(), literal.bits))
+                    .collect(),
                 remainder_spans: contract.remainder_spans.clone(),
                 callsite_calls: contract.callsite_calls.clone(),
                 obligation_status: contract.obligation_status,
@@ -294,7 +299,7 @@ fn lower_scalar_expr(expr: &CoreExpr) -> Option<IrExprKind> {
         CoreExprKind::BoolLiteral(value) => Some(IrExprKind::BoolLiteral(*value)),
         CoreExprKind::StringLiteral(value) => Some(IrExprKind::StringLiteral(value.clone())),
         CoreExprKind::IntLiteral(value) => Some(IrExprKind::IntLiteral(value.clone())),
-        CoreExprKind::FloatLiteral(value) => Some(IrExprKind::FloatLiteral(value.clone())),
+        CoreExprKind::FloatLiteral(value) => Some(IrExprKind::FloatLiteral(*value)),
         CoreExprKind::Unit => Some(IrExprKind::Unit),
         CoreExprKind::FunctionValue { name, callsite } => Some(IrExprKind::FunctionValue {
             name: name.clone(),
@@ -544,9 +549,7 @@ fn lower_pattern(pattern: &veln_core::CorePattern) -> IrPattern {
             veln_core::CorePatternKind::IntLiteral(value) => {
                 IrPatternKind::IntLiteral(value.clone())
             }
-            veln_core::CorePatternKind::FloatLiteral(value) => {
-                IrPatternKind::FloatLiteral(value.clone())
-            }
+            veln_core::CorePatternKind::FloatLiteral(value) => IrPatternKind::FloatLiteral(*value),
             veln_core::CorePatternKind::BoolLiteral(value) => IrPatternKind::BoolLiteral(*value),
             veln_core::CorePatternKind::Unit => IrPatternKind::Unit,
             veln_core::CorePatternKind::Record(fields) => IrPatternKind::Record(
