@@ -62,6 +62,56 @@ fn float_dependent_contract_proofs_use_scalar_signed_zero_equality() {
 }
 
 #[test]
+fn symbol_dependent_float_comparisons_remain_runtime_required() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn forward(value: Float) -> Float\n",
+            "  value\n",
+            "end\n",
+            "fn checked(value: Float, other: Float, record: {inner: Float}) -> output: Float\n",
+            "require value == value\n",
+            "require value <= value\n",
+            "require value >= value\n",
+            "require not (value != value)\n",
+            "require value < other or value >= other\n",
+            "require record.inner == record.inner\n",
+            "require forward(value) == forward(value)\n",
+            "require not (value < value)\n",
+            "require not (value > value)\n",
+            "ensure output == output\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+
+    assert_eq!(
+        core.functions[1]
+            .contracts
+            .iter()
+            .map(|contract| contract.obligation_status)
+            .collect::<Vec<_>>(),
+        vec![
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::StaticallyProven,
+            ContractObligationStatus::StaticallyProven,
+            ContractObligationStatus::RuntimeRequired,
+        ]
+    );
+}
+
+#[test]
 fn dotted_and_plain_static_string_contracts_are_proven() {
     let source = SourceFile::new(
         "main.veln",

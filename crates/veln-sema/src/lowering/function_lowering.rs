@@ -148,11 +148,14 @@ impl<'a> CoreLowerer<'a> {
                     .iter()
                     .map(|literal| (literal.spelling.clone(), literal.bits))
                     .collect::<HashMap<_, _>>();
+                let contract_bindings = self.contract_bindings(contract.kind);
                 let obligation_status =
                     if contract_predicate_is_statically_true_with_float_literals(
                         &contract.text,
                         &contract.remainder_spans,
                         &indexed_float_literals,
+                        &contract_bindings,
+                        &|callee| self.contract_call_return_type(callee),
                     ) {
                         ContractObligationStatus::StaticallyProven
                     } else {
@@ -186,13 +189,76 @@ impl<'a> CoreLowerer<'a> {
             .collect()
     }
 
-    fn contract_callsite_abi(&self, callee: &str) -> Option<CoreContractCall> {
+    fn contract_bindings(&self, kind: veln_ast::ContractKind) -> Vec<Binding> {
+        let signature = self.environment.function_for(self.function);
+        let mut bindings = self
+            .function
+            .params
+            .iter()
+            .enumerate()
+            .map(|(index, param)| {
+                let ty = if param.is_variadic {
+                    param
+                        .ty
+                        .as_deref()
+                        .and_then(|annotation| parse_type_annotation(annotation).ok())
+                        .or_else(|| signature.and_then(|value| value.variadic.clone()))
+                        .map(Type::list)
+                        .unwrap_or(Type::Unknown)
+                } else {
+                    signature
+                        .and_then(|value| value.params.get(index).cloned())
+                        .or_else(|| {
+                            param
+                                .ty
+                                .as_deref()
+                                .and_then(|annotation| parse_type_annotation(annotation).ok())
+                        })
+                        .unwrap_or(Type::Unknown)
+                };
+                Binding::new(param.name.clone(), ty)
+            })
+            .collect::<Vec<_>>();
+        if self.function.callsite.is_some() {
+            bindings.push(Binding::builtin_callsite());
+        }
+        if kind == veln_ast::ContractKind::Ensure
+            && let Some(result) = &self.function.return_binding
+        {
+            let ty = signature
+                .map(|value| value.return_type.clone())
+                .or_else(|| {
+                    self.function
+                        .return_type
+                        .as_deref()
+                        .and_then(|annotation| parse_type_annotation(annotation).ok())
+                })
+                .unwrap_or(Type::Unknown);
+            bindings.push(Binding::new(result.name.clone(), ty));
+        }
+        bindings
+    }
+
+    fn contract_call_return_type(&self, callee: &str) -> Option<Type> {
         let segments = callee
             .split("::")
             .filter(|segment| !segment.is_empty())
             .map(str::to_string)
             .collect::<Vec<_>>();
-        let signature = match segments.as_slice() {
+        self.contract_function_signature(&segments)
+            .map(|signature| signature.return_type.clone())
+            .or_else(|| match segments.as_slice() {
+                [name] => prelude_signature(name, None).map(|(_, return_type)| return_type),
+                _ => qualified_prelude_signature(&segments, None)
+                    .map(|(_, _, return_type)| return_type),
+            })
+    }
+
+    fn contract_function_signature(
+        &self,
+        segments: &[String],
+    ) -> Option<&crate::types::signatures::FunctionSignature> {
+        match segments {
             [name] => self
                 .environment
                 .unqualified_function_in_owner(
@@ -202,12 +268,22 @@ impl<'a> CoreLowerer<'a> {
                 )
                 .found(),
             _ => self.environment.function_path_in_owner(
-                &segments,
+                segments,
                 self.function.module_name.as_deref(),
                 self.function.package_name.as_deref(),
             ),
-        };
-        let signature = signature.filter(|signature| signature.callsite)?;
+        }
+    }
+
+    fn contract_callsite_abi(&self, callee: &str) -> Option<CoreContractCall> {
+        let segments = callee
+            .split("::")
+            .filter(|segment| !segment.is_empty())
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        let signature = self
+            .contract_function_signature(&segments)
+            .filter(|signature| signature.callsite)?;
         Some(CoreContractCall {
             callee: callee.to_string(),
             target: signature.target_name.clone(),

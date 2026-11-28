@@ -258,6 +258,40 @@ fn bytecode_backend_enforces_scalar_signed_zero_contracts() {
 }
 
 #[test]
+fn bytecode_backend_keeps_symbol_dependent_float_equality_at_runtime() {
+    let ir = lower_to_ir(concat!(
+        "fn reflexive(value: Float) -> Float\n",
+        "require value == value\n",
+        "  value\n",
+        "end\n",
+        "pub fn main() -> ()\n",
+        "  reflexive(0.0 / 0.0)\n",
+        "  ()\n",
+        "end\n",
+    ));
+    assert_eq!(
+        ir.functions[0].contracts[0].obligation_status,
+        veln_core::ContractObligationStatus::RuntimeRequired
+    );
+    let predicate = ir.functions[0].contracts[0].predicate.clone();
+
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "bytecode-symbol-dependent-float-contract",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(&format!("contract failure: require `{predicate}`")),
+        "{stderr}"
+    );
+}
+
+#[test]
 fn bytecode_backend_evaluates_prefixed_contract_integers_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn bounded(value: Int) -> Int\n",
