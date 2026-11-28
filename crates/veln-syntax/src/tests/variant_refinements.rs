@@ -963,6 +963,37 @@ fn preserves_combined_lowercase_refinement_candidates_without_reclassifying_them
 }
 
 #[test]
+fn rejects_the_first_refinement_beyond_the_lowering_and_wire_limit() {
+    const DEPTH: usize = crate::MAX_VARIANT_REFINEMENT_NESTING + 1;
+    let mut annotation = "Leaf::Value".to_string();
+    for _ in 0..DEPTH {
+        annotation = format!("Layer<{annotation}>::Wrapped");
+    }
+    let source = SourceFile::new(
+        "main.veln",
+        format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n"),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "parse.variant_refinement_type"
+            && diagnostic.message == "variant refinement types are nested too deeply"
+    }));
+
+    let function = first_function(&output);
+    let mut refinements = function.params[0].ty_refinements.as_slice();
+    let mut nesting = 0;
+    while let Some(refinement) = refinements.first() {
+        nesting += 1;
+        refinements = refinement.alternatives[0]
+            .type_arguments
+            .first()
+            .map_or(&[], |argument| argument.ty_refinements.as_slice());
+    }
+    assert_eq!(nesting, crate::MAX_VARIANT_REFINEMENT_NESTING + 1);
+}
+
+#[test]
 fn rejects_refinement_nesting_beyond_the_lowering_and_wire_limit() {
     let mut annotation = "Leaf::Value".to_string();
     for _ in 0..4_096 {
