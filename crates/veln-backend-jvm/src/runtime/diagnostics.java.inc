@@ -42,22 +42,14 @@
             ((TransportFailure) failure).record();
         }
         recordRuntimeFailure(failure);
-        if (failure instanceof RemainderFailure) {
-            RemainderFailure remainder = (RemainderFailure) failure;
-            System.err.println(remainder.sourceFile + ":" + remainder.divisorStartLine + ":"
-                + remainder.divisorStartColumn
-                + ": error[runtime.remainder_by_zero]: remainder divisor is zero");
-            System.err.println("  note: " + remainder.sourceFile + ":"
-                + remainder.operationStartLine + ":" + remainder.operationStartColumn
-                + ": Remainder operation is here.");
-        } else if (locatedOperatorFailure(failure) != null) {
+        if (locatedOperatorFailure(failure) != null) {
             LocatedOperatorFailure operator = locatedOperatorFailure(failure);
             System.err.println(operator.sourceFile + ":" + operator.operandStartLine + ":"
                 + operator.operandStartColumn + ": error[" + operator.id + "]: "
                 + operator.getMessage());
             System.err.println("  note: " + operator.sourceFile + ":"
                 + operator.operationStartLine + ":" + operator.operationStartColumn
-                + ": Operator `" + operator.operator + "` is here.");
+                + ": " + operatorOperationMessage(operator));
         } else {
             System.err.println(failure.getMessage());
         }
@@ -86,29 +78,20 @@
         return null;
     }
 
+    private static String operatorOperationMessage(LocatedOperatorFailure failure) {
+        if (failure.id.equals("runtime.remainder_by_zero")) {
+            return "Remainder operation is here.";
+        }
+        return "Operator `" + failure.operator + "` is here.";
+    }
+
     private static void recordRuntimeFailure(Throwable failure) {
         String path = System.getenv("VELN_RUNTIME_ERRORS");
         if (path == null || path.isEmpty()) {
             return;
         }
         String line;
-        if (failure instanceof RemainderFailure) {
-            RemainderFailure remainder = (RemainderFailure) failure;
-            line = "remainder\t" + hex(remainder.sourceFile)
-                + "\t" + remainder.divisorStartLine
-                + "\t" + remainder.divisorStartColumn
-                + "\t" + remainder.divisorStartOffset
-                + "\t" + remainder.divisorEndLine
-                + "\t" + remainder.divisorEndColumn
-                + "\t" + remainder.divisorEndOffset
-                + "\t" + remainder.operationStartLine
-                + "\t" + remainder.operationStartColumn
-                + "\t" + remainder.operationStartOffset
-                + "\t" + remainder.operationEndLine
-                + "\t" + remainder.operationEndColumn
-                + "\t" + remainder.operationEndOffset
-                + System.lineSeparator();
-        } else if (locatedOperatorFailure(failure) != null) {
+        if (locatedOperatorFailure(failure) != null) {
             LocatedOperatorFailure operator = locatedOperatorFailure(failure);
             line = "operator\t" + hex(operator.id)
                 + "\t" + hex(operator.getMessage())

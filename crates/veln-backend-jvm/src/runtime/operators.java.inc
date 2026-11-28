@@ -137,7 +137,11 @@
     ) {
         long divisor = asLong(right);
         if (divisor == 0L) {
-            throw new RemainderFailure(
+            throw new LocatedOperatorFailure(
+                "runtime.remainder_by_zero",
+                "remainder divisor is zero",
+                "%",
+                divisor,
                 sourceFile,
                 divisorStartLine,
                 divisorStartColumn,
