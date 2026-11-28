@@ -229,9 +229,34 @@ fn fmt_migrates_block_handler_chains_without_changing_cleanup_timing() {
             "  result\n",
             "end\n",
             "\n",
+            "fn migrated_failure() -> Result<(), String> effects [Ask, stdio]\n",
+            "  begin\n",
+            "    defer\n",
+            "      stdio::println(\"worker cleanup\")\n",
+            "      stdio::println(int_to_string(perform Ask::value()))\n",
+            "    end\n",
+            "    handle (handle begin\n",
+            "      defer\n",
+            "        stdio::println(\"body cleanup\")\n",
+            "        stdio::println(int_to_string(perform Ask::value()))\n",
+            "      end\n",
+            "      let ignored: () = Err(\"migration failure\")?\n",
+            "      stdio::println(\"unexpected sentinel\")\n",
+            "      Ok(())\n",
+            "    end with ask(22)) with ask(11)\n",
+            "  end\n",
+            "end\n",
+            "\n",
             "pub fn main() -> () effects [stdio]\n",
             "  stdio::println(int_to_string(migrated_begin()))\n",
             "  stdio::println(int_to_string(migrated_existing_block()))\n",
+            "  match handle migrated_failure() with ask(33)\n",
+            "    Ok(_) => stdio::println(\"unexpected success\")\n",
+            "    Err(message) => begin\n",
+            "      stdio::println(\"caller error\")\n",
+            "      stdio::println(message)\n",
+            "    end\n",
+            "  end\n",
             "end\n",
         ),
     );
@@ -282,9 +307,37 @@ fn fmt_migrates_block_handler_chains_without_changing_cleanup_timing() {
         "\tresult\n",
         "end\n",
         "\n",
+        "fn migrated_failure() -> Result<(), String> effects [Ask, stdio]\n",
+        "\tbegin\n",
+        "\t\tdefer\n",
+        "\t\t\tstdio::println(\"worker cleanup\")\n",
+        "\t\t\tstdio::println(int_to_string(perform Ask::value()))\n",
+        "\t\tend\n",
+        "\t\thandle\n",
+        "\t\t\tdefer\n",
+        "\t\t\t\tstdio::println(\"body cleanup\")\n",
+        "\t\t\t\tstdio::println(int_to_string(perform Ask::value()))\n",
+        "\t\t\tend\n",
+        "\t\t\tlet ignored: () = Err(\"migration failure\")?\n",
+        "\t\t\tstdio::println(\"unexpected sentinel\")\n",
+        "\t\t\tOk(())\n",
+        "\t\twith\n",
+        "\t\t\task(11),\n",
+        "\t\t\task(22)\n",
+        "\t\tend\n",
+        "\tend\n",
+        "end\n",
+        "\n",
         "pub fn main() -> () effects [stdio]\n",
         "\tstdio::println(int_to_string(migrated_begin()))\n",
         "\tstdio::println(int_to_string(migrated_existing_block()))\n",
+        "\tmatch handle migrated_failure() with ask(33)\n",
+        "\t\tOk(_) => stdio::println(\"unexpected success\")\n",
+        "\t\tErr(message) => begin\n",
+        "\t\t\tstdio::println(\"caller error\")\n",
+        "\t\t\tstdio::println(message)\n",
+        "\t\tend\n",
+        "\tend\n",
         "end\n",
     );
     let expected_output = concat!(
@@ -300,6 +353,12 @@ fn fmt_migrates_block_handler_chains_without_changing_cleanup_timing() {
         "block cleanup\n",
         "block after\n",
         "4\n",
+        "body cleanup\n",
+        "22\n",
+        "worker cleanup\n",
+        "33\n",
+        "caller error\n",
+        "migration failure\n",
     );
 
     let nested_output = project.run(&["main", "main.veln"]);
@@ -317,6 +376,9 @@ fn fmt_migrates_block_handler_chains_without_changing_cleanup_timing() {
     );
     assert_eq!(stdout(&migrated_output), expected_output);
     assert_eq!(stderr(&migrated_output), "");
+    assert_eq!(nested_output.status.code(), migrated_output.status.code());
+    assert_eq!(nested_output.stdout, migrated_output.stdout);
+    assert_eq!(nested_output.stderr, migrated_output.stderr);
 }
 
 #[test]
