@@ -5,9 +5,9 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const cwd = fileURLToPath(new URL('./', import.meta.url));
+const cwd = fileURLToPath(new URL('./veln/', import.meta.url));
 const base = Number(process.argv[2] ?? 19000);
-const data = resolve(process.argv[3] ?? join(cwd, '.data'));
+const data = resolve(process.argv[3] ?? join(cwd, '../.data'));
 if (!Number.isInteger(base) || base < 1024 || base > 65532) throw new Error('Usage: node examples/distributed_kvs/run.mjs [BASE_PORT] [DATA_DIRECTORY]');
 const children = new Set();
 let stopping = false;

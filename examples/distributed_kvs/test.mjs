@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { encode, decode, request, rawRequest } from './client.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const cwd = fileURLToPath(new URL('./', import.meta.url));
+const cwd = fileURLToPath(new URL('./veln/', import.meta.url));
 const pause = ms => new Promise(resolvePause => setTimeout(resolvePause, ms));
 
 async function eventually(action, label, timeout = 15000) {

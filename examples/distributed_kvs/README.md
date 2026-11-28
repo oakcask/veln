@@ -3,10 +3,16 @@
 This example runs three independent Veln processes with fixed membership. Every
 node accepts client requests over cleartext HTTP/2. Followers forward requests
 to the elected Raft leader. Inter-node RPC bodies use the binary `Packet`
-schema in [protocol.veln](protocol.veln); they contain no JSON or delimiter-based
-message encoding. The JavaScript client is an independent implementation of
+schema in [protocol.veln](veln/protocol.veln); they contain no JSON or
+delimiter-based message encoding. The JavaScript client is an independent implementation of
 that wire format. The KVS, consensus, HTTP/2 transport and recovery code run in
 Veln.
+
+The [veln/](veln/) directory is one application package, identified by
+[veln.toml](veln/veln.toml). It contains the six implementation modules and
+their exact companion tests. The launcher and JavaScript client and integration
+tests remain outside the package. The package has no library exports or external
+dependencies; its standard-library imports use the toolchain-provided `std`.
 
 ## Run
 
@@ -53,11 +59,11 @@ later value. The client does not retry automatically; after an election or a
 ports are always base plus node ID. `VELN_BIN` selects an existing CLI and skips
 the build. Do not run two processes with the same node ID or share a node's data
 directory. Reuse its directory when restarting a stopped node. To start one
-node manually, run this from the example directory, using the matching base
-port and its existing directory:
+node manually, run this from `examples/distributed_kvs/veln`, using the
+matching base port and its existing directory:
 
 ```sh
-../../target/debug/veln run main . -- 1 19000 .data/node1
+../../../target/debug/veln run main . -- 1 19000 ../.data/node1
 ```
 
 ## Consistency and failure behavior
@@ -147,12 +153,12 @@ bijective and does not restrict the external strings to ASCII. Wire strings
 remain raw UTF-8 octets, not hexadecimal text. Journal files contain hex text
 of the schema-encoded records for use with the existing host text-file API.
 
-[command.veln](command.veln) defines request identities, KVS operations,
+[command.veln](veln/command.veln) defines request identities, KVS operations,
 log entries and application replies as named ADTs. A log entry contains its
 term and command; a cached reply contains the application result rather than
 a transport packet.
 
-[raft.veln](raft.veln) owns the state representation and pure consensus and
+[raft.veln](veln/raft.veln) owns the state representation and pure consensus and
 application transitions in one module. Its public state variants carry distinct
 opaque payloads. An importing module can inspect the role and call read-only
 queries, but cannot construct the payloads, persistent state or log directly.
@@ -190,7 +196,7 @@ proof of those numeric or distributed properties. Recovery accepts journal
 deltas through `raft::restore`; it rejects holes, decreasing terms, invalid
 voters, a changed vote in the same term, and inconsistent entry positions.
 
-[protocol.veln](protocol.veln) translates between these domain values and the
+[protocol.veln](veln/protocol.veln) translates between these domain values and the
 binary schema. Numeric tags and the overloaded wire fields `a`, `b` and `c`
 stay inside that codec. The reply decoder receives the original request so
 an empty successful Get remains distinct from a successful Put or Delete,
@@ -201,13 +207,13 @@ The transport validates a decoded pair before creating a completion. The actor
 and consensus boundary consume that completion, so a mismatched pair cannot
 be queued as a successful exchange.
 
-[server.veln](server.veln) owns one state loop, bounded event channels,
+[server.veln](veln/server.veln) owns one state loop, bounded event channels,
 independent per-peer RPC tasks and at most 32 concurrent inbound connections.
 Its pending requests, deliveries, runtime bookkeeping and task contexts have
 small named types. It saves durable transitions before sending replies or new
-RPCs. [http2_transport.veln](http2_transport.veln) composes standard HTTP/2 core
-transitions with real network effects, complete writes and operation deadlines.
-[storage.veln](storage.veln) saves and recovers only `PersistentState` through
+RPCs. [http2_transport.veln](veln/http2_transport.veln) composes standard HTTP/2
+core transitions with real network effects, complete writes and operation deadlines.
+[storage.veln](veln/storage.veln) saves and recovers only `PersistentState` through
 typed journal deltas. Startup creates fresh volatile and application state from
 that recovered state; consensus then supplies the committed prefix to apply.
 
@@ -218,22 +224,23 @@ example, not a production storage service.
 
 ## Verification
 
-Build the CLI, then run the example's companion tests from its directory and
-the source-boundary and real-process integration tests from the repository root:
+Build the CLI, then run the example's companion tests from its package directory
+and the source-boundary and real-process integration tests from the repository
+root:
 
 ```sh
 cargo build --locked -p veln-cli
-cd examples/distributed_kvs
-../../target/debug/veln test .
-cd ../..
+cd examples/distributed_kvs/veln
+../../../target/debug/veln test .
+cd ../../..
 pnpm test:example:kvs
 ```
 
 For agent runs, use the repository's guarded runner. For example, from the
-example directory:
+package directory:
 
 ```sh
-bash ../../scripts/agent-run ../../target/debug/veln test .
+bash ../../../scripts/agent-run ../../../target/debug/veln test .
 ```
 
 Companion tests cover a binary wire vector, invalid UTF-8 and framing,

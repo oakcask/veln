@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const source = fileURLToPath(new URL('./', import.meta.url));
+const source = fileURLToPath(new URL('./veln/', import.meta.url));
 const request = 'domain::ClientRequest(domain::RequestId(7, 1), domain::Put("61", "62"))';
 const vote = 'protocol::RequestVote(1, 1, protocol::LogPosition(0, 0))';
 const append = 'protocol::AppendEntries(1, 1, protocol::LogPosition(0, 0), 0, None)';
@@ -17,6 +17,7 @@ const append = 'protocol::AppendEntries(1, 1, protocol::LogPosition(0, 0), 0, No
 test('Raft role and completion boundaries reject invalid source programs', { timeout: 60000 }, async t => {
   const directory = await mkdtemp(join(tmpdir(), 'veln-kvs-types-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
+  await copyFile(join(source, 'veln.toml'), join(directory, 'veln.toml'));
   for (const name of ['command.veln', 'protocol.veln', 'raft.veln']) {
     await copyFile(join(source, name), join(directory, name));
   }
