@@ -261,6 +261,38 @@ fn contract_predicate_literal_comparisons_are_statically_proven() {
 }
 
 #[test]
+fn contract_predicate_float_literals_are_classified_after_rounding() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn constant() -> output: Int\n",
+            "require 9007199254740993.0 == 9007199254740992.0\n",
+            "require 9007199254740993.0 != 9007199254740992.0\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert_eq!(
+        contracts[0].obligation_status,
+        ContractObligationStatus::StaticallyProven
+    );
+    assert_eq!(
+        contracts[1].obligation_status,
+        ContractObligationStatus::RuntimeRequired
+    );
+}
+
+#[test]
 fn contract_predicate_grouped_string_literals_are_statically_proven() {
     let source = SourceFile::new(
         "main.veln",

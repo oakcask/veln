@@ -135,6 +135,17 @@ fn static_numeric_expression_preserves_operator_precedence_and_associativity() {
 }
 
 #[test]
+fn static_literal_comparisons_use_rounded_float_values() {
+    assert!(predicate_is_statically_true(
+        "9007199254740993.0 == 9007199254740992.0"
+    ));
+    assert!(!predicate_is_statically_true(
+        "9007199254740993.0 != 9007199254740992.0"
+    ));
+    assert!(predicate_is_statically_true("-0.0 == 0.0"));
+}
+
+#[test]
 fn static_contract_reasoning_evaluates_signed_integer_remainder() {
     for predicate in [
         "7 % 3 == 1",

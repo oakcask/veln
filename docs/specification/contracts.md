@@ -53,7 +53,9 @@ and commas inside a string literal do not close a grouped predicate or split a
 call's argument list.
 
 An accepted dotted-decimal Float literal contributes its once-rounded binary64
-value to contract comparison and runtime emission. A nonzero literal that
+value to both static contract comparison and runtime emission. Static
+classification therefore treats two spellings that round to the same value as
+equal, including positive and negative zero. A nonzero literal that
 would round to infinity or zero fails during parsing and never becomes a
 contract obligation. The shared source admission and diagnostic boundary is
 specified under [Float literals](source-surface.md#float-literals).
