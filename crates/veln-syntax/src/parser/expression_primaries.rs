@@ -10,7 +10,11 @@ impl<'a> ExprParser<'a> {
             TokenKind::Underscore | TokenKind::Hole => self.parse_hole_primary(token),
             TokenKind::String => self.parse_literal_primary(token, ExprKind::StringLiteral),
             TokenKind::Int => self.parse_literal_primary(token, ExprKind::IntLiteral),
-            TokenKind::Float => self.parse_literal_primary(token, ExprKind::FloatLiteral),
+            TokenKind::Float => {
+                let spelling = token.text.clone();
+                let bits = self.float_literal_bits(&token);
+                self.parse_literal_primary(token, |_| ExprKind::FloatLiteral { spelling, bits })
+            }
             TokenKind::Ident
                 if token.text == crate::VALIDATE_MARKER
                     && self.tokens.get(self.cursor + 1).is_some_and(|next| {

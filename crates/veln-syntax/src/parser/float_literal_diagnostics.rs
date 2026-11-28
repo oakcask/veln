@@ -1,16 +1,33 @@
+use std::collections::HashMap;
 use veln_literals::{FloatLiteralError, parse_float_literal};
 
 use super::*;
 
+pub(super) fn validated_float_literals(
+    tokens: &[Token],
+) -> HashMap<(usize, usize), Result<u64, FloatLiteralError>> {
+    tokens
+        .iter()
+        .filter(|token| token.kind == TokenKind::Float)
+        .map(|token| {
+            (
+                (token.range.start, token.range.end),
+                parse_float_literal(&token.text).map(|literal| literal.value.to_bits()),
+            )
+        })
+        .collect()
+}
+
 pub(super) fn float_literal_diagnostics(
     source: &SourceFile,
     tokens: &[Token],
+    values: &HashMap<(usize, usize), Result<u64, FloatLiteralError>>,
 ) -> Vec<ParseDiagnostic> {
     tokens
         .iter()
         .filter(|token| token.kind == TokenKind::Float)
         .filter_map(|token| {
-            let error = parse_float_literal(&token.text).err()?;
+            let error = values[&(token.range.start, token.range.end)].err()?;
             let (message, expected) = match error {
                 FloatLiteralError::Overflow => (
                     "Float literal is too large to round to a finite Float value",

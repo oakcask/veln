@@ -206,7 +206,7 @@ impl<'a> FunctionChecker<'a> {
             | ExprKind::NamePath { .. }
             | ExprKind::StringLiteral(_)
             | ExprKind::IntLiteral(_)
-            | ExprKind::FloatLiteral(_)
+            | ExprKind::FloatLiteral { .. }
             | ExprKind::BoolLiteral(_)
             | ExprKind::Unit
             | ExprKind::TypeApply { .. } => unreachable!("atomic expression handled above"),
@@ -232,7 +232,7 @@ impl<'a> FunctionChecker<'a> {
             }
             ExprKind::StringLiteral(_) => Some(Type::string()),
             ExprKind::IntLiteral(_) => Some(Type::int()),
-            ExprKind::FloatLiteral(_) => Some(Type::float()),
+            ExprKind::FloatLiteral { .. } => Some(Type::float()),
             ExprKind::BoolLiteral(_) => Some(Type::bool()),
             ExprKind::Unit => Some(Type::unit()),
             ExprKind::TypeApply { .. } => Some(Type::Unknown),

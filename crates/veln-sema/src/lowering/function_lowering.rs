@@ -124,14 +124,31 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn lower_contracts(&mut self) -> Vec<CoreContract> {
+        let has_float_binding = self
+            .function
+            .params
+            .iter()
+            .any(|param| param.ty.as_deref() == Some("Float"))
+            || self.function.return_type.as_deref() == Some("Float");
         let contracts = self.function.contracts.clone();
         contracts
             .iter()
             .map(|contract| {
-                let obligation_status = if contract_predicate_is_statically_true_with_remainders(
-                    &contract.text,
-                    &contract.remainder_spans,
-                ) {
+                for token in &contract.predicate_tokens {
+                    if let Some(Err(error)) = token.float_bits {
+                        self.invalid_float_literal(error, &token.source_span);
+                    }
+                }
+                let has_float_literal = contract
+                    .predicate_tokens
+                    .iter()
+                    .any(|token| token.float_bits.is_some());
+                let obligation_status = if !has_float_binding
+                    && !has_float_literal
+                    && contract_predicate_is_statically_true_with_remainders(
+                        &contract.text,
+                        &contract.remainder_spans,
+                    ) {
                     ContractObligationStatus::StaticallyProven
                 } else {
                     ContractObligationStatus::RuntimeRequired
@@ -154,6 +171,17 @@ impl<'a> CoreLowerer<'a> {
                     node_id: contract.node_id,
                     kind: contract.kind,
                     predicate: contract.text.clone(),
+                    float_literals: contract
+                        .predicate_tokens
+                        .iter()
+                        .filter_map(|token| {
+                            let bits = token.float_bits?.ok()?;
+                            Some(CoreFloatLiteral {
+                                spelling: contract.text.get(token.text_range.clone())?.to_string(),
+                                bits,
+                            })
+                        })
+                        .collect(),
                     remainder_spans: contract.remainder_spans.clone(),
                     callsite_calls,
                     obligation_status,
@@ -540,7 +568,7 @@ impl<'a> CoreLowerer<'a> {
             }
             PatternKind::StringLiteral(_)
             | PatternKind::IntLiteral(_)
-            | PatternKind::FloatLiteral(_)
+            | PatternKind::FloatLiteral { .. }
             | PatternKind::BoolLiteral(_)
             | PatternKind::Unit => {
                 body.push(CoreStmt {
@@ -610,7 +638,7 @@ impl<'a> CoreLowerer<'a> {
             PatternKind::Wildcard
             | PatternKind::StringLiteral(_)
             | PatternKind::IntLiteral(_)
-            | PatternKind::FloatLiteral(_)
+            | PatternKind::FloatLiteral { .. }
             | PatternKind::BoolLiteral(_)
             | PatternKind::Unit => {}
         }
@@ -641,7 +669,7 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn lower_constructor_pattern_binding(
-        &self,
+        &mut self,
         pattern: &Pattern,
         value: CoreExpr,
         ty: &CoreType,

@@ -88,7 +88,10 @@ impl AstBuilder {
             }),
             SyntaxExprKind::StringLiteral(value) => Some(ExprKind::StringLiteral(value.clone())),
             SyntaxExprKind::IntLiteral(value) => Some(ExprKind::IntLiteral(value.clone())),
-            SyntaxExprKind::FloatLiteral(value) => Some(ExprKind::FloatLiteral(value.clone())),
+            SyntaxExprKind::FloatLiteral { spelling, bits } => Some(ExprKind::FloatLiteral {
+                spelling: spelling.clone(),
+                bits: *bits,
+            }),
             SyntaxExprKind::BoolLiteral(value) => Some(ExprKind::BoolLiteral(*value)),
             SyntaxExprKind::Unit => Some(ExprKind::Unit),
             _ => None,
@@ -299,7 +302,10 @@ impl AstBuilder {
                     PatternKind::StringLiteral(value.clone())
                 }
                 SyntaxPatternKind::IntLiteral(value) => PatternKind::IntLiteral(value.clone()),
-                SyntaxPatternKind::FloatLiteral(value) => PatternKind::FloatLiteral(value.clone()),
+                SyntaxPatternKind::FloatLiteral { spelling, bits } => PatternKind::FloatLiteral {
+                    spelling: spelling.clone(),
+                    bits: *bits,
+                },
                 SyntaxPatternKind::BoolLiteral(value) => PatternKind::BoolLiteral(*value),
                 SyntaxPatternKind::Unit => PatternKind::Unit,
                 SyntaxPatternKind::Record(fields) => PatternKind::Record(

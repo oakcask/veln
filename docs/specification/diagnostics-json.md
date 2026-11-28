@@ -409,6 +409,10 @@ finite or nonzero outcome in `expected`. Recovery uses `none`, drops no tokens,
 and supplies no repair candidate. The checked
 [`float literal range errors`](../../examples/specification/check/float-literal-range-errors/)
 case fixes the human messages.
+The checked
+[`Float literal range error JSON`](../../examples/specification/check/float-literal-range-errors-json/)
+case fixes the diagnostic id, complete spans, unexpected-token kind, expected
+values, and recovery fields.
 
 A remainder divisor written as an integer zero literal reports one
 `type.remainder_by_zero` diagnostic with kind `type`, message

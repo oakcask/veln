@@ -59,7 +59,7 @@ pub(super) fn type_for_effect_call_argument(
         ),
         ExprKind::StringLiteral(_) => Some(Type::string()),
         ExprKind::IntLiteral(_) => Some(Type::int()),
-        ExprKind::FloatLiteral(_) => Some(Type::float()),
+        ExprKind::FloatLiteral { .. } => Some(Type::float()),
         ExprKind::BoolLiteral(_) => Some(Type::bool()),
         ExprKind::Unit => Some(Type::unit()),
         ExprKind::Perform {

@@ -302,7 +302,7 @@ impl<'a> FunctionChecker<'a> {
             PatternKind::Wildcard => Vec::new(),
             PatternKind::StringLiteral(_)
             | PatternKind::IntLiteral(_)
-            | PatternKind::FloatLiteral(_)
+            | PatternKind::FloatLiteral { .. }
             | PatternKind::BoolLiteral(_)
             | PatternKind::Unit => {
                 if check_literal_type {

@@ -75,7 +75,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         {
             return;
         }
-        match parse_contract_value(text) {
+        match parse_contract_value(text, contract) {
             ContractValue::Not(value) => self.emit_contract_unary(
                 code,
                 value,

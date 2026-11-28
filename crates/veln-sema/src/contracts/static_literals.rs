@@ -7,17 +7,16 @@ pub(super) type StaticRational = ExactRational;
 pub(super) enum StaticLiteral {
     Bool(bool),
     Number(StaticNumber),
-    Float(u64),
     String(String),
 }
 
 pub(super) fn static_literal_comparison(left: &str, operator: &str, right: &str) -> Option<bool> {
     let left_literal = StaticLiteral::parse(left.trim());
     let right_literal = StaticLiteral::parse(right.trim());
-    if let (Some(left), Some(right)) = (&left_literal, &right_literal)
-        && let Some(result) = static_literal_numeric_comparison(left, operator, right)
+    if let (Some(StaticLiteral::Number(left)), Some(StaticLiteral::Number(right))) =
+        (&left_literal, &right_literal)
     {
-        return Some(result);
+        return static_number_comparison(*left, operator, *right);
     }
     if let (Some(left), Some(right)) = (
         static_numeric_expression(left),
@@ -51,9 +50,6 @@ pub(super) fn static_literal_comparison(left: &str, operator: &str, right: &str)
         (StaticLiteral::Number(left), StaticLiteral::Number(right)) => {
             static_number_comparison(left, operator, right)
         }
-        (StaticLiteral::Float(left), StaticLiteral::Float(right)) => {
-            static_comparison(f64::from_bits(left), operator, f64::from_bits(right))
-        }
         (StaticLiteral::String(left), StaticLiteral::String(right)) => match operator {
             "==" => Some(left == right),
             "!=" => Some(left != right),
@@ -61,29 +57,6 @@ pub(super) fn static_literal_comparison(left: &str, operator: &str, right: &str)
         },
         _ => None,
     }
-}
-
-fn static_literal_numeric_comparison(
-    left: &StaticLiteral,
-    operator: &str,
-    right: &StaticLiteral,
-) -> Option<bool> {
-    let (left, right) = match (left, right) {
-        (StaticLiteral::Number(left), StaticLiteral::Number(right)) => {
-            return static_number_comparison(*left, operator, *right);
-        }
-        (StaticLiteral::Number(left), StaticLiteral::Float(right)) => {
-            (left.as_i64()? as f64, f64::from_bits(*right))
-        }
-        (StaticLiteral::Float(left), StaticLiteral::Number(right)) => {
-            (f64::from_bits(*left), right.as_i64()? as f64)
-        }
-        (StaticLiteral::Float(left), StaticLiteral::Float(right)) => {
-            (f64::from_bits(*left), f64::from_bits(*right))
-        }
-        _ => return None,
-    };
-    static_comparison(left, operator, right)
 }
 
 pub(crate) fn predicate_has_nonfoldable_remainder(predicate: &str) -> bool {
@@ -128,6 +101,9 @@ pub(crate) fn predicate_has_nonfoldable_remainder(predicate: &str) -> bool {
 }
 
 pub(super) fn static_numeric_expression(predicate: &str) -> Option<StaticNumber> {
+    if predicate.contains('.') {
+        return None;
+    }
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if predicate.is_empty() {
         return None;
@@ -412,21 +388,13 @@ impl StaticLiteral {
             "false" => return Some(Self::Bool(false)),
             _ => {}
         }
-        let (negative, magnitude) = text
-            .strip_prefix('-')
-            .map_or((false, text), |magnitude| (true, magnitude.trim_start()));
-        if magnitude.contains('.') {
-            let mut value = veln_literals::parse_float_literal(magnitude).ok()?.value;
-            if negative {
-                value = -value;
-            }
-            let bits = if value == 0.0 { 0 } else { value.to_bits() };
-            return Some(Self::Float(bits));
+        if let Some(value) = parse_static_string_literal(text) {
+            return Some(Self::String(value));
         }
         if let Some(number) = StaticNumber::parse(text) {
             return Some(Self::Number(number));
         }
-        parse_static_string_literal(text).map(Self::String)
+        None
     }
 }
 

@@ -460,6 +460,7 @@ impl<'a> Parser<'a> {
             &predicate_tokens,
             &text,
             true,
+            &self.float_literals,
         )
         .parse();
         self.diagnostics.extend(predicate_output.diagnostics);

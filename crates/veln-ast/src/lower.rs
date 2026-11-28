@@ -571,6 +571,7 @@ impl AstBuilder {
                 .map(|token| crate::PredicateTokenSpan {
                     text_range: token.text_range.clone(),
                     source_span: token.source_span.clone(),
+                    float_bits: token.float_bits,
                 })
                 .collect(),
             remainder_spans: contract

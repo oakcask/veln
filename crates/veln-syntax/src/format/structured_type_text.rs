@@ -182,7 +182,7 @@ fn prepare_expr(expr: &mut Expr, source: &str) {
         | ExprKind::NamePath { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
+        | ExprKind::FloatLiteral { .. }
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
     }

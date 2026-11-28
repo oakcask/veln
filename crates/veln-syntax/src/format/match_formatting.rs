@@ -169,7 +169,9 @@ fn literal_pattern_text(expr: &Expr) -> Option<String> {
     match &expr.kind {
         ExprKind::StringLiteral(value)
         | ExprKind::IntLiteral(value)
-        | ExprKind::FloatLiteral(value) => Some(value.clone()),
+        | ExprKind::FloatLiteral {
+            spelling: value, ..
+        } => Some(value.clone()),
         ExprKind::Unit => Some("()".to_string()),
         _ => None,
     }

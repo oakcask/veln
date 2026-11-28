@@ -43,16 +43,20 @@ DecimalFloat    ::= Digit+ "." Digit+ DecimalExponent? | Digit+ DecimalExponent
 DecimalExponent ::= ("e" | "E") ("+" | "-")? Digit+
 ```
 
-Accept `1e3`, `1E+3`, `1e-3`, and `1.25e2`. Plain `123` remains an
+A decimal exponent scales the exact significand by ten raised to the written
+exponent. Accept `1e3`, `1E+3`, `1e-3`, and `1.25e2`. Plain `123` remains an
 `Int` and `1.25` remains an existing dotted-decimal `Float`. Do not add
-leading-dot or trailing-dot forms, separators, or suffixes. `1e2+3.0` is
-addition.
+leading-dot or trailing-dot forms, separators, or suffixes. A malformed
+candidate must not split into a valid exponent Float followed by a suffix or
+an unrelated token sequence. Missing exponent digits in `1e`, `1e+`, and
+`1.2e-` remain part of the focused malformed candidate. An adjacent operator
+starts after a complete exponent, so `1e2+3.0` is addition.
 
 ### Proposed hexadecimal source contract
 
 Use a lowercase `0x` prefix, at least one hexadecimal significand digit, an
-optional radix point, and a mandatory `p` or `P` exponent marker. The
-decimal exponent scales the significand by a power of two. Hexadecimal digits
+optional radix point, and a mandatory `p` or `P` exponent marker. The binary
+exponent uses decimal digits and scales the significand by a power of two. Hexadecimal digits
 may use either case. Do not add separators, suffixes, or uppercase `0X`. A
 leading minus remains unary negation.
 
@@ -66,7 +70,10 @@ HexDigit       ::= Digit | "a" ... "f" | "A" ... "F"
 Every accepted spelling has type `Float`. Without `p` or `P`, `0x1e2`
 remains an `Int`, and `0x1e+2` remains integer addition. A radix point
 without the mandatory binary exponent is invalid. Malformed hexadecimal
-candidates must produce a focused literal error rather than unrelated tokens.
+candidates must produce a focused literal error. They must not split into a
+valid exponent Float followed by a suffix or an unrelated token sequence.
+Missing exponent digits remain within that candidate; an adjacent operator
+starts only after the required exponent digits.
 
 ### Conversion and tooling extension
 
@@ -90,7 +97,7 @@ malformed candidate.
 | `9007199254740993e0` | Ties-to-even bits `4340000000000000` | Shared conversion tests |
 | `1e309`, `1e-400`, `5e-324` | Overflow error, zero-underflow error, and least positive subnormal | Diagnostics and backend bit checks |
 | `0e9999999999999999999999999`, `-0.0e-9999999999999999999999999` | Positive and negative zero without host exponent overflow | Conversion and raw-bit checks |
-| `1e`, `1e+`, `1.2e-`, `1e2f`, `1_e2`, `1.e3`, `.5e1` | Rejected forms with stable token recovery | Lexer, diagnostics, and formatter fixtures |
+| `1e`, `1e+`, `1.2e-`, `1e2f`, `1_e2`, `1.e3`, `.5e1` | One rejected malformed candidate, never a valid exponent Float plus suffix or unrelated tokens | Lexer, diagnostics, and formatter fixtures |
 | `1e2+3.0`, `1.25`, `123` | Addition, existing dotted Float, and existing Int | Token-boundary and type regressions |
 | `0x1.8p+1`, `0x.8P1`, `0x1.p0` | Float values 3, 1, and 1 | Lexer/parser and backend vectors |
 | `0x1p-1074`, `0x1p-1022`, `0x1p-52`, `0x1.fffffffffffffp1023` | Exact binary64 boundary bits | Shared conversion and JVM checks |

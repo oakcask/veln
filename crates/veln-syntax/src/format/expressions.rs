@@ -213,7 +213,7 @@ fn format_expr_inner(
         | ExprKind::NamePath { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
+        | ExprKind::FloatLiteral { .. }
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit) => format_atomic_expr(kind),
         kind @ (ExprKind::TypeApply { .. }
@@ -246,7 +246,9 @@ fn format_atomic_expr(kind: &ExprKind) -> String {
         ExprKind::NamePath { segments, .. } => segments.join("::"),
         ExprKind::StringLiteral(value)
         | ExprKind::IntLiteral(value)
-        | ExprKind::FloatLiteral(value) => value.clone(),
+        | ExprKind::FloatLiteral {
+            spelling: value, ..
+        } => value.clone(),
         ExprKind::BoolLiteral(true) => "true".to_string(),
         ExprKind::BoolLiteral(false) => "false".to_string(),
         ExprKind::Unit => "()".to_string(),

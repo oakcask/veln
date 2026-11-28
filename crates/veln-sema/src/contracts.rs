@@ -1,5 +1,7 @@
 use veln_ast::{ContractKind, PredicateRemainder};
 use veln_literals::parse_integer_literal;
+use veln_source::SourceFile;
+use veln_syntax::{TokenKind, lex};
 
 use std::ops::Range;
 
@@ -31,7 +33,8 @@ pub(crate) fn contract_kind_text(kind: ContractKind) -> &'static str {
 }
 
 pub(crate) fn predicate_is_statically_true(predicate: &str) -> bool {
-    !predicate_has_nonfoldable_remainder(predicate)
+    !predicate_has_float_literal(predicate)
+        && !predicate_has_nonfoldable_remainder(predicate)
         && static_boolean_value(predicate) == StaticBooleanValue::True
 }
 
@@ -41,8 +44,16 @@ pub(crate) fn predicate_is_statically_true_with_literal_bounds(predicate: &str) 
 }
 
 pub(crate) fn contract_predicate_is_statically_true(predicate: &str) -> bool {
-    !predicate_has_nonfoldable_remainder(predicate)
+    !predicate_has_float_literal(predicate)
+        && !predicate_has_nonfoldable_remainder(predicate)
         && static_boolean_value_for_contract(predicate) == StaticBooleanValue::True
+}
+
+fn predicate_has_float_literal(predicate: &str) -> bool {
+    lex(&SourceFile::new("<contract-predicate>", predicate))
+        .tokens
+        .iter()
+        .any(|token| token.kind == TokenKind::Float)
 }
 
 pub(crate) fn contract_predicate_is_statically_true_with_remainders(

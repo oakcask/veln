@@ -377,6 +377,7 @@ dependencies = [
 name = "veln-ast"
 version = "0.1.0"
 dependencies = [
+ "veln-literals",
  "veln-source",
  "veln-syntax",
 ]

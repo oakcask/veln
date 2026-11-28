@@ -691,7 +691,7 @@ impl<'a> FunctionChecker<'a> {
             }
             PatternKind::StringLiteral(_)
             | PatternKind::IntLiteral(_)
-            | PatternKind::FloatLiteral(_)
+            | PatternKind::FloatLiteral { .. }
             | PatternKind::BoolLiteral(_)
             | PatternKind::Unit => {
                 let mut diagnostic = Diagnostic::new(

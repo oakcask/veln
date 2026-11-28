@@ -145,6 +145,49 @@ fn bytecode_backend_entry_reports_contract_failures_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_keeps_unsound_float_contracts_at_runtime() {
+    let cases = [
+        (
+            "9007199254740993.0 + 0.0 > 9007199254740992.0",
+            "checked(9007199254740992.0)",
+        ),
+        (
+            "not (value >= 9007199254740993.0 and value <= 9007199254740992.0)",
+            "checked(9007199254740992.0)",
+        ),
+        ("9007199254740993 == 9007199254740992.0", "checked(0.0)"),
+        ("-0.0 == 0.0", "checked(0.0)"),
+    ];
+    for (predicate, call) in cases {
+        let ir = lower_to_ir(&format!(
+            "fn checked(value: Float) -> Float\nrequire {predicate}\n  value\nend\n\
+             pub fn main() -> ()\n  {call}\n  ()\nend\n"
+        ));
+        assert_eq!(
+            ir.functions[0].contracts[0].obligation_status,
+            veln_core::ContractObligationStatus::RuntimeRequired
+        );
+        let normalized_predicate = ir.functions[0].contracts[0].predicate.clone();
+        let program = generate_classfiles_with_entry(&ir, "main");
+        let Some(output) = run_jvm_program_when_java_is_available(
+            "bytecode-float-contract-runtime-required",
+            &program,
+            &[],
+        ) else {
+            return;
+        };
+        assert!(!output.status.success(), "{predicate}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(&format!(
+                "contract failure: require `{normalized_predicate}`"
+            )),
+            "{predicate}: {stderr}"
+        );
+    }
+}
+
+#[test]
 fn bytecode_backend_evaluates_prefixed_contract_integers_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn bounded(value: Int) -> Int\n",

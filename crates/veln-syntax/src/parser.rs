@@ -44,7 +44,7 @@ mod variant_refinement_diagnostics;
 mod variant_refinements;
 
 use adr_lite::collect_adr_lite_records;
-use float_literal_diagnostics::float_literal_diagnostics;
+use float_literal_diagnostics::{float_literal_diagnostics, validated_float_literals};
 use integer_literal_diagnostics::integer_literal_diagnostics;
 use module_value_suffix::{
     ModuleValueSuffixClassifier, ModuleValueSuffixEvidence, is_module_value_name,
@@ -371,6 +371,8 @@ struct Parser<'a> {
     top_level_boundary_cache: Cell<Option<(usize, bool)>>,
     module_value_suffixes: ModuleValueSuffixClassifier,
     diagnostics: Vec<ParseDiagnostic>,
+    float_literals:
+        std::collections::HashMap<(usize, usize), Result<u64, veln_literals::FloatLiteralError>>,
 }
 
 struct FunctionHeader {
@@ -443,6 +445,7 @@ struct ExprParser<'a> {
     cleanup_depth: usize,
     control_blocks: Vec<TokenKind>,
     diagnostics: Vec<ParseDiagnostic>,
+    float_literals: &'a HashMap<(usize, usize), Result<u64, veln_literals::FloatLiteralError>>,
 }
 
 fn is_cleanup_block(kind: TokenKind) -> bool {
@@ -522,6 +525,10 @@ struct ContractPredicateParser<'a> {
     diagnostics: Vec<ParseDiagnostic>,
     perform_effect_spans: Vec<SourceSpan>,
     remainder_spans: Vec<PredicateRemainder>,
+    float_literals: &'a std::collections::HashMap<
+        (usize, usize),
+        Result<u64, veln_literals::FloatLiteralError>,
+    >,
 }
 
 struct ContractPredicateOutput {

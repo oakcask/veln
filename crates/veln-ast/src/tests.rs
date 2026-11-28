@@ -522,7 +522,11 @@ fn lowers_nested_expression_edge_cases() {
         panic!("expected list field expression");
     };
     assert!(matches!(&items[0].kind, ExprKind::IntLiteral(value) if value == "1"));
-    assert!(matches!(&items[1].kind, ExprKind::FloatLiteral(value) if value == "2.5"));
+    assert!(matches!(
+        &items[1].kind,
+        ExprKind::FloatLiteral { spelling, bits }
+            if spelling == "2.5" && bits == &Ok(2.5f64.to_bits())
+    ));
     assert!(matches!(
         &items[2].kind,
         ExprKind::Prefix {

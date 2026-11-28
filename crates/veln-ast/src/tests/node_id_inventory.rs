@@ -113,7 +113,7 @@ fn collect_expr_child_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
         | ExprKind::NamePath { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
+        | ExprKind::FloatLiteral { .. }
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
     }
@@ -178,7 +178,7 @@ fn collect_pattern_node_ids(pattern: &Pattern, ids: &mut Vec<u32>) {
         | PatternKind::Binding(_)
         | PatternKind::StringLiteral(_)
         | PatternKind::IntLiteral(_)
-        | PatternKind::FloatLiteral(_)
+        | PatternKind::FloatLiteral { .. }
         | PatternKind::BoolLiteral(_)
         | PatternKind::Unit => {}
     }

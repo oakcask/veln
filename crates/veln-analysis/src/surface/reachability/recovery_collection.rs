@@ -218,7 +218,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             ExprKind::Missing
             | ExprKind::StringLiteral(_)
             | ExprKind::IntLiteral(_)
-            | ExprKind::FloatLiteral(_)
+            | ExprKind::FloatLiteral { .. }
             | ExprKind::BoolLiteral(_)
             | ExprKind::Unit => {}
         }
@@ -325,7 +325,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             PatternKind::Wildcard
             | PatternKind::StringLiteral(_)
             | PatternKind::IntLiteral(_)
-            | PatternKind::FloatLiteral(_)
+            | PatternKind::FloatLiteral { .. }
             | PatternKind::BoolLiteral(_)
             | PatternKind::Unit => {}
         }

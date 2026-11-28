@@ -515,7 +515,8 @@ impl<'a> Parser<'a> {
         }
 
         let (pattern, diagnostics) =
-            ExprParser::new(self.source, "let_statement", &tokens).parse_pattern_only();
+            ExprParser::new(self.source, "let_statement", &tokens, &self.float_literals)
+                .parse_pattern_only();
         self.diagnostics.extend(diagnostics);
         pattern
     }
@@ -550,10 +551,15 @@ impl<'a> Parser<'a> {
         }
 
         let recovery_end = collector.range().end;
-        let (expr, diagnostics) = ExprParser::new(self.source, context, &collector.tokens)
-            .with_cleanup_depth(self.cleanup_depth)
-            .with_recovery_end(recovery_end)
-            .parse();
+        let (expr, diagnostics) = ExprParser::new(
+            self.source,
+            context,
+            &collector.tokens,
+            &self.float_literals,
+        )
+        .with_cleanup_depth(self.cleanup_depth)
+        .with_recovery_end(recovery_end)
+        .parse();
         self.diagnostics.extend(diagnostics);
         (expr, collector.range())
     }

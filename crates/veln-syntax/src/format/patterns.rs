@@ -6,7 +6,9 @@ pub(super) fn format_pattern(pattern: &Pattern) -> String {
         PatternKind::Binding(name) => name.clone(),
         PatternKind::StringLiteral(value)
         | PatternKind::IntLiteral(value)
-        | PatternKind::FloatLiteral(value) => value.clone(),
+        | PatternKind::FloatLiteral {
+            spelling: value, ..
+        } => value.clone(),
         PatternKind::BoolLiteral(true) => "true".to_string(),
         PatternKind::BoolLiteral(false) => "false".to_string(),
         PatternKind::Unit => "()".to_string(),

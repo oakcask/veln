@@ -22,7 +22,7 @@ pub(crate) fn expression_is_immediately_context_free(
     match &expr.kind {
         ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
+        | ExprKind::FloatLiteral { .. }
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => true,
         ExprKind::NamePath { segments, .. } => {

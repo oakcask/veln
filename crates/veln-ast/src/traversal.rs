@@ -125,7 +125,7 @@ fn visit_remaining_expr_kind_children<'a, B>(
         | ExprKind::NamePath { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
+        | ExprKind::FloatLiteral { .. }
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
     }

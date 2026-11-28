@@ -29,15 +29,15 @@ pub(super) enum ContractScalar<'a> {
     Symbol(&'a str),
 }
 
-pub(super) fn parse_contract_value(text: &str) -> ContractValue<'_> {
+pub(super) fn parse_contract_value<'a>(text: &'a str, contract: &IrContract) -> ContractValue<'a> {
     let text = strip_contract_outer_parens(text.trim());
     if let Some(binary) = parse_contract_binary_value(text) {
         return binary;
     }
-    if let Some(prefix) = parse_contract_prefix_value(text) {
+    if let Some(prefix) = parse_contract_prefix_value(text, contract) {
         return prefix;
     }
-    parse_contract_atomic_value(text)
+    parse_contract_atomic_value(text, contract)
 }
 
 fn parse_contract_binary_value(text: &str) -> Option<ContractValue<'_>> {
@@ -49,25 +49,33 @@ fn parse_contract_binary_value(text: &str) -> Option<ContractValue<'_>> {
     None
 }
 
-fn parse_contract_prefix_value(text: &str) -> Option<ContractValue<'_>> {
-    if let Some(rest) = text.strip_prefix("not ") {
-        return Some(ContractValue::Not(rest));
+fn parse_contract_prefix_value<'a>(
+    text: &'a str,
+    contract: &IrContract,
+) -> Option<ContractValue<'a>> {
+    if let Some(rest) = text.strip_prefix("not")
+        && (rest.starts_with(' ') || rest.starts_with('('))
+    {
+        return Some(ContractValue::Not(rest.trim_start()));
     }
     if let Some(rest) = text.strip_prefix('-')
         && contract_integer_value(text).is_none()
-        && contract_float_value(text).is_none()
+        && contract_float_value(text, contract).is_none()
     {
         return Some(ContractValue::Negate(rest));
     }
     text.strip_prefix('~').map(ContractValue::BitwiseNot)
 }
 
-fn parse_contract_atomic_value(text: &str) -> ContractValue<'_> {
+fn parse_contract_atomic_value<'a>(text: &'a str, contract: &IrContract) -> ContractValue<'a> {
     if let Some((callee, args)) = parse_contract_call(text) {
         return ContractValue::Call { callee, args };
     }
-    if contract_integer_value(text).is_some() || contract_float_value(text).is_some() {
-        return ContractValue::Scalar(parse_contract_scalar(text));
+    if text.starts_with('"') && text.ends_with('"') {
+        return ContractValue::Scalar(ContractScalar::String(text));
+    }
+    if contract_integer_value(text).is_some() || contract_float_value(text, contract).is_some() {
+        return ContractValue::Scalar(parse_contract_scalar(text, contract));
     }
     if let Some((base, field)) = text.split_once('.') {
         return ContractValue::Field { base, field };
@@ -79,7 +87,7 @@ fn parse_contract_atomic_value(text: &str) -> ContractValue<'_> {
         _ if text.starts_with('"') && text.ends_with('"') => {
             ContractValue::Scalar(ContractScalar::String(text))
         }
-        _ => ContractValue::Scalar(parse_contract_scalar(text)),
+        _ => ContractValue::Scalar(parse_contract_scalar(text, contract)),
     }
 }
 
@@ -123,23 +131,25 @@ fn split_contract_binary_group<'a>(
         .max_by_key(|(left, _, _)| left.len())
 }
 
-fn parse_contract_scalar(text: &str) -> ContractScalar<'_> {
+fn parse_contract_scalar<'a>(text: &'a str, contract: &IrContract) -> ContractScalar<'a> {
     if let Some(value) = contract_integer_value(text) {
         ContractScalar::Integer(value)
-    } else if let Some(value) = contract_float_value(text) {
+    } else if let Some(value) = contract_float_value(text, contract) {
         ContractScalar::Float(value)
     } else {
         ContractScalar::Symbol(text)
     }
 }
 
-fn contract_float_value(text: &str) -> Option<f64> {
+fn contract_float_value(text: &str, contract: &IrContract) -> Option<f64> {
     if let Some(magnitude) = text.strip_prefix('-') {
-        return parse_float_literal(magnitude.trim())
-            .ok()
-            .map(|literal| -literal.value);
+        return contract_float_value(magnitude.trim(), contract).map(|value| -value);
     }
-    parse_float_literal(text).ok().map(|literal| literal.value)
+    contract
+        .float_literals
+        .iter()
+        .find(|literal| literal.spelling == text)
+        .map(|literal| f64::from_bits(literal.bits))
 }
 
 fn contract_integer_value(text: &str) -> Option<i64> {

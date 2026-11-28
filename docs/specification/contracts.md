@@ -53,12 +53,14 @@ and commas inside a string literal do not close a grouped predicate or split a
 call's argument list.
 
 An accepted dotted-decimal Float literal contributes its once-rounded binary64
-value to both static contract comparison and runtime emission. Static
-classification therefore treats two spellings that round to the same value as
-equal, including positive and negative zero. A nonzero literal that
-would round to infinity or zero fails during parsing and never becomes a
-contract obligation. The shared source admission and diagnostic boundary is
-specified under [Float literals](source-surface.md#float-literals).
+value to runtime contract emission. Static classification leaves predicates
+that contain Float literals runtime-required; exact-decimal or host-Float
+reasoning does not erase their runtime checks. Runtime boxed equality keeps
+`Int` and `Float` values distinct and distinguishes the two zero bit patterns,
+as Float-literal patterns do. A nonzero literal that would round to infinity
+or zero fails during parsing and never becomes a contract obligation. The
+shared source admission and diagnostic boundary is specified under
+[Float literals](source-surface.md#float-literals).
 
 Integer remainder uses the same operator contract in predicates as in ordinary
 expressions: `%` has multiply-level precedence and left associativity, and both
@@ -166,8 +168,8 @@ The classifier combines these rule classes:
 
 | Class | Supported rule |
 | --- | --- |
-| Literal values | Boolean and string equality/disequality; numeric equality, disequality, and ordering. Parentheses do not change the result. |
-| Exact arithmetic | Literal `+`, `-`, `*`, `/`, bitwise, and shift expressions in comparison-only positions. Decimal and rational comparisons use exact values; shift counts outside `0..63` are not folded as valid operations. |
+| Literal values | Boolean and string equality/disequality; `Int` equality, disequality, and ordering. Parentheses do not change the result. Predicates containing Float literals remain runtime-required. |
+| Integer arithmetic | Literal `Int` `+`, `-`, `*`, `/`, bitwise, and shift expressions in comparison-only positions use runtime integer behavior. Shift counts outside `0..63` are not folded as valid operations. |
 | Integer remainder | A literal-only `%` subexpression is folded when both signed 64-bit operands are known and the divisor is nonzero. The `%` node and an ancestor arithmetic node whose normal operand types select `Int` use runtime `Int` behavior, including truncating division and wrapping arithmetic. A surrounding ordinary arithmetic node follows its normal inferred type, so a `Float` operand selects `Float` for that node without widening either remainder operand. Boolean branches and the two sides of a comparison remain independent expressions. Remainder uses the runtime signed result, including `0` for minimum `Int` remainder by `-1`. A nonliteral remainder subexpression remains `runtime_required`. |
 | Boolean identities | Literal folding, `not`, complementary predicates, boolean equality/disequality, same-shape comparisons, and tautological `and`/`or` forms. Whitespace, redundant atom parentheses, and commuted ordering are normalized where the rule says so. |
 | Truth tables | Truth-table evaluation is bounded at 13 unknown predicates after folding and is skipped for 512 or more top-level disjuncts. Partial case-split search is bounded at 10 predicates; a separate exhaustive disjunction rule handles 7–11 predicates. Other specialized rules may still prove larger formulas. |
@@ -191,7 +193,6 @@ to prove it.
 Representative proven predicates include:
 
 ```text
-1 / 3 < 0.34
 (5 / 2) % 2 == 0
 5 % (3 / 2) == 0
 (5 % 3) / 2 == 1

@@ -248,7 +248,7 @@ fn literal_or_unit_pattern_type(pattern: &Pattern) -> Option<Type> {
     match &pattern.kind {
         PatternKind::StringLiteral(_) => Some(Type::string()),
         PatternKind::IntLiteral(_) => Some(Type::int()),
-        PatternKind::FloatLiteral(_) => Some(Type::float()),
+        PatternKind::FloatLiteral { .. } => Some(Type::float()),
         PatternKind::BoolLiteral(_) => Some(Type::bool()),
         PatternKind::Unit => Some(Type::unit()),
         _ => None,

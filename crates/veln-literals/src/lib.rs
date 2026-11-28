@@ -166,6 +166,34 @@ mod tests {
         format!("0.{}{digits}", "0".repeat(zeros))
     }
 
+    fn decimal_power(base: u8, exponent: usize) -> String {
+        let mut digits = vec![1u8];
+        for _ in 0..exponent {
+            let mut carry = 0u16;
+            for digit in &mut digits {
+                let product = u16::from(*digit) * u16::from(base) + carry;
+                *digit = (product % 10) as u8;
+                carry = product / 10;
+            }
+            while carry != 0 {
+                digits.push((carry % 10) as u8);
+                carry /= 10;
+            }
+        }
+        digits
+            .into_iter()
+            .rev()
+            .map(|digit| char::from(b'0' + digit))
+            .collect()
+    }
+
+    fn adjust_last_decimal_digit(text: &str, delta: i8) -> String {
+        let mut bytes = text.as_bytes().to_vec();
+        let last = bytes.last_mut().expect("decimal digit");
+        *last = ((*last - b'0') as i8 + delta) as u8 + b'0';
+        String::from_utf8(bytes).expect("decimal ASCII")
+    }
+
     #[test]
     fn rounds_decimal_values_once_to_binary64_ties_to_even() {
         let cases = [
@@ -197,6 +225,24 @@ mod tests {
             Err(FloatLiteralError::Underflow)
         );
         assert_eq!(parse_float_literal("0.0").unwrap().value.to_bits(), 0);
+    }
+
+    #[test]
+    fn rounds_the_exact_zero_to_subnormal_midpoint_ties_to_even() {
+        let numerator = decimal_power(5, 1075);
+        let midpoint = decimal_fraction(1075 - numerator.len(), &numerator);
+        let below = adjust_last_decimal_digit(&midpoint, -1);
+        let above = adjust_last_decimal_digit(&midpoint, 1);
+
+        assert_eq!(
+            parse_float_literal(&below),
+            Err(FloatLiteralError::Underflow)
+        );
+        assert_eq!(
+            parse_float_literal(&midpoint),
+            Err(FloatLiteralError::Underflow)
+        );
+        assert_eq!(parse_float_literal(&above).unwrap().value.to_bits(), 1);
     }
 
     #[test]

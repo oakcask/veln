@@ -187,9 +187,17 @@ fn contract_predicate_literal_bound_implication_proves_disequality() {
     let core = lowered.core.expect("valid module should lower to core");
     let contracts = &core.functions[0].contracts;
     assert_eq!(contracts.len(), 3);
-    assert!(contracts.iter().all(|contract| {
-        contract.obligation_status == ContractObligationStatus::StaticallyProven
-    }));
+    assert_eq!(
+        contracts
+            .iter()
+            .map(|contract| contract.obligation_status)
+            .collect::<Vec<_>>(),
+        vec![
+            ContractObligationStatus::StaticallyProven,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::StaticallyProven,
+        ]
+    );
 }
 
 #[test]

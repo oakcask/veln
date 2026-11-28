@@ -177,7 +177,7 @@ fn infer_private_leaf_type(expr: &Expr) -> Option<Type> {
         }
         ExprKind::StringLiteral(_) => Some(Type::string()),
         ExprKind::IntLiteral(_) => Some(Type::int()),
-        ExprKind::FloatLiteral(_) => Some(Type::float()),
+        ExprKind::FloatLiteral { .. } => Some(Type::float()),
         ExprKind::BoolLiteral(_) => Some(Type::bool()),
         ExprKind::Unit => Some(Type::unit()),
         _ => None,

@@ -10,6 +10,13 @@ fn pattern_rounds_once(value: Float) -> Bool
 	end
 end
 
+fn pattern_is_positive_zero(value: Float) -> Bool
+	match value
+		0.0 => true
+		_ => false
+	end
+end
+
 fn closed_contract_rounds_once() -> Bool
 require 9007199254740993.0 == 9007199254740992.0
 	true
@@ -20,7 +27,7 @@ pub fn main() -> () effects [stdio]
 	let positive_zero = 0.0
 	let negative_zero = -0.0
 	let expression_rounds_once = 9007199254740993.0 == 9007199254740992.0
-	if expression_rounds_once and closed_contract_rounds_once() and contract_rounds_once(9007199254740992.0) and pattern_rounds_once(9007199254740992.0) and subnormal > 0.0 and 1.0 / positive_zero > 0.0 and 1.0 / negative_zero < 0.0
+	if expression_rounds_once and closed_contract_rounds_once() and contract_rounds_once(9007199254740992.0) and pattern_rounds_once(9007199254740992.0) and pattern_is_positive_zero(positive_zero) and not pattern_is_positive_zero(negative_zero) and subnormal > 0.0 and 1.0 / positive_zero > 0.0 and 1.0 / negative_zero < 0.0
 		stdio::println("float conversion ok")
 	else
 		stdio::println("float conversion failed")

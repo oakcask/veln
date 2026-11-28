@@ -26,6 +26,52 @@ fn contract_static_analysis_compares_integer_radices_by_value() {
 }
 
 #[test]
+fn float_dependent_contract_proofs_remain_runtime_required() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Float) -> Float\n",
+            "require 9007199254740993.0 + 0.0 > 9007199254740992.0\n",
+            "require not (value >= 9007199254740993.0 and value <= 9007199254740992.0)\n",
+            "require 9007199254740993 == 9007199254740992.0\n",
+            "require -0.0 == 0.0\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    assert!(core.functions[0].contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::RuntimeRequired
+    }));
+}
+
+#[test]
+fn dotted_and_plain_static_string_contracts_are_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int) -> Int\n",
+            "require \"a.b\" == \"a.b\"\n",
+            "require \"ab\" == \"ab\"\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    assert!(core.functions[0].contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
 fn contract_predicate_accepts_qualified_function_value_arguments() {
     let main_source = SourceFile::new(
         "main.veln",
@@ -234,7 +280,7 @@ fn contract_predicate_boolean_identity_is_statically_proven() {
 }
 
 #[test]
-fn contract_predicate_literal_comparisons_are_statically_proven() {
+fn contract_predicate_literal_comparisons_keep_float_clauses_at_runtime() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -255,13 +301,20 @@ fn contract_predicate_literal_comparisons_are_statically_proven() {
     let core = lowered.core.expect("valid module should lower to core");
     let contracts = &core.functions[0].contracts;
     assert_eq!(contracts.len(), 2);
-    assert!(contracts.iter().all(|contract| {
-        contract.obligation_status == ContractObligationStatus::StaticallyProven
-    }));
+    assert_eq!(
+        contracts
+            .iter()
+            .map(|contract| contract.obligation_status)
+            .collect::<Vec<_>>(),
+        vec![
+            ContractObligationStatus::StaticallyProven,
+            ContractObligationStatus::RuntimeRequired,
+        ]
+    );
 }
 
 #[test]
-fn contract_predicate_float_literals_are_classified_after_rounding() {
+fn contract_predicate_float_literals_remain_runtime_required_after_rounding() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -284,7 +337,7 @@ fn contract_predicate_float_literals_are_classified_after_rounding() {
     assert_eq!(contracts.len(), 2);
     assert_eq!(
         contracts[0].obligation_status,
-        ContractObligationStatus::StaticallyProven
+        ContractObligationStatus::RuntimeRequired
     );
     assert_eq!(
         contracts[1].obligation_status,
@@ -407,7 +460,7 @@ fn contract_predicate_complementary_boolean_comparisons_are_statically_proven() 
 }
 
 #[test]
-fn contract_predicate_literal_arithmetic_comparisons_are_statically_proven() {
+fn contract_predicate_literal_arithmetic_keeps_float_clauses_at_runtime() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -432,9 +485,20 @@ fn contract_predicate_literal_arithmetic_comparisons_are_statically_proven() {
     let core = lowered.core.expect("valid module should lower to core");
     let contracts = &core.functions[0].contracts;
     assert_eq!(contracts.len(), 6);
-    assert!(contracts.iter().all(|contract| {
-        contract.obligation_status == ContractObligationStatus::StaticallyProven
-    }));
+    assert_eq!(
+        contracts
+            .iter()
+            .map(|contract| contract.obligation_status)
+            .collect::<Vec<_>>(),
+        vec![
+            ContractObligationStatus::StaticallyProven,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::StaticallyProven,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::StaticallyProven,
+        ]
+    );
 }
 
 #[test]

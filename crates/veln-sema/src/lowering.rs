@@ -6,13 +6,13 @@ use veln_ast::{
 use veln_core::{
     CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreCallbackTarget,
     CoreCleanupRegion, CoreContract, CoreContractCall, CoreDeferredBlock, CoreDeferredCapture,
-    CoreDictEntry, CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction,
-    CoreHandlerApplication, CoreHandlerProvider, CoreMatchArm, CoreModuleValueDecl,
-    CoreModuleValueIdentity, CoreParam, CorePattern, CorePatternField, CorePatternKind,
-    CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
+    CoreDictEntry, CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind,
+    CoreFloatLiteral, CoreFunction, CoreHandlerApplication, CoreHandlerProvider, CoreMatchArm,
+    CoreModuleValueDecl, CoreModuleValueIdentity, CoreParam, CorePattern, CorePatternField,
+    CorePatternKind, CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
-use veln_literals::{parse_float_literal, parse_integer_literal};
+use veln_literals::{FloatLiteralError, parse_integer_literal};
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -166,6 +166,26 @@ struct CoreLowerer<'a> {
 }
 
 impl CoreLowerer<'_> {
+    fn invalid_float_literal(&mut self, error: FloatLiteralError, span: &veln_source::SourceSpan) {
+        let message = match error {
+            FloatLiteralError::Overflow => {
+                "Float literal is too large to round to a finite Float value"
+            }
+            FloatLiteralError::Underflow => {
+                "nonzero Float literal is too small to round to a nonzero Float value"
+            }
+            FloatLiteralError::InvalidSyntax => "Float literal has invalid syntax",
+        };
+        self.diagnostics.push(Diagnostic::new(
+            "core.invalid_float_literal",
+            Severity::Error,
+            DiagnosticKind::Type,
+            message,
+            Some(span.clone()),
+            JsonValue::object([("phase", JsonValue::string("core_lowering"))]),
+        ));
+    }
+
     fn core_type_annotation(&self, annotation: &str) -> CoreType {
         let ty = parse_type_or_unknown(Some(annotation));
         let ty = self.environment.canonicalize_type_annotation_in_owner(

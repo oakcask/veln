@@ -703,7 +703,7 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn shallow_expr_type(&self, expr: &Expr) -> Option<Type> {
         match &expr.kind {
             ExprKind::IntLiteral(_) => Some(Type::int()),
-            ExprKind::FloatLiteral(_) => Some(Type::float()),
+            ExprKind::FloatLiteral { .. } => Some(Type::float()),
             ExprKind::BoolLiteral(_) => Some(Type::bool()),
             ExprKind::NamePath { segments, .. } => match segments.as_slice() {
                 [name] => self

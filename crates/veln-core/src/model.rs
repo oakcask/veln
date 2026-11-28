@@ -160,10 +160,17 @@ pub struct CoreContract {
     pub node_id: NodeId,
     pub kind: ContractKind,
     pub predicate: String,
+    pub float_literals: Vec<CoreFloatLiteral>,
     pub remainder_spans: Vec<PredicateRemainder>,
     pub callsite_calls: Vec<CoreContractCall>,
     pub obligation_status: ContractObligationStatus,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CoreFloatLiteral {
+    pub spelling: String,
+    pub bits: u64,
 }
 
 #[derive(Clone, Debug, PartialEq)]

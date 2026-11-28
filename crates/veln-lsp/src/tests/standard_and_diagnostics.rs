@@ -435,6 +435,27 @@ fn server_publishes_parse_diagnostics_for_open_document() {
 }
 
 #[test]
+fn server_projects_float_range_diagnostics_over_the_complete_literal() {
+    let overflow = format!("1{}.0", "0".repeat(309));
+    let text = format!("fn main() -> Float\n  {overflow}\nend\n");
+
+    let published = publish_diagnostics("file://main.veln", text);
+
+    assert!(published.contains(r#""code":"parse.float_literal""#), "{published}");
+    assert!(
+        published.contains(&format!(
+            r#""range":{{"start":{{"line":1,"character":2}},"end":{{"line":1,"character":{}}}}}"#,
+            overflow.len() + 2
+        )),
+        "{published}"
+    );
+    assert!(
+        published.contains("Float literal is too large to round to a finite Float value"),
+        "{published}"
+    );
+}
+
+#[test]
 fn server_accepts_module_value_for_document_scoped_analysis() {
     let published = publish_diagnostics("file://main.veln", "let answer: Int = 42".to_string());
 

@@ -39,7 +39,10 @@ impl<'a> Reader<'a> {
             }),
             3 => Ok(ExprKind::StringLiteral(self.string()?)),
             4 => Ok(ExprKind::IntLiteral(self.string()?)),
-            5 => Ok(ExprKind::FloatLiteral(self.string()?)),
+            5 => Ok(ExprKind::FloatLiteral {
+                spelling: self.string()?,
+                bits: self.float_literal_result()?,
+            }),
             6 => Ok(ExprKind::BoolLiteral(self.bool()?)),
             7 => Ok(ExprKind::Unit),
             _ => unreachable!("non-scalar tag passed to scalar wire decoder"),
@@ -245,7 +248,10 @@ impl<'a> Reader<'a> {
             1 => Ok(PatternKind::Binding(self.string()?)),
             2 => Ok(PatternKind::StringLiteral(self.string()?)),
             3 => Ok(PatternKind::IntLiteral(self.string()?)),
-            4 => Ok(PatternKind::FloatLiteral(self.string()?)),
+            4 => Ok(PatternKind::FloatLiteral {
+                spelling: self.string()?,
+                bits: self.float_literal_result()?,
+            }),
             5 => Ok(PatternKind::BoolLiteral(self.bool()?)),
             6 => Ok(PatternKind::Unit),
             7 => Ok(PatternKind::Record(self.vec(Self::pattern_field)?)),

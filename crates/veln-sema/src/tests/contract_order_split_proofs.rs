@@ -203,7 +203,7 @@ fn contract_predicate_complementary_comparison_or_is_statically_proven() {
 }
 
 #[test]
-fn contract_predicate_numeric_literal_alias_comparison_or_is_statically_proven() {
+fn contract_predicate_numeric_literal_alias_comparison_or_remains_runtime_required() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -225,7 +225,7 @@ fn contract_predicate_numeric_literal_alias_comparison_or_is_statically_proven()
     let contracts = &core.functions[0].contracts;
     assert_eq!(contracts.len(), 2);
     assert!(contracts.iter().all(|contract| {
-        contract.obligation_status == ContractObligationStatus::StaticallyProven
+        contract.obligation_status == ContractObligationStatus::RuntimeRequired
     }));
 }
 

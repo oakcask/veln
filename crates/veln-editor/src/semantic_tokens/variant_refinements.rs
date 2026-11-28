@@ -169,7 +169,7 @@ fn collect_expr(expr: &Expr, classifications: &mut BTreeMap<usize, SemanticToken
         | ExprKind::NamePath { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
+        | ExprKind::FloatLiteral { .. }
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
     }

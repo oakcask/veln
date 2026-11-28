@@ -287,8 +287,9 @@ value directly; they do not parse source text or substitute zero after a
 conversion failure. Contract emission uses the same validated conversion
 boundary. Consequently, ordinary expressions, patterns, and contracts agree
 at rounding boundaries. The
-checked command evidence covers that agreement together with finite-subnormal
-and positive- and negative-zero execution.
+[`Float literal conversion`](../../examples/specification/run/float-literal-conversion/)
+evidence covers that agreement together with finite-subnormal and positive-
+and negative-zero execution.
 
 Typed-IR lowering replaces each successfully evaluated closed `Int` or `Bool`
 operator subtree in a function or test body with one scalar constant before

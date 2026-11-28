@@ -1932,7 +1932,7 @@ impl<'a> FunctionChecker<'a> {
             PatternKind::Wildcard | PatternKind::Binding(_) => true,
             PatternKind::StringLiteral(_)
             | PatternKind::IntLiteral(_)
-            | PatternKind::FloatLiteral(_)
+            | PatternKind::FloatLiteral { .. }
             | PatternKind::BoolLiteral(_)
             | PatternKind::Unit => {
                 literal_or_unit_pattern_is_compatible(pattern, expected, &self.environment.adts)
@@ -2056,7 +2056,8 @@ fn render_match_pattern(pattern: &Pattern) -> String {
         PatternKind::Wildcard => "_".to_string(),
         PatternKind::Binding(name) => name.clone(),
         PatternKind::StringLiteral(value) => format!("{value:?}"),
-        PatternKind::IntLiteral(value) | PatternKind::FloatLiteral(value) => value.clone(),
+        PatternKind::IntLiteral(value) => value.clone(),
+        PatternKind::FloatLiteral { spelling, .. } => spelling.clone(),
         PatternKind::BoolLiteral(value) => value.to_string(),
         PatternKind::Unit => "()".to_string(),
         PatternKind::Record(fields) => {

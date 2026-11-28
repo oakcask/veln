@@ -345,6 +345,46 @@ fn bytecode_backend_runs_deep_tail_recursion_when_java_is_available() {
 }
 
 #[test]
+fn dotted_static_string_contracts_preserve_deep_tail_recursion() {
+    let ir = lower_to_ir(concat!(
+        "fn dotted(value: Int) -> Int\n",
+        "ensure \"a.b\" == \"a.b\"\n",
+        "  match value\n",
+        "    0 => 0\n",
+        "    _ => dotted(value - 1)\n",
+        "  end\n",
+        "end\n",
+        "fn plain(value: Int) -> Int\n",
+        "ensure \"ab\" == \"ab\"\n",
+        "  match value\n",
+        "    0 => 0\n",
+        "    _ => plain(value - 1)\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> Int\n",
+        "  dotted(30000) + plain(30000)\n",
+        "end\n",
+    ));
+    assert!(ir.functions[..2].iter().all(|function| {
+        function.contracts[0].obligation_status
+            == veln_core::ContractObligationStatus::StaticallyProven
+    }));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "bytecode-dotted-string-tail-recursion",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn bytecode_backend_runs_deep_higher_order_tail_recursion_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn keep(value: Int) -> Int\n",

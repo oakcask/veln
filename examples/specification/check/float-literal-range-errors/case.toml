@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "text"
-contains = ["error[parse.float_literal]: Float literal is too large to round to a finite Float value", "error[parse.float_literal]: nonzero Float literal is too small to round to a nonzero Float value"]
+contains = ["main.veln:2:2: error[parse.float_literal]: Float literal is too large to round to a finite Float value", "main.veln:6:2: error[parse.float_literal]: nonzero Float literal is too small to round to a nonzero Float value"]
 
 [stderr]
 format = "empty"
