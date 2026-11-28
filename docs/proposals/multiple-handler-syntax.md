@@ -57,8 +57,7 @@ complete:
   effects;
 - later-entry context failure and `?` propagation with already-entered frame
   restoration;
-- body failure, deferred cleanup, and cleanup-failure precedence across the
-  complete list;
+- cleanup-failure precedence across the complete list;
 - child-task inheritance and cancellation restoration;
 - provider-bound resource capture that outlives the list scope;
 - the motivating direct-IO chain rewritten automatically without changing its

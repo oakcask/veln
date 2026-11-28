@@ -85,6 +85,8 @@ boundary is unchanged. Handler entries run from the
 outermost handler to the innermost handler, including the entries from an
 existing inner list. Context expressions keep their evaluation count and
 order. The migrated body keeps its result, effects, and cleanup timing.
+If a propagated failure exits the migrated body, cleanup observes the same
+handler scopes and runs in the same order as it does for the nested input.
 Reformatting the result produces identical bytes.
 
 During one formatting pass, the formatter leaves the chain nested if it
@@ -170,7 +172,8 @@ and idempotence. The checked
 case covers handler-list formatting, nested-chain migration, comment ownership,
 explicit block preservation, and idempotence through two command passes.
 Focused formatter and CLI tests cover the migration boundaries, context order,
-result and cleanup preservation, and comment-preservation rules above. They
-reparse the first output, compare syntax ownership where formatting moves
-delimiters, execute nested and migrated forms where behavior is observable, and
-require byte-identical output on the second pass.
+result preservation, cleanup on normal and propagated-failure paths, and the
+comment-preservation rules above. They reparse the first output, compare syntax
+ownership where formatting moves delimiters, execute nested and migrated forms
+where behavior is observable, and require byte-identical output on the second
+pass.
