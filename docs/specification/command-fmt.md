@@ -101,6 +101,9 @@ when an outer form is ineligible, no directly nested suffix of that chain
 migrates on its own. A statement, `defer`, call, branch, or postfix operator
 ends that direct chain, so an eligible chain inside the independent expression
 may migrate without changing the ineligible outer form.
+If flattening one or more chains would make the output exceed the parser's
+cleanup-nesting limit, the formatter preserves the file unchanged instead of
+writing source that a later command cannot parse.
 
 In structurally recognized variant-refinement type text, the formatter writes
 one space on each side of `|`. It preserves the written alternative order,

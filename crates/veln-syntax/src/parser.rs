@@ -50,7 +50,7 @@ use module_value_suffix::{
 };
 use type_argument_lists::TypeArgumentListState;
 use type_paths::type_paths_from_tokens;
-const MAX_CLEANUP_NESTING: usize = 128;
+pub(crate) const MAX_CLEANUP_NESTING: usize = 128;
 const LOWERCASE_VARIANT_REFINEMENT_MESSAGE: &str =
     "variant refinement final segment must start with an ASCII uppercase letter";
 

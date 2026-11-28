@@ -1,4 +1,5 @@
 use super::*;
+use veln_source::SourceFile;
 
 pub fn format_tree(tree: &SyntaxTree) -> String {
     if tree.uses.iter().any(|use_decl| use_decl.recovered) {
@@ -29,7 +30,35 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
     if !out.is_empty() && !out.ends_with('\n') {
         out.push('\n');
     }
+    if source != out
+        && cleanup_form_count(tree) >= crate::parser::MAX_CLEANUP_NESTING
+        && introduces_cleanup_nesting_limit(&source, &out)
+    {
+        return source;
+    }
     out
+}
+
+fn cleanup_form_count(tree: &SyntaxTree) -> usize {
+    tree.lossless_tokens()
+        .filter(|token| {
+            matches!(
+                token.kind,
+                TokenKind::Begin | TokenKind::Defer | TokenKind::Handle
+            )
+        })
+        .count()
+}
+
+fn introduces_cleanup_nesting_limit(source: &str, candidate: &str) -> bool {
+    fn has_limit(text: &str) -> bool {
+        crate::parse(&SourceFile::new("formatted.veln", text))
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.cleanup_nesting_limit")
+    }
+
+    !has_limit(source) && has_limit(candidate)
 }
 
 fn format_module_header_and_uses(out: &mut String, comments: &LineComments, tree: &SyntaxTree) {
