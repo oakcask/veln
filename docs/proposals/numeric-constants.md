@@ -115,22 +115,12 @@ Scalar `Float` comparison already follows the fixed binary64 contract in the
 When the proposed constants are delivered, they participate in those existing
 operators without defining a separate comparison mode.
 
-For an ordinary finite `Float` `x`,
-`float::neg_infinity < x` and `x < float::infinity` are true.
-Positive and negative infinity compare equal to themselves and unequal to
-each other. For `n = float::nan`, `n == n` is false and `n != n` is true.
-Equality with any other float is false; every ordered comparison involving
-NaN is false, including comparison with itself or infinity. These rules apply
-to ordinary scalar operators, not structural container equality or sorting.
-The checked `examples/specification/run/scalar-float-nonfinite-comparisons/`
-case covers both operand orders independently of the proposed constant API.
-
 A NaN read must not throw or require handling an effect. NaN sign, payload,
 object identity, and propagation through arithmetic are not guaranteed.
-Public classification functions are not a prerequisite: `x != x` can detect
-NaN under the scalar comparison contract above. Text formatting, parsing,
-serialization, total ordering, and non-finite arithmetic policy are separate
-contracts; publishing constants must not silently redefine them.
+Public classification functions are not a prerequisite for publishing these
+values. Text formatting, parsing, serialization, total ordering, and
+non-finite arithmetic policy are separate contracts; publishing constants
+must not silently redefine them.
 
 ## Literal policy
 
@@ -198,8 +188,9 @@ it does not prove Veln conformance.
   and maximum. Adopt these as independent acceptance vectors, but reject the
   name `min_value` for a positive float: integer minimum and float minimum
   would otherwise have different meanings. Java's boxed `Double.equals`
-  differs from scalar NaN equality; only the documented primitive comparison
-  rules inform the proposed scalar contract.
+  differs from primitive floating-point equality, so use the field definitions
+  as evidence for the constant encodings rather than treating boxed equality
+  as an authority for this API.
 
 Other considered choices:
 
