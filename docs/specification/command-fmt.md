@@ -77,8 +77,9 @@ the migrated result produces identical bytes.
 The formatter also migrates a comment-free directly nested chain when its
 innermost handled body is `begin Body end`, or when its innermost handler
 already has a block body. The result is one terminated block-body list. The
-chain must contain at least two handler applications. A single handler around
-`begin Body end` retains the single-expression form. The explicit body remains
+chain must contain at least two directly nested handler forms. A single handler
+form around `begin Body end` retains the single-expression form, including when
+that form contains multiple entries. The explicit body remains
 a block, including when it contains one expression, so its lexical and cleanup
 boundary is unchanged. Handler entries run from the
 outermost handler to the innermost handler, including the entries from an
