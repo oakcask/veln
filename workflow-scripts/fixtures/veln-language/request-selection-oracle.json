@@ -465,6 +465,11 @@
       "id": "unbounded-language-query",
       "text": "abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz",
       "route": "language"
+    },
+    {
+      "id": "application-design-ja",
+      "text": "veln でインメモリのデータストアを表現する手段にはどういう物が考えられる？",
+      "route": "language"
     }
   ]
 }

@@ -634,14 +634,15 @@ function parseSkillContract(skillText) {
     call_order: ["list_language_topics", "read_doc"],
     topic_selection: {
       basis: "semantic_relevance_to_request",
-      instruction: "Inspect every listed title and summary. Select only the topics needed to answer the Veln language question, regardless of the request language or vocabulary. Discard topics that are not relevant. Select no more than three topics and do not derive an unlisted URI.",
+      instruction: "Inspect every listed title and summary. Select topics for the language features needed to answer the request, including building blocks for application design even when no topic names the application itself. Select by semantic relevance regardless of request language or vocabulary. Discard unrelated topics. Select no more than three topics and do not derive an unlisted URI.",
       selection_source: ["title", "summary"],
       deduplicate_by: "uri",
       no_relevant_topic: "Stop after list_language_topics and report that the published Veln language reference has no relevant topic.",
     },
     read_exact_listed_uris: true,
     fallback: "forbidden",
-    answer_source: "successfully_read_selected_resource_uris",
+    language_fact_source: "successfully_read_selected_resource_uris",
+    answer_guidance: "Answer application-design questions by reasoning from verified language features. Offer candidate representations, examples, and tradeoffs without requiring the reference to describe the application itself. Distinguish documented Veln facts from your design suggestions and assumptions. State gaps locally and answer the supported parts; do not refuse the whole request because an API, performance property, or implementation detail is unverified. Do not invent Veln syntax, APIs, runtime guarantees, or claims of tested code.",
     report_selected_uris: true,
     no_match: "Report that the published Veln language reference has no relevant topic. Do not use proposal text or model memory.",
   }, "veln-language skill language contract is inconsistent");
@@ -1153,7 +1154,8 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
   assert.ok(calls.length <= contract.language.maximum_calls, `${context}: language route exceeded its call bound`);
 
   const selection = expectedSelection(turn.request.text, "language", contract, context, languageTopicOracle);
-  assertExactKeys(turn.expected, ["selected_topic_ids", "answer_claims"], `${context}: language expectation`);
+  const suggestionKeys = Object.hasOwn(turn.expected, "design_suggestions") ? ["design_suggestions"] : [];
+  assertExactKeys(turn.expected, ["selected_topic_ids", "answer_claims", ...suggestionKeys], `${context}: language expectation`);
   assert.deepEqual(turn.expected.selected_topic_ids, selection.topicIds,
     `${context}: fixture expectation does not follow the reviewed semantic topic selection`);
   assert.ok(selection.topicIds.length <= contract.language.maximum_topic_reads,
@@ -1331,10 +1333,23 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
   assert.deepEqual(readStructured, expectedSnapshotRead(selectedUri, published, snapshots),
     `${context}: recorded read_doc result differs from the checked listed snapshot artifact`);
   assert.equal(answer.status, "answered", `${context}: wrong successful status`);
-  assertExactKeys(answer, ["type", "status", "claims", "source_uris"], `${context}: successful answer`);
+  assertExactKeys(answer, ["type", "status", "claims", "source_uris", ...suggestionKeys], `${context}: successful answer`);
   validateClaims(answer, selectedUri, readStructured.text, context);
   assert.deepEqual(answer.claims, turn.expected.answer_claims,
     `${context}: answer claims must match the scenario expectation`);
+  if (suggestionKeys.length > 0) {
+    assert.ok(Array.isArray(answer.design_suggestions)
+      && answer.design_suggestions.length > 0
+      && answer.design_suggestions.length <= fixtureLimits.claimsPerAnswer,
+    `${context}: design answer must offer bounded suggestions`);
+    for (const suggestion of answer.design_suggestions) {
+      assert.equal(typeof suggestion, "string", `${context}: design suggestion must be text`);
+      assert.ok(suggestion.trim().length > 0 && suggestion.length <= fixtureLimits.requestCharacters,
+        `${context}: design suggestion must be nonempty and bounded`);
+    }
+    assert.deepEqual(answer.design_suggestions, turn.expected.design_suggestions,
+      `${context}: design suggestions must match the reviewed scenario expectation`);
+  }
   return retainedResult(answer);
 }
 function checkedRepositoryPath(repositoryRoot, path, context) {

@@ -32,6 +32,10 @@
     {
       "text": "How do Veln modules work?",
       "topic_ids": ["modules-legacy-layout"]
+    },
+    {
+      "text": "veln でインメモリのデータストアを表現する手段にはどういう物が考えられる？",
+      "topic_ids": ["types-inference-constructors"]
     }
   ]
 }

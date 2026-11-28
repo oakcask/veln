@@ -26,14 +26,15 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "call_order": ["list_language_topics", "read_doc"],
     "topic_selection": {
       "basis": "semantic_relevance_to_request",
-      "instruction": "Inspect every listed title and summary. Select only the topics needed to answer the Veln language question, regardless of the request language or vocabulary. Discard topics that are not relevant. Select no more than three topics and do not derive an unlisted URI.",
+      "instruction": "Inspect every listed title and summary. Select topics for the language features needed to answer the request, including building blocks for application design even when no topic names the application itself. Select by semantic relevance regardless of request language or vocabulary. Discard unrelated topics. Select no more than three topics and do not derive an unlisted URI.",
       "selection_source": ["title", "summary"],
       "deduplicate_by": "uri",
       "no_relevant_topic": "Stop after list_language_topics and report that the published Veln language reference has no relevant topic."
     },
     "read_exact_listed_uris": true,
     "fallback": "forbidden",
-    "answer_source": "successfully_read_selected_resource_uris",
+    "language_fact_source": "successfully_read_selected_resource_uris",
+    "answer_guidance": "Answer application-design questions by reasoning from verified language features. Offer candidate representations, examples, and tradeoffs without requiring the reference to describe the application itself. Distinguish documented Veln facts from your design suggestions and assumptions. State gaps locally and answer the supported parts; do not refuse the whole request because an API, performance property, or implementation detail is unverified. Do not invent Veln syntax, APIs, runtime guarantees, or claims of tested code.",
     "report_selected_uris": true,
     "no_match": "Report that the published Veln language reference has no relevant topic. Do not use proposal text or model memory."
   },
