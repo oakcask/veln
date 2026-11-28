@@ -112,6 +112,69 @@ fn symbol_dependent_float_comparisons_remain_runtime_required() {
 }
 
 #[test]
+fn float_comparison_guard_detects_each_operand_source_independently() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn boxed() -> {inner: Float}\n",
+            "  {inner: 1.0}\n",
+            "end\n",
+            "fn scalar() -> Float\n",
+            "  1.0\n",
+            "end\n",
+            "fn nested_call_checked() -> ()\n",
+            "require boxed().inner == boxed().inner\n",
+            "  ()\n",
+            "end\n",
+            "fn scalar_call_checked() -> ()\n",
+            "require scalar() == scalar()\n",
+            "  ()\n",
+            "end\n",
+            "fn binding_checked(record: {inner: Float}) -> ()\n",
+            "require record.inner == record.inner\n",
+            "  ()\n",
+            "end\n",
+            "fn strict_call_checked() -> ()\n",
+            "require not (boxed().inner < boxed().inner)\n",
+            "require not (boxed().inner > boxed().inner)\n",
+            "  ()\n",
+            "end\n",
+            "fn integer_checked() -> ()\n",
+            "require 1 == 1\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+
+    let statuses = |function_index: usize| {
+        core.functions[function_index]
+            .contracts
+            .iter()
+            .map(|contract| contract.obligation_status)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(statuses(2), vec![ContractObligationStatus::RuntimeRequired]);
+    assert_eq!(statuses(3), vec![ContractObligationStatus::RuntimeRequired]);
+    assert_eq!(statuses(4), vec![ContractObligationStatus::RuntimeRequired]);
+    assert_eq!(
+        statuses(5),
+        vec![
+            ContractObligationStatus::StaticallyProven,
+            ContractObligationStatus::StaticallyProven,
+        ]
+    );
+    assert_eq!(
+        statuses(6),
+        vec![ContractObligationStatus::StaticallyProven]
+    );
+}
+
+#[test]
 fn dotted_and_plain_static_string_contracts_are_proven() {
     let source = SourceFile::new(
         "main.veln",

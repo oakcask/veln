@@ -292,6 +292,71 @@ fn bytecode_backend_keeps_symbol_dependent_float_equality_at_runtime() {
 }
 
 #[test]
+fn bytecode_backend_enforces_float_equality_from_record_returning_calls() {
+    let passing_ir = lower_to_ir(concat!(
+        "fn boxed() -> {inner: Float}\n",
+        "  {inner: 1.5}\n",
+        "end\n",
+        "fn checked() -> ()\n",
+        "require boxed().inner == boxed().inner\n",
+        "  ()\n",
+        "end\n",
+        "pub fn main() -> ()\n",
+        "  checked()\n",
+        "end\n",
+    ));
+    assert_eq!(
+        passing_ir.functions[1].contracts[0].obligation_status,
+        veln_core::ContractObligationStatus::RuntimeRequired
+    );
+    let passing_program = generate_classfiles_with_entry(&passing_ir, "main");
+    let Some(passing_output) = run_jvm_program_when_java_is_available(
+        "bytecode-record-float-contract-success",
+        &passing_program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        passing_output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&passing_output.stderr)
+    );
+
+    let failing_ir = lower_to_ir(concat!(
+        "fn boxed() -> {inner: Float}\n",
+        "  {inner: 0.0 / 0.0}\n",
+        "end\n",
+        "fn checked() -> ()\n",
+        "require boxed().inner == boxed().inner\n",
+        "  ()\n",
+        "end\n",
+        "pub fn main() -> ()\n",
+        "  checked()\n",
+        "end\n",
+    ));
+    assert_eq!(
+        failing_ir.functions[1].contracts[0].obligation_status,
+        veln_core::ContractObligationStatus::RuntimeRequired
+    );
+    let failing_predicate = failing_ir.functions[1].contracts[0].predicate.clone();
+    let failing_program = generate_classfiles_with_entry(&failing_ir, "main");
+    let Some(failing_output) = run_jvm_program_when_java_is_available(
+        "bytecode-record-nan-contract-failure",
+        &failing_program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(!failing_output.status.success());
+    let stderr = String::from_utf8_lossy(&failing_output.stderr);
+    assert!(
+        stderr.contains(&format!("contract failure: require `{failing_predicate}`")),
+        "{stderr}"
+    );
+}
+
+#[test]
 fn bytecode_backend_evaluates_prefixed_contract_integers_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn bounded(value: Int) -> Int\n",

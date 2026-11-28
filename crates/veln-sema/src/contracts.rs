@@ -101,9 +101,11 @@ fn predicate_has_symbol_dependent_float_comparison(
     let has_float_binding = bindings
         .iter()
         .any(|binding| type_contains_float(&binding.ty));
-    let has_float_call = contract_calls(predicate)
-        .iter()
-        .any(|call| call_type(&call.callee) == Some(Type::float()));
+    let has_float_call = contract_calls(predicate).iter().any(|call| {
+        call_type(&call.callee)
+            .as_ref()
+            .is_some_and(type_contains_float)
+    });
     if !has_float_binding && !has_float_call {
         return false;
     }
