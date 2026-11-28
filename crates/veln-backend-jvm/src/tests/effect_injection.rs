@@ -79,6 +79,16 @@ fn lower_multiple_handler_cleanup_entry(entry: &str) -> TypedProgram {
 
 #[test]
 fn multiple_handler_cleanup_failures_match_nested_oracles() {
+    fn assert_ordered_fragments(text: &str, fragments: &[&str]) {
+        let mut remaining = text;
+        for fragment in fragments {
+            let index = remaining
+                .find(fragment)
+                .unwrap_or_else(|| panic!("missing ordered fragment {fragment:?} in {text:?}"));
+            remaining = &remaining[index + fragment.len()..];
+        }
+    }
+
     fn run(entry: &str) -> Option<std::process::Output> {
         let ir = lower_multiple_handler_cleanup_entry(entry);
         let program = generate_classfiles_with_entry(&ir, entry);
@@ -100,9 +110,13 @@ fn multiple_handler_cleanup_failures_match_nested_oracles() {
         String::from_utf8_lossy(&flat_success.stdout),
         concat!(
             "inner\n",
-            "inner cleanup\ninner cleanup\ninner cleanup\n",
-            "middle cleanup\nmiddle cleanup\nmiddle cleanup\n",
-            "outer cleanup\nouter cleanup\nouter cleanup\n",
+            "inner-1 cleanup\ninner-1 cleanup\ninner-1 cleanup\n",
+            "middle-2 cleanup\nmiddle-1 cleanup\n",
+            "middle-2 cleanup\nmiddle-1 cleanup\n",
+            "middle-2 cleanup\nmiddle-1 cleanup\n",
+            "outer-3 cleanup\nouter-2 cleanup\nouter-1 cleanup\n",
+            "outer-3 cleanup\nouter-2 cleanup\nouter-1 cleanup\n",
+            "outer-3 cleanup\nouter-2 cleanup\nouter-1 cleanup\n",
             "ambient\n",
         )
     );
@@ -114,6 +128,13 @@ fn multiple_handler_cleanup_failures_match_nested_oracles() {
         success_stderr.matches("related cleanup failure:").count(),
         2
     );
+    assert_ordered_fragments(
+        &success_stderr,
+        &[
+            "related cleanup failure: network system cleanup could not confirm closure of 2 resource(s) with 0 producer(s) still active",
+            "related cleanup failure: network system cleanup could not confirm closure of 3 resource(s) with 0 producer(s) still active",
+        ],
+    );
 
     assert_eq!(flat_contract.status.code(), Some(1));
     assert_eq!(nested_contract.status.code(), Some(1));
@@ -122,9 +143,13 @@ fn multiple_handler_cleanup_failures_match_nested_oracles() {
     assert_eq!(
         String::from_utf8_lossy(&flat_contract.stdout),
         concat!(
-            "inner cleanup\ninner cleanup\ninner cleanup\n",
-            "middle cleanup\nmiddle cleanup\nmiddle cleanup\n",
-            "outer cleanup\nouter cleanup\nouter cleanup\n",
+            "inner-1 cleanup\ninner-1 cleanup\ninner-1 cleanup\n",
+            "middle-2 cleanup\nmiddle-1 cleanup\n",
+            "middle-2 cleanup\nmiddle-1 cleanup\n",
+            "middle-2 cleanup\nmiddle-1 cleanup\n",
+            "outer-3 cleanup\nouter-2 cleanup\nouter-1 cleanup\n",
+            "outer-3 cleanup\nouter-2 cleanup\nouter-1 cleanup\n",
+            "outer-3 cleanup\nouter-2 cleanup\nouter-1 cleanup\n",
             "ambient\n",
         )
     );
@@ -136,6 +161,14 @@ fn multiple_handler_cleanup_failures_match_nested_oracles() {
     assert_eq!(
         contract_stderr.matches("related cleanup failure:").count(),
         3
+    );
+    assert_ordered_fragments(
+        &contract_stderr,
+        &[
+            "related cleanup failure: network system cleanup could not confirm closure of 1 resource(s) with 0 producer(s) still active",
+            "related cleanup failure: network system cleanup could not confirm closure of 2 resource(s) with 0 producer(s) still active",
+            "related cleanup failure: network system cleanup could not confirm closure of 3 resource(s) with 0 producer(s) still active",
+        ],
     );
 }
 

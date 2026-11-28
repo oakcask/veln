@@ -24,11 +24,17 @@ pub handler failing_network(listens: { tx : Sender<Int>, rx : Receiver<Int> }) f
 			Some(count) => begin
 				let _ = channel::send(listens.tx, count + 1)
 				{ status: "ok", value: if count == 0
-					"outer"
+					"outer-1"
 				else if count == 1
-					"middle"
+					"outer-2"
+				else if count == 2
+					"outer-3"
+				else if count == 3
+					"middle-1"
+				else if count == 4
+					"middle-2"
 				else
-					"inner"
+					"inner-1"
 				end, local: "127.0.0.1:41000", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
 			end
 			None => { status: "error", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "invalid_input", phase: "during_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "missing listen count" }

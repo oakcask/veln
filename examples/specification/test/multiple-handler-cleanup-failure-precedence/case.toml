@@ -43,7 +43,7 @@ equals = "runtime"
 
 [[json_assert]]
 path = "cases.0.events"
-length = 11
+length = 20
 
 [[json_assert]]
 path = "cases.1.name"
@@ -55,7 +55,7 @@ equals = "runtime"
 
 [[json_assert]]
 path = "cases.1.events"
-length = 11
+length = 20
 
 [[json_assert]]
 path = "cases.2.name"
@@ -67,7 +67,7 @@ equals = "contract"
 
 [[json_assert]]
 path = "cases.2.events"
-length = 10
+length = 19
 
 [[json_assert]]
 path = "cases.3.name"
@@ -79,7 +79,7 @@ equals = "contract"
 
 [[json_assert]]
 path = "cases.3.events"
-length = 10
+length = 19
 
 [[json_assert]]
 path = "cases.0.events.0.text"
@@ -91,64 +91,64 @@ equals = "inner"
 
 [[json_assert]]
 path = "cases.0.events.1.text"
-equals = "inner cleanup"
+equals = "inner-1 cleanup"
 
 [[json_assert]]
 path = "cases.1.events.1.text"
-equals = "inner cleanup"
+equals = "inner-1 cleanup"
 
 [[json_assert]]
 path = "cases.0.events.4.text"
-equals = "middle cleanup"
+equals = "middle-2 cleanup"
 
 [[json_assert]]
 path = "cases.1.events.4.text"
-equals = "middle cleanup"
-
-[[json_assert]]
-path = "cases.0.events.7.text"
-equals = "outer cleanup"
-
-[[json_assert]]
-path = "cases.1.events.7.text"
-equals = "outer cleanup"
+equals = "middle-2 cleanup"
 
 [[json_assert]]
 path = "cases.0.events.10.text"
-equals = "ambient"
+equals = "outer-3 cleanup"
 
 [[json_assert]]
 path = "cases.1.events.10.text"
+equals = "outer-3 cleanup"
+
+[[json_assert]]
+path = "cases.0.events.19.text"
+equals = "ambient"
+
+[[json_assert]]
+path = "cases.1.events.19.text"
 equals = "ambient"
 
 [[json_assert]]
 path = "cases.2.events.0.text"
-equals = "inner cleanup"
+equals = "inner-1 cleanup"
 
 [[json_assert]]
 path = "cases.3.events.0.text"
-equals = "inner cleanup"
+equals = "inner-1 cleanup"
 
 [[json_assert]]
 path = "cases.2.events.3.text"
-equals = "middle cleanup"
+equals = "middle-2 cleanup"
 
 [[json_assert]]
 path = "cases.3.events.3.text"
-equals = "middle cleanup"
-
-[[json_assert]]
-path = "cases.2.events.6.text"
-equals = "outer cleanup"
-
-[[json_assert]]
-path = "cases.3.events.6.text"
-equals = "outer cleanup"
+equals = "middle-2 cleanup"
 
 [[json_assert]]
 path = "cases.2.events.9.text"
-equals = "ambient"
+equals = "outer-3 cleanup"
 
 [[json_assert]]
 path = "cases.3.events.9.text"
+equals = "outer-3 cleanup"
+
+[[json_assert]]
+path = "cases.2.events.18.text"
+equals = "ambient"
+
+[[json_assert]]
+path = "cases.3.events.18.text"
 equals = "ambient"
