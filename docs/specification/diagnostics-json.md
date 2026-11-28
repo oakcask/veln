@@ -1177,6 +1177,17 @@ row-bearing sibling, while its accepted control retains the concrete row. The
 requires accepted `decode`, `encode`, and `validate` arguments to retain the row
 diagnostics inferred through private helpers.
 
+Ordered handler lists apply the
+[handler effect rule](effects.md#effect-labels) before the public-boundary
+diagnostic is produced. An outer entry that discharges an effect retained by an
+inner handler produces no missing-public diagnostic. Reversing the entries or
+retaining the effect in an outer entry argument reports `effect.missing_public`
+for that retained effect, both in a public body and through a call to an
+inferred private helper. In each failure, `details.inferred_effects` contains
+the retained effect. The checked
+[`multiple-handler-retained-effect-order`](../../examples/specification/check/multiple-handler-retained-effect-order/)
+case fixes these outcomes.
+
 Format-neutral generated decode helpers retain refinements in their parameter
 and successful `Result` types, but they use ordinary structural record
 compatibility. Supplying a base ADT or an excluded constructor at a refined

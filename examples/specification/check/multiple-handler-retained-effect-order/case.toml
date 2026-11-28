@@ -1,0 +1,137 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["public function uses undeclared effect `main::Request`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 8
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `main::Supply`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 54
+column = 1
+
+[[json_assert]]
+path = "diagnostics.0.details.inferred_effects"
+equals = ["main::Supply"]
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `main::Supply`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 61
+column = 1
+
+[[json_assert]]
+path = "diagnostics.1.details.inferred_effects"
+equals = ["main::Supply"]
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `main::Supply`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 65
+column = 1
+
+[[json_assert]]
+path = "diagnostics.2.details.inferred_effects"
+equals = ["main::Supply"]
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `main::Supply`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 72
+column = 1
+
+[[json_assert]]
+path = "diagnostics.3.details.inferred_effects"
+equals = ["main::Supply"]
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `main::Supply`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 117
+column = 1
+
+[[json_assert]]
+path = "diagnostics.4.details.inferred_effects"
+equals = ["main::Supply"]
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `main::Supply`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 121
+column = 1
+
+[[json_assert]]
+path = "diagnostics.5.details.inferred_effects"
+equals = ["main::Supply"]
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `main::Supply`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 125
+column = 1
+
+[[json_assert]]
+path = "diagnostics.6.details.inferred_effects"
+equals = ["main::Supply"]
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `main::Supply`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 129
+column = 1
+
+[[json_assert]]
+path = "diagnostics.7.details.inferred_effects"
+equals = ["main::Supply"]
