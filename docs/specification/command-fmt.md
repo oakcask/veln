@@ -77,8 +77,10 @@ the migrated result produces identical bytes.
 The formatter also migrates a comment-free directly nested chain when its
 innermost handled body is `begin Body end`, or when its innermost handler
 already has a block body. The result is one terminated block-body list. The
-explicit body remains a block, including when it contains one expression, so
-its lexical and cleanup boundary is unchanged. Handler entries run from the
+chain must contain at least two handler applications. A single handler around
+`begin Body end` retains the single-expression form. The explicit body remains
+a block, including when it contains one expression, so its lexical and cleanup
+boundary is unchanged. Handler entries run from the
 outermost handler to the innermost handler, including the entries from an
 existing inner list. Context expressions keep their evaluation count and
 order. The migrated body keeps its result, effects, and cleanup timing.
@@ -89,9 +91,9 @@ contains comments, has another expression body that formats across multiple
 lines, or reaches another handler only through a statement, `defer`, call,
 branch, or postfix operator. A `begin` is eligible only as the direct terminal
 body, and a handled block is eligible only as the innermost directly nested
-handler. An ineligible comment-free
-multiline chain keeps a canonical multiline nested form that is byte-identical
-on a second pass. Eligibility applies to the complete directly nested chain:
+handler. An ineligible comment-free multiline chain keeps a canonical
+multiline nested form that is byte-identical on a second pass. Eligibility
+applies to the complete directly nested chain:
 when an outer form is ineligible, no directly nested suffix of that chain
 migrates on its own. A statement, `defer`, call, branch, or postfix operator
 ends that direct chain, so an eligible chain inside the independent expression
