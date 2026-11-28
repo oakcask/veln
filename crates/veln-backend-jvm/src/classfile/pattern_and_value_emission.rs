@@ -443,80 +443,79 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         pattern: &IrPattern,
         value: ValueRef,
     ) {
+        if let IrPatternKind::Binding(name) = &pattern.kind {
+            value.emit_load(code);
+            let slot = self.bind_local(name);
+            code.astore(slot);
+            return;
+        }
+
+        for (child_pattern, child_value) in self.pattern_binding_children(pattern, &value) {
+            self.emit_pattern_bindings(code, child_pattern, child_value);
+        }
+    }
+
+    fn pattern_binding_children<'pattern>(
+        &self,
+        pattern: &'pattern IrPattern,
+        value: &ValueRef,
+    ) -> Vec<(&'pattern IrPattern, ValueRef)> {
+        let runtime = &self.program.options.runtime_class;
         match &pattern.kind {
-            IrPatternKind::Binding(name) => {
-                value.emit_load(code);
-                let slot = self.bind_local(name);
-                code.astore(slot);
-            }
-            IrPatternKind::Record(fields) => {
-                for field in fields {
-                    self.emit_pattern_bindings(
-                        code,
+            IrPatternKind::Record(fields) => fields
+                .iter()
+                .map(|field| {
+                    (
                         &field.pattern,
                         ValueRef::RecordField {
                             base: Box::new(value.clone()),
                             field: field.name.clone(),
-                            runtime: self.program.options.runtime_class.clone(),
+                            runtime: runtime.clone(),
                         },
-                    );
-                }
-            }
+                    )
+                })
+                .collect(),
             IrPatternKind::Constructor { name, args } => {
                 let Some(constructor) = name.last().map(String::as_str) else {
-                    return;
+                    return Vec::new();
                 };
-                let getter = match constructor {
-                    "Some" => Some("optionValue"),
-                    "Ok" | "Err" => Some("resultValue"),
-                    _ => None,
-                };
-                if let (Some(getter), [inner]) = (getter, args.as_slice()) {
-                    self.emit_pattern_bindings(
-                        code,
-                        inner,
-                        ValueRef::RuntimeUnary {
-                            base: Box::new(value.clone()),
-                            method: getter.to_string(),
-                            runtime: self.program.options.runtime_class.clone(),
-                        },
-                    );
-                }
-                if let ("Cons", [head, tail]) = (constructor, args.as_slice()) {
-                    self.emit_pattern_bindings(
-                        code,
-                        head,
-                        ValueRef::RuntimeUnary {
-                            base: Box::new(value.clone()),
-                            method: "listHead".to_string(),
-                            runtime: self.program.options.runtime_class.clone(),
-                        },
-                    );
-                    self.emit_pattern_bindings(
-                        code,
-                        tail,
-                        ValueRef::RuntimeUnary {
-                            base: Box::new(value.clone()),
-                            method: "listTail".to_string(),
-                            runtime: self.program.options.runtime_class.clone(),
-                        },
-                    );
-                }
-                if !matches!(constructor, "Some" | "Ok" | "Err" | "Cons") {
-                    for (index, pattern) in args.iter().enumerate() {
-                        self.emit_pattern_bindings(
-                            code,
-                            pattern,
-                            ValueRef::AdtPayload {
-                                base: Box::new(value.clone()),
-                                index,
-                                runtime: self.program.options.runtime_class.clone(),
-                            },
-                        );
+                match (constructor, args.as_slice()) {
+                    ("Some", [inner]) => {
+                        vec![(inner, runtime_unary_value(value, "optionValue", runtime))]
                     }
+                    ("Ok" | "Err", [inner]) => {
+                        vec![(inner, runtime_unary_value(value, "resultValue", runtime))]
+                    }
+                    ("Cons", [head, tail]) => vec![
+                        (head, runtime_unary_value(value, "listHead", runtime)),
+                        (tail, runtime_unary_value(value, "listTail", runtime)),
+                    ],
+                    ("Some" | "Ok" | "Err" | "Cons", _) => Vec::new(),
+                    _ => args
+                        .iter()
+                        .enumerate()
+                        .map(|(index, pattern)| {
+                            (
+                                pattern,
+                                ValueRef::AdtPayload {
+                                    base: Box::new(value.clone()),
+                                    index,
+                                    runtime: runtime.clone(),
+                                },
+                            )
+                        })
+                        .collect(),
                 }
             }
-            _ => {}
+            _ => Vec::new(),
         }
+    }
+}
+
+fn runtime_unary_value(value: &ValueRef, method: &str, runtime: &str) -> ValueRef {
+    ValueRef::RuntimeUnary {
+        base: Box::new(value.clone()),
+        method: method.to_string(),
+        runtime: runtime.to_string(),
     }
 }
