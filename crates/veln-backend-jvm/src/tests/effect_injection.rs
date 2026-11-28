@@ -77,31 +77,26 @@ fn lower_multiple_handler_cleanup_entry(entry: &str) -> TypedProgram {
     lowered.ir.expect("cleanup fixture entry should lower")
 }
 
-#[test]
-fn multiple_handler_cleanup_failures_match_nested_oracles() {
-    fn assert_ordered_fragments(text: &str, fragments: &[&str]) {
-        let mut remaining = text;
-        for fragment in fragments {
-            let index = remaining
-                .find(fragment)
-                .unwrap_or_else(|| panic!("missing ordered fragment {fragment:?} in {text:?}"));
-            remaining = &remaining[index + fragment.len()..];
-        }
+fn run_multiple_handler_cleanup_entry(entry: &str) -> Option<std::process::Output> {
+    let ir = lower_multiple_handler_cleanup_entry(entry);
+    let program = generate_classfiles_with_entry(&ir, entry);
+    run_jvm_program_when_java_is_available(entry, &program, &[])
+}
+
+fn assert_ordered_fragments(text: &str, fragments: &[&str]) {
+    let mut remaining = text;
+    for fragment in fragments {
+        let index = remaining
+            .find(fragment)
+            .unwrap_or_else(|| panic!("missing ordered fragment {fragment:?} in {text:?}"));
+        remaining = &remaining[index + fragment.len()..];
     }
+}
 
-    fn run(entry: &str) -> Option<std::process::Output> {
-        let ir = lower_multiple_handler_cleanup_entry(entry);
-        let program = generate_classfiles_with_entry(&ir, entry);
-        run_jvm_program_when_java_is_available(entry, &program, &[])
-    }
-
-    let Some(flat_success) = run("run_flat_success") else {
-        return;
-    };
-    let nested_success = run("run_nested_success").expect("Java availability was established");
-    let flat_contract = run("run_flat_contract").expect("Java availability was established");
-    let nested_contract = run("run_nested_contract").expect("Java availability was established");
-
+fn assert_successful_body_cleanup_projection(
+    flat_success: &std::process::Output,
+    nested_success: &std::process::Output,
+) {
     assert_eq!(flat_success.status.code(), Some(1));
     assert_eq!(nested_success.status.code(), Some(1));
     assert_eq!(flat_success.stdout, nested_success.stdout);
@@ -135,7 +130,12 @@ fn multiple_handler_cleanup_failures_match_nested_oracles() {
             "related cleanup failure: network system cleanup could not confirm closure of 3 resource(s) with 0 producer(s) still active",
         ],
     );
+}
 
+fn assert_contract_body_cleanup_projection(
+    flat_contract: &std::process::Output,
+    nested_contract: &std::process::Output,
+) {
     assert_eq!(flat_contract.status.code(), Some(1));
     assert_eq!(nested_contract.status.code(), Some(1));
     assert_eq!(flat_contract.stdout, nested_contract.stdout);
@@ -170,6 +170,22 @@ fn multiple_handler_cleanup_failures_match_nested_oracles() {
             "related cleanup failure: network system cleanup could not confirm closure of 3 resource(s) with 0 producer(s) still active",
         ],
     );
+}
+
+#[test]
+fn multiple_handler_cleanup_failures_match_nested_oracles() {
+    let Some(flat_success) = run_multiple_handler_cleanup_entry("run_flat_success") else {
+        return;
+    };
+    let nested_success = run_multiple_handler_cleanup_entry("run_nested_success")
+        .expect("Java availability was established");
+    let flat_contract = run_multiple_handler_cleanup_entry("run_flat_contract")
+        .expect("Java availability was established");
+    let nested_contract = run_multiple_handler_cleanup_entry("run_nested_contract")
+        .expect("Java availability was established");
+
+    assert_successful_body_cleanup_projection(&flat_success, &nested_success);
+    assert_contract_body_cleanup_projection(&flat_contract, &nested_contract);
 }
 
 #[test]
