@@ -965,10 +965,7 @@ fn preserves_combined_lowercase_refinement_candidates_without_reclassifying_them
 #[test]
 fn rejects_the_first_refinement_beyond_the_lowering_and_wire_limit() {
     const DEPTH: usize = crate::MAX_VARIANT_REFINEMENT_NESTING + 1;
-    let mut annotation = "Leaf::Value".to_string();
-    for _ in 0..DEPTH {
-        annotation = format!("Layer<{annotation}>::Wrapped");
-    }
+    let annotation = nested_annotation(DEPTH, "Layer<", "Leaf::Value", ">::Wrapped");
     let source = SourceFile::new(
         "main.veln",
         format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n"),
@@ -991,36 +988,6 @@ fn rejects_the_first_refinement_beyond_the_lowering_and_wire_limit() {
             .map_or(&[], |argument| argument.ty_refinements.as_slice());
     }
     assert_eq!(nesting, crate::MAX_VARIANT_REFINEMENT_NESTING + 1);
-}
-
-#[test]
-fn rejects_refinement_nesting_beyond_the_lowering_and_wire_limit() {
-    let mut annotation = "Leaf::Value".to_string();
-    for _ in 0..4_096 {
-        annotation = format!("Layer<{annotation}>::Wrapped");
-    }
-    let source = SourceFile::new(
-        "main.veln",
-        format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n"),
-    );
-
-    let output = parse(&source);
-    assert!(output.diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "parse.variant_refinement_type"
-            && diagnostic.message == "variant refinement types are nested too deeply"
-    }));
-
-    let function = first_function(&output);
-    let mut refinements = function.params[0].ty_refinements.as_slice();
-    let mut nesting = 0;
-    while let Some(refinement) = refinements.first() {
-        nesting += 1;
-        refinements = refinement.alternatives[0]
-            .type_arguments
-            .first()
-            .map_or(&[], |argument| argument.ty_refinements.as_slice());
-    }
-    assert!(nesting <= crate::MAX_VARIANT_REFINEMENT_NESTING + 1);
 }
 
 #[test]
@@ -1318,10 +1285,7 @@ fn formats_nested_refinement_unions_in_every_explicit_call_type_argument() {
 #[test]
 fn parses_deeply_nested_variant_refinements_with_linear_structure() {
     const DEPTH: usize = 256;
-    let mut annotation = "Leaf::Value".to_string();
-    for _ in 0..DEPTH {
-        annotation = format!("Layer<{annotation}>::Wrapped");
-    }
+    let annotation = nested_annotation(DEPTH, "Layer<", "Leaf::Value", ">::Wrapped");
     let source = SourceFile::new(
         "main.veln",
         format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n"),
@@ -1411,10 +1375,7 @@ fn malformed_function_type_scope_work(count: usize) -> usize {
 }
 
 fn refinement_boundary_coverage_work(depth: usize) -> usize {
-    let mut annotation = "Leaf::Value".to_string();
-    for _ in 0..depth {
-        annotation = format!("Layer<{annotation}>::Wrapped");
-    }
+    let annotation = nested_annotation(depth, "Layer<", "Leaf::Value", ">::Wrapped");
     let source = SourceFile::new(
         "main.veln",
         format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n"),
@@ -1434,10 +1395,12 @@ fn refinement_boundary_coverage_work(depth: usize) -> usize {
 }
 
 fn refinement_argument_token_copies(depth: usize) -> usize {
-    let mut annotation = "Leaf::Value".to_string();
-    for _ in 0..depth {
-        annotation = format!("Layer<List<{annotation}>, domain::Marker>::Wrapped");
-    }
+    let annotation = nested_annotation(
+        depth,
+        "Layer<List<",
+        "Leaf::Value",
+        ">, domain::Marker>::Wrapped",
+    );
     let source = SourceFile::new(
         "main.veln",
         format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n"),
@@ -1447,6 +1410,19 @@ fn refinement_argument_token_copies(depth: usize) -> usize {
     let output = parse(&source);
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
     crate::parser::refinement_argument_token_copies()
+}
+
+fn nested_annotation(depth: usize, opening: &str, leaf: &str, closing: &str) -> String {
+    let mut annotation =
+        String::with_capacity(depth * (opening.len() + closing.len()) + leaf.len());
+    for _ in 0..depth {
+        annotation.push_str(opening);
+    }
+    annotation.push_str(leaf);
+    for _ in 0..depth {
+        annotation.push_str(closing);
+    }
+    annotation
 }
 
 #[test]
