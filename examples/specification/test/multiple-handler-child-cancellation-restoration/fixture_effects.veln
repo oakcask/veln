@@ -1,0 +1,23 @@
+pub effect Selected
+	value() -> String
+end
+
+pub effect Trace
+	record(value: String) -> ()
+end
+
+pub handler selected(value: String) for Selected
+	value() => value
+end
+
+pub handler recording() for Trace effects [stdio]
+	record(value) => stdio::println(value)
+end
+
+pub fn selected_value() -> String effects [Selected]
+	perform Selected::value()
+end
+
+pub fn record(value: String) -> () effects [Trace]
+	perform Trace::record(value)
+end

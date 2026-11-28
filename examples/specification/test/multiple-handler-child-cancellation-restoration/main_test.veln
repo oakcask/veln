@@ -1,0 +1,82 @@
+use fixture_effects
+
+# The flat list and nested oracle run in a child task. Scoped Veln handlers
+# make entry order, inherited dispatch, cancellation unwind, and restoration
+# observable without changing production host effects.
+
+fn context(label: String) -> String effects [fixture_effects::Selected, fixture_effects::Trace]
+	fixture_effects::record(string::concat(label, " context"))
+	fixture_effects::record(fixture_effects::selected_value())
+	label
+end
+
+fn child_local_body(context: { ready : Sender<String>, gate : Receiver<String> }) -> () effects [concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	defer
+		fixture_effects::record(string::concat("child local cleanup ", fixture_effects::selected_value()))
+	end
+	let _ = channel::send(context.ready, "ready")
+	let _ = channel::recv(context.gate)
+	fixture_effects::record("unexpected child continuation")
+end
+
+fn child(context: { ready : Sender<String>, gate : Receiver<String> }) -> () effects [concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	fixture_effects::record(string::concat("child inherited ", fixture_effects::selected_value()))
+	defer
+		fixture_effects::record(string::concat("child outer cleanup ", fixture_effects::selected_value()))
+	end
+	handle child_local_body(context) with fixture_effects::selected("child local")
+end
+
+fn cancel_child() -> Result<(), String> effects [concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	let ready = channel::bounded<String>(1)
+	let gate = channel::bounded<String>(0)
+	let context = { ready: ready.tx, gate: gate.rx }
+	let worker = task::spawn_with<(), { ready : Sender<String>, gate : Receiver<String> }>(child, context)
+	let _ = channel::recv(ready.rx)
+	task::cancel(worker)
+	match task::join(worker)
+		Err(error) => if task::join_error_is_cancelled(error)
+			begin
+				fixture_effects::record("join cancelled")
+				fixture_effects::record(string::concat("parent ", fixture_effects::selected_value()))
+				Ok(())
+			end
+		else
+			Err("child join did not report cancellation")
+		end
+		Ok(_) => Err("cancelled child completed normally")
+	end
+end
+
+fn flat_scope() -> Result<(), String> effects [concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	handle cancel_child() with
+		fixture_effects::selected(context("outer")),
+		fixture_effects::selected(context("inner"))
+	end
+end
+
+fn nested_scope() -> Result<(), String> effects [concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	handle (handle cancel_child() with fixture_effects::selected(context("inner"))) with fixture_effects::selected(context("outer"))
+end
+
+fn run_case(flat: Bool) -> Result<(), String> effects [concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	let outcome = if flat flat_scope() else nested_scope() end
+	fixture_effects::record(string::concat("after ", fixture_effects::selected_value()))
+	outcome
+end
+
+pub fn run_flat() -> Result<(), String> effects [concurrency, stdio]
+	handle (handle run_case(true) with fixture_effects::selected("ambient")) with fixture_effects::recording()
+end
+
+pub fn run_nested() -> Result<(), String> effects [concurrency, stdio]
+	handle (handle run_case(false) with fixture_effects::selected("ambient")) with fixture_effects::recording()
+end
+
+test flat() -> Result<(), String> effects [concurrency, stdio]
+	run_flat()
+end
+
+test nested() -> Result<(), String> effects [concurrency, stdio]
+	run_nested()
+end

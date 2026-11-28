@@ -236,6 +236,14 @@ propagating an ordinary `Err` result, the cleanup failure interrupts that result
 propagation; enclosing cleanup registrations and handler frames still unwind.
 Cleanup failure precedence and task-cancellation behavior are specified by
 [execution.md](execution.md#runtime-readiness-and-host-boundaries).
+When a child task is created inside an ordered handler list, it inherits every
+active frame in the same outermost-first order. A handler installed only by
+the child shadows those inherited frames until cancellation unwinds the child
+scope. Child cleanup then observes the restored inherited frame. The parent
+retains its own active frame, and leaving the parent list restores the handler
+that surrounded the list. The checked
+[`multiple-handler-child-cancellation-restoration`](../../examples/specification/test/multiple-handler-child-cancellation-restoration/)
+case compares these observations with nested single-handler expressions.
 
 Effects in a `begin` body and in every deferred block contribute to the
 enclosing function, test, or handler operation clause. A cleanup-region
