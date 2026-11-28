@@ -55,8 +55,6 @@ complete:
 
 - retained-effect dependency direction, including reversal and outer argument
   effects;
-- later-entry context failure and `?` propagation with already-entered frame
-  restoration;
 - cleanup-failure precedence across the complete list;
 - child-task inheritance and cancellation restoration;
 - provider-bound resource capture that outlives the list scope;

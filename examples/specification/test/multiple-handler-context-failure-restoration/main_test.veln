@@ -1,0 +1,126 @@
+use fixture_effects
+
+# This JVM case compares flat handler lists with nested single-handler oracles.
+# Scoped Veln handlers provide deterministic dispatch and trace observations.
+
+fn first_context() -> String effects [fixture_effects::Trace]
+	fixture_effects::record("first context")
+	"outer one"
+end
+
+fn second_context() -> String effects [fixture_effects::Selected, fixture_effects::Trace]
+	fixture_effects::record("second context")
+	fixture_effects::record(fixture_effects::selected_value())
+	"outer two"
+end
+
+fn error_context() -> Result<String, String> effects [fixture_effects::Selected, fixture_effects::Trace]
+	fixture_effects::record("failing context")
+	fixture_effects::record(fixture_effects::selected_value())
+	Err("context error")
+end
+
+fn reject_context(value: Bool) -> String
+	require value
+	"unreachable"
+end
+
+fn abrupt_context() -> String effects [fixture_effects::Selected, fixture_effects::Trace]
+	fixture_effects::record("failing context")
+	fixture_effects::record(fixture_effects::selected_value())
+	reject_context(false)
+end
+
+fn later_context() -> String effects [fixture_effects::Trace]
+	fixture_effects::record("unexpected later context")
+	"inner"
+end
+
+fn handled_result_body() -> Result<(), String> effects [fixture_effects::Trace]
+	fixture_effects::record("unexpected body")
+	Ok(())
+end
+
+fn handled_abrupt_body() -> () effects [fixture_effects::Trace]
+	fixture_effects::record("unexpected body")
+end
+
+fn flat_error() -> Result<(), String> effects [fixture_effects::Selected, fixture_effects::Trace]
+	handle handled_result_body() with
+		fixture_effects::selected(first_context()),
+		fixture_effects::selected(second_context()),
+		fixture_effects::selected(error_context()?),
+		fixture_effects::selected(later_context())
+	end
+end
+
+fn nested_error() -> Result<(), String> effects [fixture_effects::Selected, fixture_effects::Trace]
+	handle (handle (handle (handle handled_result_body() with fixture_effects::selected(later_context())) with fixture_effects::selected(error_context()?)) with fixture_effects::selected(second_context())) with fixture_effects::selected(first_context())
+end
+
+fn flat_abrupt() -> () effects [fixture_effects::Selected, fixture_effects::Trace]
+	handle handled_abrupt_body() with
+		fixture_effects::selected(first_context()),
+		fixture_effects::selected(second_context()),
+		fixture_effects::selected(abrupt_context()),
+		fixture_effects::selected(later_context())
+	end
+end
+
+fn nested_abrupt() -> () effects [fixture_effects::Selected, fixture_effects::Trace]
+	handle (handle (handle (handle handled_abrupt_body() with fixture_effects::selected(later_context())) with fixture_effects::selected(abrupt_context())) with fixture_effects::selected(second_context())) with fixture_effects::selected(first_context())
+end
+
+fn verify_error(result: Result<(), String>) -> Result<(), String> effects [fixture_effects::Selected, fixture_effects::Trace]
+	match result
+		Ok(_) => Err("context error did not propagate")
+		Err(message) => if message == "context error"
+			begin
+				fixture_effects::record(fixture_effects::selected_value())
+				Ok(())
+			end
+		else
+			Err("unexpected context error")
+		end
+	end
+end
+
+fn verify_flat_error() -> Result<(), String> effects [fixture_effects::Selected, fixture_effects::Trace]
+	verify_error(flat_error())
+end
+
+fn verify_nested_error() -> Result<(), String> effects [fixture_effects::Selected, fixture_effects::Trace]
+	verify_error(nested_error())
+end
+
+fn verify_flat_abrupt() -> () effects [fixture_effects::Selected, fixture_effects::Trace]
+	defer
+		fixture_effects::record(fixture_effects::selected_value())
+	end
+	flat_abrupt()
+	fixture_effects::record("unexpected continuation")
+end
+
+fn verify_nested_abrupt() -> () effects [fixture_effects::Selected, fixture_effects::Trace]
+	defer
+		fixture_effects::record(fixture_effects::selected_value())
+	end
+	nested_abrupt()
+	fixture_effects::record("unexpected continuation")
+end
+
+test error_flat() -> Result<(), String> effects [stdio]
+	handle (handle verify_flat_error() with fixture_effects::selected("ambient")) with fixture_effects::recording()
+end
+
+test error_nested() -> Result<(), String> effects [stdio]
+	handle (handle verify_nested_error() with fixture_effects::selected("ambient")) with fixture_effects::recording()
+end
+
+test abrupt_flat() -> () effects [stdio]
+	handle (handle verify_flat_abrupt() with fixture_effects::selected("ambient")) with fixture_effects::recording()
+end
+
+test abrupt_nested() -> () effects [stdio]
+	handle (handle verify_nested_abrupt() with fixture_effects::selected("ambient")) with fixture_effects::recording()
+end

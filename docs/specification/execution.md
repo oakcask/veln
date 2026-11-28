@@ -472,10 +472,15 @@ nested single-handler expressions. The first source entry is the outermost
 runtime frame. The JVM therefore evaluates outer context
 arguments before inner context arguments, enters every frame before the body,
 preserves the expression or handled-block result, and unwinds inner frames
-before outer frames. The checked
+before outer frames. If a later context propagates an `Err` with `?` or fails
+abruptly, the already-entered frames unwind before control leaves the list.
+The equivalent nested single-handler form has the same context trace, skipped
+later contexts and body, and restored surrounding handler. The checked
 [`multiple-handler-order-and-results`](../../examples/specification/run/multiple-handler-order-and-results/)
 case exercises both body forms, ordered context evaluation, inner shadowing,
-and non-unit result preservation through JVM execution.
+and non-unit result preservation through JVM execution. The checked
+[`multiple-handler-context-failure-restoration`](../../examples/specification/test/multiple-handler-context-failure-restoration/)
+case compares the flat and nested failure paths through the JVM backend.
 
 Integer remainder evaluates the left operand once and then the right operand
 once. A failure in the left operand prevents evaluation of the right operand.
