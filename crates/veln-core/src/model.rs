@@ -234,7 +234,7 @@ pub enum CoreExprKind {
     BoolLiteral(bool),
     StringLiteral(String),
     IntLiteral(String),
-    FloatLiteral(String),
+    FloatLiteral(f64),
     Unit,
     FunctionValue {
         name: String,
@@ -377,7 +377,7 @@ pub enum CorePatternKind {
     Binding(String),
     StringLiteral(String),
     IntLiteral(String),
-    FloatLiteral(String),
+    FloatLiteral(f64),
     BoolLiteral(bool),
     Unit,
     Record(Vec<CorePatternField>),

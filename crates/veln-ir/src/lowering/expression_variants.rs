@@ -140,11 +140,7 @@ fn lower_record_preserves_fields_types_and_nested_values() {
             CoreRecordField {
                 node_id: anchor.node_id,
                 name: "ratio".to_string(),
-                expr: core_expr(
-                    anchor,
-                    CoreType::float(),
-                    CoreExprKind::FloatLiteral("1.5".to_string()),
-                ),
+                expr: core_expr(anchor, CoreType::float(), CoreExprKind::FloatLiteral(1.5)),
                 span: anchor.span.clone(),
             },
         ])
@@ -161,7 +157,7 @@ fn lower_record_preserves_fields_types_and_nested_values() {
                     && matches!(some.value.kind, IrExprKind::OptionSome(_))
                     && ratio.name == "ratio"
                     && ratio.value.ty == CoreType::float()
-                    && ratio.value.kind == IrExprKind::FloatLiteral("1.5".to_string()))
+                    && ratio.value.kind == IrExprKind::FloatLiteral(1.5))
     ));
 }
 

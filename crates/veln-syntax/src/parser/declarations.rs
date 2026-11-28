@@ -2,7 +2,8 @@ use super::*;
 
 impl<'a> Parser<'a> {
     pub(super) fn new(source: &'a SourceFile, tokens: Vec<Token>) -> Self {
-        let diagnostics = integer_literal_diagnostics(source, &tokens);
+        let mut diagnostics = integer_literal_diagnostics(source, &tokens);
+        diagnostics.extend(float_literal_diagnostics(source, &tokens));
         let parse_tokens = tokens
             .iter()
             .filter(|token| !token.kind.is_trivia())

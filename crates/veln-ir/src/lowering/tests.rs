@@ -133,7 +133,9 @@ fn core_pattern(pattern: &Pattern) -> CorePattern {
             PatternKind::Binding(name) => CorePatternKind::Binding(name.clone()),
             PatternKind::StringLiteral(value) => CorePatternKind::StringLiteral(value.clone()),
             PatternKind::IntLiteral(value) => CorePatternKind::IntLiteral(value.clone()),
-            PatternKind::FloatLiteral(value) => CorePatternKind::FloatLiteral(value.clone()),
+            PatternKind::FloatLiteral(value) => CorePatternKind::FloatLiteral(
+                veln_literals::parse_float_literal(value).unwrap().value,
+            ),
             PatternKind::BoolLiteral(value) => CorePatternKind::BoolLiteral(*value),
             PatternKind::Unit => CorePatternKind::Unit,
             PatternKind::Record(fields) => {

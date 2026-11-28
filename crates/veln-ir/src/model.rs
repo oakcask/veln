@@ -324,7 +324,7 @@ pub enum IrExprKind {
     IntLiteral(String),
     /// An optimizer-produced integer that is not subject to source-literal admission.
     IntConstant(i64),
-    FloatLiteral(String),
+    FloatLiteral(f64),
     Unit,
     FunctionValue {
         name: String,
@@ -461,7 +461,7 @@ pub enum IrPatternKind {
     Binding(String),
     StringLiteral(String),
     IntLiteral(String),
-    FloatLiteral(String),
+    FloatLiteral(f64),
     BoolLiteral(bool),
     Unit,
     Record(Vec<IrPatternField>),

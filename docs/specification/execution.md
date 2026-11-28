@@ -281,6 +281,15 @@ command-specific execution or write policy. Holes, missing expressions,
 constructor or call arity failures, and recognized concurrency blockers
 prevent execution.
 
+Checked core and typed IR store the validated binary64 value of each accepted
+dotted-decimal Float literal. JVM expression and pattern emission load that
+value directly; they do not parse source text or substitute zero after a
+conversion failure. Contract emission uses the same validated conversion
+boundary. Consequently, ordinary expressions, patterns, and contracts agree
+at rounding boundaries. The
+checked command evidence covers that agreement together with finite-subnormal
+and positive- and negative-zero execution.
+
 Typed-IR lowering replaces each successfully evaluated closed `Int` or `Bool`
 operator subtree in a function or test body with one scalar constant before
 JVM emission. An executable function method whose result is entirely closed

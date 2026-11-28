@@ -12,7 +12,7 @@ use veln_core::{
     CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
-use veln_literals::parse_integer_literal;
+use veln_literals::{parse_float_literal, parse_integer_literal};
 
 use std::cell::RefCell;
 use std::collections::HashMap;

@@ -1,4 +1,50 @@
-//! Shared parsing for source integer literals.
+//! Shared parsing for source numeric literals.
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ParsedFloatLiteral {
+    pub value: f64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FloatLiteralError {
+    InvalidSyntax,
+    Overflow,
+    Underflow,
+}
+
+/// Converts an unsigned dotted-decimal source literal to its binary64 value.
+///
+/// Rust's decimal conversion performs one correctly rounded conversion to
+/// binary64. The source-shape check keeps this boundary narrower than a host
+/// floating-point parser, and the exact decimal digits distinguish a written
+/// zero from a nonzero value that rounded to zero.
+pub fn parse_float_literal(text: &str) -> Result<ParsedFloatLiteral, FloatLiteralError> {
+    let Some((whole, fraction)) = text.split_once('.') else {
+        return Err(FloatLiteralError::InvalidSyntax);
+    };
+    if whole.is_empty()
+        || fraction.is_empty()
+        || !whole.bytes().all(|byte| byte.is_ascii_digit())
+        || !fraction.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return Err(FloatLiteralError::InvalidSyntax);
+    }
+
+    let source_is_zero = whole
+        .bytes()
+        .chain(fraction.bytes())
+        .all(|byte| byte == b'0');
+    let value = text
+        .parse::<f64>()
+        .map_err(|_| FloatLiteralError::InvalidSyntax)?;
+    if value.is_infinite() {
+        return Err(FloatLiteralError::Overflow);
+    }
+    if value == 0.0 && !source_is_zero {
+        return Err(FloatLiteralError::Underflow);
+    }
+    Ok(ParsedFloatLiteral { value })
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IntegerRadix {
@@ -111,7 +157,62 @@ pub fn parse_integer_literal(text: &str) -> Result<ParsedIntegerLiteral, Integer
 
 #[cfg(test)]
 mod tests {
-    use super::{IntegerLiteralError, IntegerRadix, parse_integer_literal};
+    use super::{
+        FloatLiteralError, IntegerLiteralError, IntegerRadix, parse_float_literal,
+        parse_integer_literal,
+    };
+
+    fn decimal_fraction(zeros: usize, digits: &str) -> String {
+        format!("0.{}{digits}", "0".repeat(zeros))
+    }
+
+    #[test]
+    fn rounds_decimal_values_once_to_binary64_ties_to_even() {
+        let cases = [
+            ("9007199254740993.0", 0x4340_0000_0000_0000),
+            ("9007199254740995.0", 0x4340_0000_0000_0002),
+            ("1.5", 0x3ff8_0000_0000_0000),
+        ];
+        for (text, expected_bits) in cases {
+            assert_eq!(
+                parse_float_literal(text).unwrap().value.to_bits(),
+                expected_bits
+            );
+        }
+    }
+
+    #[test]
+    fn applies_subnormal_and_zero_range_boundaries() {
+        let rounds_to_min_subnormal = decimal_fraction(323, "4");
+        let rounds_to_zero = decimal_fraction(323, "2");
+        assert_eq!(
+            parse_float_literal(&rounds_to_min_subnormal)
+                .unwrap()
+                .value
+                .to_bits(),
+            1
+        );
+        assert_eq!(
+            parse_float_literal(&rounds_to_zero),
+            Err(FloatLiteralError::Underflow)
+        );
+        assert_eq!(parse_float_literal("0.0").unwrap().value.to_bits(), 0);
+    }
+
+    #[test]
+    fn rejects_overflow_and_non_literal_host_spellings() {
+        let overflow = format!("1{}.0", "0".repeat(309));
+        assert_eq!(
+            parse_float_literal(&overflow),
+            Err(FloatLiteralError::Overflow)
+        );
+        for text in ["1", "1.", ".5", "1e2", "-0.0", "NaN", "inf"] {
+            assert_eq!(
+                parse_float_literal(text),
+                Err(FloatLiteralError::InvalidSyntax)
+            );
+        }
+    }
 
     #[test]
     fn parses_equivalent_radix_spellings() {

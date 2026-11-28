@@ -55,7 +55,7 @@ fn parse_contract_prefix_value(text: &str) -> Option<ContractValue<'_>> {
     }
     if let Some(rest) = text.strip_prefix('-')
         && contract_integer_value(text).is_none()
-        && text.parse::<f64>().is_err()
+        && contract_float_value(text).is_none()
     {
         return Some(ContractValue::Negate(rest));
     }
@@ -66,7 +66,7 @@ fn parse_contract_atomic_value(text: &str) -> ContractValue<'_> {
     if let Some((callee, args)) = parse_contract_call(text) {
         return ContractValue::Call { callee, args };
     }
-    if contract_integer_value(text).is_some() || text.parse::<f64>().is_ok() {
+    if contract_integer_value(text).is_some() || contract_float_value(text).is_some() {
         return ContractValue::Scalar(parse_contract_scalar(text));
     }
     if let Some((base, field)) = text.split_once('.') {
@@ -126,11 +126,20 @@ fn split_contract_binary_group<'a>(
 fn parse_contract_scalar(text: &str) -> ContractScalar<'_> {
     if let Some(value) = contract_integer_value(text) {
         ContractScalar::Integer(value)
-    } else if let Ok(value) = text.parse::<f64>() {
+    } else if let Some(value) = contract_float_value(text) {
         ContractScalar::Float(value)
     } else {
         ContractScalar::Symbol(text)
     }
+}
+
+fn contract_float_value(text: &str) -> Option<f64> {
+    if let Some(magnitude) = text.strip_prefix('-') {
+        return parse_float_literal(magnitude.trim())
+            .ok()
+            .map(|literal| -literal.value);
+    }
+    parse_float_literal(text).ok().map(|literal| literal.value)
 }
 
 fn contract_integer_value(text: &str) -> Option<i64> {

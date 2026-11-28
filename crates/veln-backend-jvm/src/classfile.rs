@@ -10,7 +10,7 @@ use veln_ir::{
     IrRecordField, IrSchemaDecodeDispatchCase, IrSchemaDecodeSpec, IrStmt, IrStmtKind,
     TypedProgram,
 };
-use veln_literals::parse_integer_literal;
+use veln_literals::{parse_float_literal, parse_integer_literal};
 
 use crate::java::{JavaIdentifierAllocator, sanitize_identifier_text, veln_string_literal_value};
 use crate::model::{

@@ -380,7 +380,11 @@ impl<'a> CoreLowerer<'a> {
                         .map(|literal| literal.value.to_string())
                         .unwrap_or_else(|_| value.clone()),
                 ),
-                PatternKind::FloatLiteral(value) => CorePatternKind::FloatLiteral(value.clone()),
+                PatternKind::FloatLiteral(value) => CorePatternKind::FloatLiteral(
+                    parse_float_literal(value)
+                        .expect("Float literals are validated before semantic lowering")
+                        .value,
+                ),
                 PatternKind::BoolLiteral(value) => CorePatternKind::BoolLiteral(*value),
                 PatternKind::Unit => CorePatternKind::Unit,
                 PatternKind::Record(fields) => self.lower_record_pattern(fields, scrutinee_type),

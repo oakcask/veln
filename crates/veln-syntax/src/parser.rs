@@ -29,6 +29,7 @@ mod expression_core;
 mod expression_names;
 mod expression_patterns;
 mod expression_primaries;
+mod float_literal_diagnostics;
 mod function_binders;
 mod functions_and_imports;
 mod generic_type_syntax;
@@ -43,6 +44,7 @@ mod variant_refinement_diagnostics;
 mod variant_refinements;
 
 use adr_lite::collect_adr_lite_records;
+use float_literal_diagnostics::float_literal_diagnostics;
 use integer_literal_diagnostics::integer_literal_diagnostics;
 use module_value_suffix::{
     ModuleValueSuffixClassifier, ModuleValueSuffixEvidence, is_module_value_name,

@@ -175,11 +175,10 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn lower_float_literal(&self, expr: &Expr, value: &str) -> CoreExpr {
-        self.core_expr(
-            expr,
-            CoreType::float(),
-            CoreExprKind::FloatLiteral(value.to_string()),
-        )
+        let value = parse_float_literal(value)
+            .expect("Float literals are validated before semantic lowering")
+            .value;
+        self.core_expr(expr, CoreType::float(), CoreExprKind::FloatLiteral(value))
     }
 
     pub(super) fn lower_bool_literal(&self, expr: &Expr, value: bool) -> CoreExpr {
