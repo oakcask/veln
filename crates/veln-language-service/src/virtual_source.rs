@@ -270,72 +270,45 @@ mod tests {
             VirtualSourceCatalog::new([(PackageIdentity::new("owner/package").unwrap(), snapshot)])
                 .unwrap();
         let canonical = catalog.entries().next().unwrap().uri().to_string();
-        let invalid = [
-            (
-                "non-lowercase scheme",
-                canonical.replacen("veln-pkg", "VELN-pkg", 1),
-            ),
-            (
-                "nonempty authority",
-                canonical.replacen(":///", "://host/", 1),
-            ),
-            ("userinfo", canonical.replacen(":///", "://user@host/", 1)),
-            ("host", canonical.replacen(":///", "://host/", 1)),
-            ("port", canonical.replacen(":///", "://host:80/", 1)),
-            ("query", format!("{canonical}?read=true")),
-            ("fragment", format!("{canonical}#source")),
-            (
-                "encoded unreserved",
-                canonical.replacen("owner", "%6Fwner", 1),
-            ),
-            (
-                "lowercase escape digits",
-                canonical.replacen("%2F", "%2f", 1),
-            ),
+        let replacements = [
+            ("non-lowercase scheme", "veln-pkg", "VELN-pkg"),
+            ("nonempty authority/host", ":///", "://host/"),
+            ("userinfo", ":///", "://user@host/"),
+            ("port", ":///", "://host:80/"),
+            ("encoded unreserved", "owner", "%6Fwner"),
+            ("lowercase escape digits", "%2F", "%2f"),
             (
                 "decoded package separator",
-                canonical.replacen("owner%2Fpackage", "owner/package", 1),
+                "owner%2Fpackage",
+                "owner/package",
             ),
-            (
-                "encoded source separator",
-                canonical.replacen("dir/main", "dir%2Fmain", 1),
-            ),
-            (
-                "empty source segment",
-                canonical.replacen("dir/main", "dir//main", 1),
-            ),
-            (
-                "dot source segment",
-                canonical.replacen("dir/main", "dir/./main", 1),
-            ),
-            (
-                "dot-dot source segment",
-                canonical.replacen("dir/main", "dir/../main", 1),
-            ),
-            (
-                "encoded dot segment",
-                canonical.replacen("dir/main", "dir/%2E/main", 1),
-            ),
-            ("malformed short escape", canonical.replacen("%2F", "%2", 1)),
-            (
-                "malformed escape digit",
-                canonical.replacen("%2F", "%G0", 1),
-            ),
-            ("malformed UTF-8", canonical.replacen("owner", "%FFwner", 1)),
-            ("short digest", canonical.replace(&digest, &digest[..63])),
-            (
-                "uppercase digest",
-                canonical.replace(&digest, &digest.to_ascii_uppercase()),
-            ),
-            (
-                "nonhex digest",
-                canonical.replace(&digest, &format!("g{}", &digest[1..])),
-            ),
+            ("encoded source separator", "dir/main", "dir%2Fmain"),
+            ("empty source segment", "dir/main", "dir//main"),
+            ("dot source segment", "dir/main", "dir/./main"),
+            ("dot-dot source segment", "dir/main", "dir/../main"),
+            ("encoded dot segment", "dir/main", "dir/%2E/main"),
+            ("malformed short escape", "%2F", "%2"),
+            ("malformed escape digit", "%2F", "%G0"),
+            ("malformed UTF-8", "owner", "%FFwner"),
         ];
 
-        for (class, uri) in invalid {
-            assert_eq!(catalog.resolve(&uri), None, "accepted {class}: {uri}");
+        for (class, original, replacement) in replacements {
+            assert_unresolved(&catalog, class, canonical.replace(original, replacement));
         }
+        for (class, suffix) in [("query", "?read=true"), ("fragment", "#source")] {
+            assert_unresolved(&catalog, class, format!("{canonical}{suffix}"));
+        }
+        for (class, replacement) in [
+            ("short digest", digest[..63].to_string()),
+            ("uppercase digest", digest.to_ascii_uppercase()),
+            ("nonhex digest", format!("g{}", &digest[1..])),
+        ] {
+            assert_unresolved(&catalog, class, canonical.replace(&digest, &replacement));
+        }
+    }
+
+    fn assert_unresolved(catalog: &VirtualSourceCatalog, class: &str, uri: String) {
+        assert_eq!(catalog.resolve(&uri), None, "accepted {class}: {uri}");
     }
 
     struct ResolverFixture {
