@@ -1,0 +1,154 @@
+# This CLI case checks that serial test JSON retains child cleanup events before
+# the parent emits post-join output; the JVM test independently checks handler
+# propagation and restoration against the nested single-handler oracle.
+command = ["test", "--json", "--jobs", "1", "main_test.veln", "fixture_effects.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "summary.total"
+equals = 2
+
+[[json_assert]]
+path = "summary.passed"
+equals = 2
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "passed"
+
+[[json_assert]]
+path = "cases.1.status"
+equals = "passed"
+
+[[json_assert]]
+path = "cases.0.events"
+length = 14
+
+[[json_assert]]
+path = "cases.1.events"
+length = 14
+
+[[json_assert]]
+path = "cases.0.events.0.text"
+equals = "outer context"
+
+[[json_assert]]
+path = "cases.0.events.1.text"
+equals = "ambient"
+
+[[json_assert]]
+path = "cases.0.events.2.text"
+equals = "inner context"
+
+[[json_assert]]
+path = "cases.0.events.3.text"
+equals = "outer"
+
+[[json_assert]]
+path = "cases.0.events.4.text"
+equals = "child inherited outer outer frame"
+
+[[json_assert]]
+path = "cases.0.events.5.text"
+equals = "child inherited inner inner frame"
+
+[[json_assert]]
+path = "cases.0.events.6.text"
+equals = "child inherited selected inner"
+
+[[json_assert]]
+path = "cases.0.events.7.text"
+equals = "child local cleanup child local"
+
+[[json_assert]]
+path = "cases.0.events.8.text"
+equals = "child outer cleanup outer outer frame"
+
+[[json_assert]]
+path = "cases.0.events.9.text"
+equals = "child outer cleanup inner inner frame"
+
+[[json_assert]]
+path = "cases.0.events.10.text"
+equals = "child outer cleanup selected inner"
+
+[[json_assert]]
+path = "cases.0.events.11.text"
+equals = "join cancelled"
+
+[[json_assert]]
+path = "cases.0.events.12.text"
+equals = "parent inner"
+
+[[json_assert]]
+path = "cases.0.events.13.text"
+equals = "after ambient"
+
+[[json_assert]]
+path = "cases.1.events.0.text"
+equals = "outer context"
+
+[[json_assert]]
+path = "cases.1.events.1.text"
+equals = "ambient"
+
+[[json_assert]]
+path = "cases.1.events.2.text"
+equals = "inner context"
+
+[[json_assert]]
+path = "cases.1.events.3.text"
+equals = "outer"
+
+[[json_assert]]
+path = "cases.1.events.4.text"
+equals = "child inherited outer outer frame"
+
+[[json_assert]]
+path = "cases.1.events.5.text"
+equals = "child inherited inner inner frame"
+
+[[json_assert]]
+path = "cases.1.events.6.text"
+equals = "child inherited selected inner"
+
+[[json_assert]]
+path = "cases.1.events.7.text"
+equals = "child local cleanup child local"
+
+[[json_assert]]
+path = "cases.1.events.8.text"
+equals = "child outer cleanup outer outer frame"
+
+[[json_assert]]
+path = "cases.1.events.9.text"
+equals = "child outer cleanup inner inner frame"
+
+[[json_assert]]
+path = "cases.1.events.10.text"
+equals = "child outer cleanup selected inner"
+
+[[json_assert]]
+path = "cases.1.events.11.text"
+equals = "join cancelled"
+
+[[json_assert]]
+path = "cases.1.events.12.text"
+equals = "parent inner"
+
+[[json_assert]]
+path = "cases.1.events.13.text"
+equals = "after ambient"

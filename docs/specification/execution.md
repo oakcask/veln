@@ -496,6 +496,17 @@ again. The checked
 [`multiple-handler-cleanup-failure-precedence`](../../examples/specification/test/multiple-handler-cleanup-failure-precedence/)
 case compares those flat and nested outcomes through scoped Veln host fakes and
 JVM execution.
+The same ordered frames are inherited when the handled body creates a child
+task. The child can dispatch distinct nominal effects to inherited outer and
+inner frames, while a repeated effect dispatches to the inherited innermost
+frame. Cancellation unwinds a child-local frame before cleanup resumes with
+both distinct inherited frames and the repeated-effect dispatch still active.
+Joining that child does not alter the parent's handler stack. The parent
+continues under the list's innermost repeated-effect frame until the list
+exits, then observes the surrounding frame. The checked
+[`multiple-handler-child-cancellation-restoration`](../../examples/specification/test/multiple-handler-child-cancellation-restoration/)
+case compares the flat-list and nested-single-handler traces through the JVM
+backend.
 
 Integer remainder evaluates the left operand once and then the right operand
 once. A failure in the left operand prevents evaluation of the right operand.

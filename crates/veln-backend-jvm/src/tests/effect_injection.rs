@@ -83,6 +83,45 @@ fn run_multiple_handler_cleanup_entry(entry: &str) -> Option<std::process::Outpu
     run_jvm_program_when_java_is_available(entry, &program, &[])
 }
 
+fn lower_multiple_handler_child_cancellation_entry(entry: &str) -> TypedProgram {
+    let analysis = analyze_project(
+        Project {
+            root: std::path::PathBuf::new(),
+            files: vec![
+                SourceFile::new(
+                    "main_test.veln",
+                    include_str!(
+                        "../../../../examples/specification/test/multiple-handler-child-cancellation-restoration/main_test.veln"
+                    ),
+                ),
+                SourceFile::new(
+                    "fixture_effects.veln",
+                    include_str!(
+                        "../../../../examples/specification/test/multiple-handler-child-cancellation-restoration/fixture_effects.veln"
+                    ),
+                ),
+            ],
+            manifest: None,
+        },
+        DoctestMode::Exclude,
+    );
+    let diagnostics = analysis.checked_diagnostics();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let lowered = analysis
+        .lower_reachable_entry(entry, FunctionKind::Function)
+        .lowered;
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    lowered
+        .ir
+        .expect("child cancellation fixture entry should lower")
+}
+
+fn run_multiple_handler_child_cancellation_entry(entry: &str) -> Option<std::process::Output> {
+    let ir = lower_multiple_handler_child_cancellation_entry(entry);
+    let program = generate_classfiles_with_entry(&ir, entry);
+    run_jvm_program_when_java_is_available(entry, &program, &[])
+}
+
 fn assert_ordered_fragments(text: &str, fragments: &[&str]) {
     let mut remaining = text;
     for fragment in fragments {
@@ -186,6 +225,48 @@ fn multiple_handler_cleanup_failures_match_nested_oracles() {
 
     assert_successful_body_cleanup_projection(&flat_success, &nested_success);
     assert_contract_body_cleanup_projection(&flat_contract, &nested_contract);
+}
+
+#[test]
+fn multiple_handler_child_cancellation_matches_nested_oracle() {
+    let Some(flat) = run_multiple_handler_child_cancellation_entry("run_flat") else {
+        return;
+    };
+    let nested = run_multiple_handler_child_cancellation_entry("run_nested")
+        .expect("Java availability was established");
+
+    assert!(
+        flat.status.success(),
+        "{}",
+        String::from_utf8_lossy(&flat.stderr)
+    );
+    assert!(
+        nested.status.success(),
+        "{}",
+        String::from_utf8_lossy(&nested.stderr)
+    );
+    assert_eq!(flat.stdout, nested.stdout);
+    assert_eq!(flat.stderr, nested.stderr);
+    assert_eq!(
+        String::from_utf8_lossy(&flat.stdout),
+        concat!(
+            "outer context\n",
+            "ambient\n",
+            "inner context\n",
+            "outer\n",
+            "child inherited outer outer frame\n",
+            "child inherited inner inner frame\n",
+            "child inherited selected inner\n",
+            "child local cleanup child local\n",
+            "child outer cleanup outer outer frame\n",
+            "child outer cleanup inner inner frame\n",
+            "child outer cleanup selected inner\n",
+            "join cancelled\n",
+            "parent inner\n",
+            "after ambient\n",
+        )
+    );
+    assert!(flat.stderr.is_empty());
 }
 
 #[test]
