@@ -95,6 +95,27 @@ fn migrate_list_over_short() -> Int
 	end
 end
 
+fn migrate_begin_block() -> Int
+	handle
+		let result = value()
+		result
+	with
+		outer(first()),
+		inner(second())
+	end
+end
+
+fn migrate_existing_block() -> Int
+	handle
+		let result = value()
+		result
+	with
+		outer(first()),
+		handler(),
+		inner(second())
+	end
+end
+
 fn preserve_inner_closing_comment() -> Int
 	wrap(handle (handle value() with
 		inner(second())

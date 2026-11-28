@@ -528,6 +528,80 @@ fn formatter_migrates_mixed_handler_chains_in_both_directions() {
 }
 
 #[test]
+fn formatter_migrates_handler_chains_to_explicit_block_bodies() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn begin_body() -> Int\n",
+            "  handle (handle begin\n",
+            "    let result = value()\n",
+            "    result\n",
+            "  end with inner()) with outer()\n",
+            "end\n\n",
+            "fn existing_block() -> Int\n",
+            "  handle (handle\n",
+            "    let result = value()\n",
+            "    result\n",
+            "  with\n",
+            "    inner()\n",
+            "  end) with\n",
+            "    outer(),\n",
+            "    middle()\n",
+            "  end\n",
+            "end\n\n",
+            "fn single_begin_handler() -> Int\n",
+            "  handle begin\n",
+            "    let result = value()\n",
+            "    result\n",
+            "  end with outer()\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "fn begin_body() -> Int\n",
+            "\thandle\n",
+            "\t\tlet result = value()\n",
+            "\t\tresult\n",
+            "\twith\n",
+            "\t\touter(),\n",
+            "\t\tinner()\n",
+            "\tend\n",
+            "end\n\n",
+            "fn existing_block() -> Int\n",
+            "\thandle\n",
+            "\t\tlet result = value()\n",
+            "\t\tresult\n",
+            "\twith\n",
+            "\t\touter(),\n",
+            "\t\tmiddle(),\n",
+            "\t\tinner()\n",
+            "\tend\n",
+            "end\n\n",
+            "fn single_begin_handler() -> Int\n",
+            "\thandle begin\n",
+            "\t\tlet result = value()\n",
+            "\t\tresult\n",
+            "\tend with outer()\n",
+            "end\n",
+        )
+    );
+
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
 fn formatter_emits_migrated_and_listed_handler_entries_identically() {
     let source = SourceFile::new(
         "main.veln",
@@ -984,7 +1058,7 @@ fn preceding_comment_owner(tree: &SyntaxTree, comment_text: &str) -> (TokenKind,
 }
 
 #[test]
-fn formatter_keeps_mixed_handler_chains_across_excluded_boundaries() {
+fn formatter_migrates_block_terminals_and_keeps_excluded_boundaries() {
     let cases = [
         (
             concat!(
@@ -1054,11 +1128,12 @@ fn formatter_keeps_mixed_handler_chains_across_excluded_boundaries() {
             ),
             concat!(
                 "fn begin_boundary() -> Int\n",
-                "\thandle handle begin\n",
+                "\thandle\n",
                 "\t\tvalue()\n",
-                "\tend with\n",
+                "\twith\n",
+                "\t\touter(),\n",
                 "\t\tinner()\n",
-                "\tend with outer()\n",
+                "\tend\n",
                 "end\n",
             ),
         ),
@@ -1074,11 +1149,12 @@ fn formatter_keeps_mixed_handler_chains_across_excluded_boundaries() {
             ),
             concat!(
                 "fn handled_block_boundary() -> Int\n",
-                "\thandle handle\n",
+                "\thandle\n",
                 "\t\tvalue()\n",
                 "\twith\n",
+                "\t\touter(),\n",
                 "\t\tinner()\n",
-                "\tend with outer()\n",
+                "\tend\n",
                 "end\n",
             ),
         ),

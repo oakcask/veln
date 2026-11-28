@@ -681,7 +681,9 @@ All three forms remain accepted after formatting. The
 [format command](command-fmt.md#formatting-rules) defines when a directly
 nested chain of short forms, or a chain that mixes short and terminated
 expression-body forms, is rewritten as one terminated expression-body list
-and when the formatter preserves a nested form. It also owns comment
+and when a direct terminal `begin` or innermost handled block is rewritten as
+one terminated block-body list without removing its explicit scope. The format
+command also defines when the formatter preserves a nested form. It owns comment
 attachment across sibling expressions: expanding an earlier multiline handler
 expression does not consume a trailing comment from a later function-body
 expression, call argument, list item, record field, or dictionary entry.
