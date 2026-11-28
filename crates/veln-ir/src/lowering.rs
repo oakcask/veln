@@ -167,7 +167,11 @@ fn lower_function(function: &veln_core::CoreFunction) -> Result<IrFunction, IrLo
                 node_id: contract.node_id,
                 kind: contract.kind,
                 predicate: contract.predicate.clone(),
-                float_literals: contract.float_literals.clone(),
+                float_literals: contract
+                    .float_literals
+                    .iter()
+                    .map(|literal| (literal.spelling.clone(), literal.bits))
+                    .collect(),
                 remainder_spans: contract.remainder_spans.clone(),
                 callsite_calls: contract.callsite_calls.clone(),
                 obligation_status: contract.obligation_status,

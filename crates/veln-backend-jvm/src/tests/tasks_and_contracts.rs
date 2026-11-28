@@ -438,6 +438,75 @@ fn contract_callsite_metadata_work_grows_linearly() {
     assert_eq!(larger, smaller * 2);
 }
 
+fn balanced_float_contract(values: &[String]) -> String {
+    match values {
+        [value] => format!("value == {value}"),
+        _ => {
+            let middle = values.len() / 2;
+            format!(
+                "({}) or ({})",
+                balanced_float_contract(&values[..middle]),
+                balanced_float_contract(&values[middle..])
+            )
+        }
+    }
+}
+
+fn indexed_float_contract(count: usize, distinct: bool) -> TypedProgram {
+    let values = (0..count)
+        .map(|index| {
+            if distinct {
+                format!("1.{index:06}")
+            } else {
+                "1.000000".to_string()
+            }
+        })
+        .collect::<Vec<_>>();
+    let predicate = balanced_float_contract(&values);
+    lower_to_ir(&format!(
+        "fn guarded(value: Float) -> Float\nrequire {predicate}\n  value\nend\npub fn main() -> Float\n  guarded(1.0)\nend\n"
+    ))
+}
+
+#[test]
+fn indexed_float_contract_generation_scales_across_adjacent_sizes() {
+    for count in [512, 1_024] {
+        for distinct in [false, true] {
+            let ir = indexed_float_contract(count, distinct);
+            assert_eq!(
+                ir.functions[0].contracts[0].float_literals.len(),
+                if distinct { count } else { 1 }
+            );
+            let _program = generate_classfiles_with_entry(&ir, "main");
+        }
+    }
+}
+
+#[test]
+fn runtime_float_contract_emits_long_predicate_text_in_chunks() {
+    let zero = format!("0.{}", "0".repeat(65_540));
+    let ir = lower_to_ir(&format!(
+        "fn guarded(value: Float) -> Float\nrequire value == {zero}\n  value\nend\npub fn main() -> Float\n  guarded(0.0)\nend\n"
+    ));
+    assert_eq!(
+        ir.functions[0].contracts[0].obligation_status,
+        veln_core::ContractObligationStatus::RuntimeRequired
+    );
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "runtime-long-float-contract-predicate",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn flat_remainder_contract(operator_count: usize) -> TypedProgram {
     let mut predicate = String::from("value");
     for _ in 0..operator_count {

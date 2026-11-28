@@ -1,8 +1,8 @@
 use veln_ast::{BinaryOp, ContractKind, NodeId, PredicateRemainder, PrefixOp, Visibility};
-use veln_core::{
-    ContractObligationStatus, CoreContractCall, CoreFloatLiteral, CoreModuleValueIdentity, CoreType,
-};
+use veln_core::{ContractObligationStatus, CoreContractCall, CoreModuleValueIdentity, CoreType};
 use veln_source::SourceSpan;
+
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TypedProgram {
@@ -269,7 +269,7 @@ pub struct IrContract {
     pub node_id: NodeId,
     pub kind: ContractKind,
     pub predicate: String,
-    pub float_literals: Vec<CoreFloatLiteral>,
+    pub float_literals: HashMap<String, u64>,
     pub remainder_spans: Vec<PredicateRemainder>,
     pub callsite_calls: Vec<CoreContractCall>,
     pub obligation_status: ContractObligationStatus,

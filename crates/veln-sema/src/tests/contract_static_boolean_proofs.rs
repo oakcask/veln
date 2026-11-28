@@ -280,7 +280,7 @@ fn contract_predicate_boolean_identity_is_statically_proven() {
 }
 
 #[test]
-fn contract_predicate_literal_comparisons_keep_float_clauses_at_runtime() {
+fn contract_predicate_literal_comparisons_use_rounded_float_values() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -306,15 +306,12 @@ fn contract_predicate_literal_comparisons_keep_float_clauses_at_runtime() {
             .iter()
             .map(|contract| contract.obligation_status)
             .collect::<Vec<_>>(),
-        vec![
-            ContractObligationStatus::StaticallyProven,
-            ContractObligationStatus::RuntimeRequired,
-        ]
+        vec![ContractObligationStatus::StaticallyProven; 2]
     );
 }
 
 #[test]
-fn contract_predicate_float_literals_remain_runtime_required_after_rounding() {
+fn contract_predicate_float_literals_are_classified_after_rounding() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -337,11 +334,58 @@ fn contract_predicate_float_literals_remain_runtime_required_after_rounding() {
     assert_eq!(contracts.len(), 2);
     assert_eq!(
         contracts[0].obligation_status,
-        ContractObligationStatus::RuntimeRequired
+        ContractObligationStatus::StaticallyProven
     );
     assert_eq!(
         contracts[1].obligation_status,
         ContractObligationStatus::RuntimeRequired
+    );
+}
+
+#[test]
+fn unrelated_float_bindings_do_not_downgrade_exact_contract_proofs() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn float_control(unused: Float) -> result: Int\n",
+            "require 1 / 2 > 0\n",
+            "ensure true\n",
+            "  1\n",
+            "end\n",
+            "pub fn int_control(unused: Int) -> result: Int\n",
+            "require 1 / 2 > 0\n",
+            "ensure true\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    assert!(core.functions.iter().all(|function| {
+        function.contracts.iter().all(|contract| {
+            contract.obligation_status == ContractObligationStatus::StaticallyProven
+        })
+    }));
+}
+
+#[test]
+fn long_zero_float_contract_uses_validated_bits_without_runtime_emission() {
+    let zero = format!("0.{}", "0".repeat(65_540));
+    let source = SourceFile::new(
+        "main.veln",
+        format!("pub fn constant() -> Int\n  require {zero} == 0.0\n  1\nend\n"),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    assert_eq!(
+        core.functions[0].contracts[0].obligation_status,
+        ContractObligationStatus::StaticallyProven
     );
 }
 

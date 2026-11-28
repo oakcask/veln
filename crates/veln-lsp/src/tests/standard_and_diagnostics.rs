@@ -437,9 +437,19 @@ fn server_publishes_parse_diagnostics_for_open_document() {
 #[test]
 fn server_projects_float_range_diagnostics_over_the_complete_literal() {
     let overflow = format!("1{}.0", "0".repeat(309));
-    let text = format!("fn main() -> Float\n  {overflow}\nend\n");
+    let underflow = format!("0.{}2", "0".repeat(323));
+    let text = format!(
+        "fn overflow() -> Float\n  {overflow}\nend\n\nfn underflow() -> Float\n  {underflow}\nend\n"
+    );
+    let mut server = Server::default();
+    let did_open = format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file://main.veln","text":"{}"}}}}}}"#,
+        text.replace('\n', "\\n")
+    );
 
-    let published = publish_diagnostics("file://main.veln", text);
+    let responses = server.handle_message(&did_open);
+    assert_eq!(responses.len(), 1);
+    let published = &responses[0];
 
     assert!(published.contains(r#""code":"parse.float_literal""#), "{published}");
     assert!(
@@ -453,6 +463,24 @@ fn server_projects_float_range_diagnostics_over_the_complete_literal() {
         published.contains("Float literal is too large to round to a finite Float value"),
         "{published}"
     );
+    assert!(
+        published.contains(&format!(
+            r#""range":{{"start":{{"line":5,"character":2}},"end":{{"line":5,"character":{}}}}}"#,
+            underflow.len() + 2
+        )),
+        "{published}"
+    );
+    assert!(
+        published.contains(
+            "nonzero Float literal is too small to round to a nonzero Float value"
+        ),
+        "{published}"
+    );
+
+    let formatting = server.handle_message(
+        r#"{"jsonrpc":"2.0","id":2,"method":"textDocument/formatting","params":{"textDocument":{"uri":"file://main.veln"},"options":{"tabSize":2,"insertSpaces":true}}}"#,
+    );
+    assert_eq!(formatting, [response("2", "[]")]);
 }
 
 #[test]

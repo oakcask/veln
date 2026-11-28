@@ -35,7 +35,7 @@ pub(super) fn float_literal_diagnostics(
                 ),
                 FloatLiteralError::Underflow => (
                     "nonzero Float literal is too small to round to a nonzero Float value",
-                    vec!["zero or nonzero Float value"],
+                    vec!["nonzero Float value"],
                 ),
                 FloatLiteralError::InvalidSyntax => return None,
             };

@@ -385,6 +385,48 @@ fn dotted_static_string_contracts_preserve_deep_tail_recursion() {
 }
 
 #[test]
+fn rounded_static_float_contracts_preserve_deep_tail_recursion() {
+    let ir = lower_to_ir(concat!(
+        "fn float_countdown(value: Int, unused: Float) -> Int\n",
+        "ensure true\n",
+        "  match value\n",
+        "    0 => 0\n",
+        "    _ => float_countdown(value - 1, unused)\n",
+        "  end\n",
+        "end\n",
+        "fn literal_countdown(value: Int) -> Int\n",
+        "ensure 0.0 == 0.0\n",
+        "  match value\n",
+        "    0 => 0\n",
+        "    _ => literal_countdown(value - 1)\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> Int\n",
+        "  float_countdown(30000, 0.0) + literal_countdown(30000)\n",
+        "end\n",
+    ));
+    assert!(ir.functions[..2].iter().all(|function| {
+        classify_tail_recursion(function) == TailRecursionEligibility::Eligible
+            && function.contracts[0].obligation_status
+                == veln_core::ContractObligationStatus::StaticallyProven
+    }));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "bytecode-rounded-float-tail-recursion",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!String::from_utf8_lossy(&output.stderr).contains("StackOverflowError"));
+}
+
+#[test]
 fn bytecode_backend_runs_deep_higher_order_tail_recursion_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn keep(value: Int) -> Int\n",

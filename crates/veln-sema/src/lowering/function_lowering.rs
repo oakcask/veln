@@ -124,12 +124,6 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn lower_contracts(&mut self) -> Vec<CoreContract> {
-        let has_float_binding = self
-            .function
-            .params
-            .iter()
-            .any(|param| param.ty.as_deref() == Some("Float"))
-            || self.function.return_type.as_deref() == Some("Float");
         let contracts = self.function.contracts.clone();
         contracts
             .iter()
@@ -139,20 +133,31 @@ impl<'a> CoreLowerer<'a> {
                         self.invalid_float_literal(error, &token.source_span);
                     }
                 }
-                let has_float_literal = contract
+                let float_literals = contract
                     .predicate_tokens
                     .iter()
-                    .any(|token| token.float_bits.is_some());
-                let obligation_status = if !has_float_binding
-                    && !has_float_literal
-                    && contract_predicate_is_statically_true_with_remainders(
+                    .filter_map(|token| {
+                        let bits = token.float_bits?.ok()?;
+                        Some(CoreFloatLiteral {
+                            spelling: contract.text.get(token.text_range.clone())?.to_string(),
+                            bits,
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                let indexed_float_literals = float_literals
+                    .iter()
+                    .map(|literal| (literal.spelling.clone(), literal.bits))
+                    .collect::<HashMap<_, _>>();
+                let obligation_status =
+                    if contract_predicate_is_statically_true_with_float_literals(
                         &contract.text,
                         &contract.remainder_spans,
+                        &indexed_float_literals,
                     ) {
-                    ContractObligationStatus::StaticallyProven
-                } else {
-                    ContractObligationStatus::RuntimeRequired
-                };
+                        ContractObligationStatus::StaticallyProven
+                    } else {
+                        ContractObligationStatus::RuntimeRequired
+                    };
                 let callsite_calls = contract
                     .call_callee_spans
                     .iter()
@@ -171,17 +176,7 @@ impl<'a> CoreLowerer<'a> {
                     node_id: contract.node_id,
                     kind: contract.kind,
                     predicate: contract.text.clone(),
-                    float_literals: contract
-                        .predicate_tokens
-                        .iter()
-                        .filter_map(|token| {
-                            let bits = token.float_bits?.ok()?;
-                            Some(CoreFloatLiteral {
-                                spelling: contract.text.get(token.text_range.clone())?.to_string(),
-                                bits,
-                            })
-                        })
-                        .collect(),
+                    float_literals,
                     remainder_spans: contract.remainder_spans.clone(),
                     callsite_calls,
                     obligation_status,

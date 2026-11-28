@@ -313,6 +313,10 @@ impl MethodCode {
         write_u16(&mut self.code, index);
     }
 
+    pub(super) fn dup(&mut self) {
+        self.code.push(0x59);
+    }
+
     pub(super) fn anewarray(&mut self, class: &str) {
         let index = self.constant_pool.borrow_mut().class(class);
         self.code.push(0xbd);

@@ -74,8 +74,8 @@ fn parse_contract_atomic_value<'a>(text: &'a str, contract: &IrContract) -> Cont
     if text.starts_with('"') && text.ends_with('"') {
         return ContractValue::Scalar(ContractScalar::String(text));
     }
-    if contract_integer_value(text).is_some() || contract_float_value(text, contract).is_some() {
-        return ContractValue::Scalar(parse_contract_scalar(text, contract));
+    if let Some(value) = parse_contract_numeric_scalar(text, contract) {
+        return ContractValue::Scalar(value);
     }
     if let Some((base, field)) = text.split_once('.') {
         return ContractValue::Field { base, field };
@@ -132,13 +132,16 @@ fn split_contract_binary_group<'a>(
 }
 
 fn parse_contract_scalar<'a>(text: &'a str, contract: &IrContract) -> ContractScalar<'a> {
-    if let Some(value) = contract_integer_value(text) {
-        ContractScalar::Integer(value)
-    } else if let Some(value) = contract_float_value(text, contract) {
-        ContractScalar::Float(value)
-    } else {
-        ContractScalar::Symbol(text)
-    }
+    parse_contract_numeric_scalar(text, contract).unwrap_or(ContractScalar::Symbol(text))
+}
+
+fn parse_contract_numeric_scalar<'a>(
+    text: &'a str,
+    contract: &IrContract,
+) -> Option<ContractScalar<'a>> {
+    contract_integer_value(text)
+        .map(ContractScalar::Integer)
+        .or_else(|| contract_float_value(text, contract).map(ContractScalar::Float))
 }
 
 fn contract_float_value(text: &str, contract: &IrContract) -> Option<f64> {
@@ -147,9 +150,9 @@ fn contract_float_value(text: &str, contract: &IrContract) -> Option<f64> {
     }
     contract
         .float_literals
-        .iter()
-        .find(|literal| literal.spelling == text)
-        .map(|literal| f64::from_bits(literal.bits))
+        .get(text)
+        .copied()
+        .map(f64::from_bits)
 }
 
 fn contract_integer_value(text: &str) -> Option<i64> {

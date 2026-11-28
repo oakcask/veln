@@ -53,16 +53,19 @@ and commas inside a string literal do not close a grouped predicate or split a
 call's argument list.
 
 An accepted dotted-decimal Float literal contributes its once-rounded binary64
-value to runtime contract emission. Static classification leaves predicates
-that contain Float literals runtime-required. Every clause on a function with
-a directly written `Float` parameter or result type also remains
-runtime-required, even when that clause contains no Float literal. Exact-decimal
-or host-Float reasoning does not erase these runtime checks. Runtime
-boxed equality keeps `Int` and `Float` values distinct and distinguishes the
-two zero bit patterns, as Float-literal patterns do. A nonzero literal that
-would round to infinity or zero fails during parsing and never becomes a
-contract obligation. The shared source admission and diagnostic boundary is
-specified under [Float literals](source-surface.md#float-literals).
+value to contract classification and runtime emission. A clause is classified
+from the operations and values in that clause; a `Float` parameter or result
+type does not make an unrelated clause runtime-required. Direct comparisons
+between Float literals use their admitted binary64 values. Equality and
+disequality compare bits, including the two zero bit patterns, while ordering
+compares the finite values. Unsupported Float arithmetic, mixed numeric
+comparisons, and symbol-dependent Float comparisons remain runtime-required.
+Runtime boxed equality likewise keeps `Int` and `Float` values distinct and
+distinguishes the two zero bit patterns, as Float-literal patterns do. A
+nonzero literal that would round to infinity or zero fails during parsing and
+never becomes a contract obligation. The shared source admission and
+diagnostic boundary is specified under
+[Float literals](source-surface.md#float-literals).
 
 Integer remainder uses the same operator contract in predicates as in ordinary
 expressions: `%` has multiply-level precedence and left associativity, and both
@@ -170,7 +173,7 @@ The classifier combines these rule classes:
 
 | Class | Supported rule |
 | --- | --- |
-| Literal values | Boolean and string equality/disequality; `Int` equality, disequality, and ordering. Parentheses do not change the result. Predicates containing Float literals and clauses on functions with directly written `Float` parameters or results remain runtime-required. |
+| Literal values | Boolean and string equality/disequality; `Int` equality, disequality, and ordering; direct Float-literal comparison from admitted binary64 bits. Parentheses do not change the result. A function signature does not affect classification of an unrelated clause. |
 | Literal arithmetic | Literal-only `+`, `-`, `*`, and comparison-only `/` expressions without Float literals use exact integer or rational reasoning. Bitwise and shift expressions use signed 64-bit values; shift counts outside `0..63` are not folded as valid operations. |
 | Integer remainder | A literal-only `%` subexpression is folded when both signed 64-bit operands are known and the divisor is nonzero. The `%` node and an ancestor arithmetic node whose normal operand types select `Int` use runtime `Int` behavior, including truncating division and wrapping arithmetic. A surrounding ordinary arithmetic node follows its normal inferred type, so a `Float` operand selects `Float` for that node without widening either remainder operand. Boolean branches and the two sides of a comparison remain independent expressions. Remainder uses the runtime signed result, including `0` for minimum `Int` remainder by `-1`. A nonliteral remainder subexpression remains `runtime_required`. |
 | Boolean identities | Literal folding, `not`, complementary predicates, boolean equality/disequality, same-shape comparisons, and tautological `and`/`or` forms. Whitespace, redundant atom parentheses, and commuted ordering are normalized where the rule says so. |
