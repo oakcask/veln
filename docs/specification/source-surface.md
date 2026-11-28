@@ -452,6 +452,16 @@ produces negative zero. The checked
 command examples corroborate expression, pattern, contract, subnormal,
 signed-zero, overflow, and nonzero-to-zero underflow behavior.
 
+The lowered AST preserves both the source spelling and the conversion result
+for each Float expression or pattern. An accepted literal carries its binary64
+bits. A rejected literal carries its invalid-syntax, overflow, or underflow
+result so diagnostic recovery can cross the public lowering boundary without
+inventing a value. Contract and `satisfy` predicate-token records retain the
+optional conversion result for each Float token. The AST wire form serializes
+the spellings and tagged results. The current wire header is `VLNAST28`, and
+the decoder rejects the preceding layout. AST round-trip tests cover the
+spelling and conversion result together.
+
 ## Integer Bitwise Tokens
 
 Expressions accept unary `~` and binary `&`, `|`, `^`, `<<`, `>>`, and

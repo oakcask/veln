@@ -129,6 +129,11 @@ type when known. Unsupported constructs, non-boolean predicates, missing
 fields, and unresolved names are hole diagnostics; names unresolved within the
 predicate use the `satisfy_predicate` namespace.
 
+Float tokens use the shared [Float literal admission
+boundary](source-surface.md#float-literals). A range-invalid Float reports
+`parse.float_literal` before hole repair analysis and cannot contribute a
+candidate proof.
+
 Remainder validation preserves those specific operand failures. A missing
 field reports `hole.satisfy_field_missing`, and a prefixed non-`Int` operand
 reports `type.mismatch`. A composite arithmetic operand reports a non-`Int`
@@ -181,8 +186,10 @@ Requirement discharge reuses contract static truth and preserves its limits:
 - non-strict paths in both directions imply equality, while strict paths do not;
 - transitive chains preserve strictness when any edge is strict;
 - disjunctive requirements contribute only facts common to every branch;
-- numeric literal bounds use exact decimal/rational ordering and pure literal
-  `+`, `-`, `*`, and comparison-only `/` expressions;
+- dedicated hole numeric-bound analysis uses exact decimal/rational ordering
+  and pure literal `+`, `-`, `*`, and comparison-only `/` expressions; this
+  repair rule does not classify an executable contract containing a Float
+  literal as statically proven;
 - a literal-only `%` subexpression with a nonzero `Int` divisor is folded with
   runtime signed-`Int` remainder behavior; each enclosing arithmetic node keeps
   its normal inferred `Int` or `Float` type when the folded predicate is used
