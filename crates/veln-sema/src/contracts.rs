@@ -98,6 +98,15 @@ fn predicate_has_symbol_dependent_float_comparison(
     bindings: &[Binding],
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> bool {
+    let has_float_binding = bindings
+        .iter()
+        .any(|binding| type_contains_float(&binding.ty));
+    let has_float_call = contract_calls(predicate)
+        .iter()
+        .any(|call| call_type(&call.callee) == Some(Type::float()));
+    if !has_float_binding && !has_float_call {
+        return false;
+    }
     let predicate = strip_balanced_outer_parens(predicate.trim());
     for keyword in ["or", "and"] {
         let clauses = split_top_level_keyword(predicate, keyword);
@@ -151,6 +160,28 @@ fn predicate_has_symbol_dependent_float_comparison(
         );
     }
     false
+}
+
+fn type_contains_float(ty: &Type) -> bool {
+    match ty {
+        Type::Unknown => false,
+        Type::Named { name, args, .. } | Type::VariantRefinement { name, args, .. } => {
+            (name == "Float" && args.is_empty()) || args.iter().any(type_contains_float)
+        }
+        Type::Record(fields) => fields
+            .iter()
+            .any(|(_, field_type)| type_contains_float(field_type)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params.iter().any(type_contains_float)
+                || variadic.as_deref().is_some_and(type_contains_float)
+                || type_contains_float(return_type)
+        }
+    }
 }
 
 fn static_boolean_value_with_float_literals(
