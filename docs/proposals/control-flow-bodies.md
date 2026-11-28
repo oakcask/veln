@@ -42,7 +42,7 @@ expression form.
 | `defer Expr` | One expression starting on the `defer` line. | Register the equivalent one-expression deferred block in the enclosing cleanup scope. |
 | `defer NL Body end` | An explicitly delimited deferred body. | Same registration and cleanup rules as the short form; its body can contain local statements. |
 | Function and test bodies | Existing block forms ending in `end`. | Retain existing parameter, result, effect, and cleanup rules; no new short form. |
-| Handled body | Current `handle Expr with Handler(...)` takes one expression; the separate multiple-handler proposal adds an explicitly delimited block form. | Retain the handler and cleanup model defined by the owning current specification or proposal. |
+| Handled body | Current `handle Expr with Handler(...) end` takes one expression, and `handle NL Body with Handlers end` provides an explicitly delimited block form. | Retain the handler and cleanup model defined by the [current source-surface specification](../specification/source-surface.md#executable-grammar). |
 
 All new forms below are proposed, including `defer Expr`. Existing block-only
 `defer` remains current behavior until implementation. This classification
@@ -99,10 +99,11 @@ operator continuation, or changes to contract and schema predicate grammars.
 Function, test, and existing deferred-block syntax stays as specified today.
 The new short `defer` form is defined below with the same cleanup semantics.
 
-The separate [multiple-handler proposal](multiple-handler-syntax.md) defines
-a direct body for `handle`. On the base revision of this proposal, that form
-is still proposed rather than implemented. Neither proposal requires the
-other to land first. Their bodies use the same lexical cleanup model.
+The current [handled block form](../specification/source-surface.md#executable-grammar)
+provides a direct body for `handle`. The separate
+[multiple-handler proposal](multiple-handler-syntax.md) retains only unfinished
+migration and ordered-handler acceptance work. This proposal does not depend
+on that remaining work. The direct bodies use the same lexical cleanup model.
 
 ## Proposed source contract
 
@@ -469,7 +470,7 @@ are review oracles independent of the implementation under test.
 | Deferred timing | Assert `body`, `next_value`, `record_value` and the shadowing trace `second`, `first` for both spellings. A failing deferred argument must fail during cleanup; remaining registered cleanup is still attempted. | Separate scoped Veln recording handlers and backend trace assertions on normal, failure, and cancellation exits. |
 | Arrow boundary preservation | Retain `=> Expr`, `=> begin`, and nested `=> if` / `=> match`. Reject bare newline bodies and additional direct statements outside an explicit expression. | Existing arrow grammar fixtures plus rejected syntax and formatter regression cases. |
 | Indentation independence | Removing leading whitespace from nested conditional, both deferred forms, and `=> begin` examples preserves statement ownership, explicit scope boundaries, and cleanup traces. Reviewers can identify sequence openers and closers from tokens alone. | Parser comparison ignoring source spans, backend trace assertions, and source-form review. |
-| Boundaries | A nested match, conditional, explicit scope, deferred block, grouped expression, and handled expression each consume their own boundaries. A `satisfy` arrow inside a branch remains part of its expression. Reindentation preserves membership. | Parser trees and formatter fixtures; add direct handled-block combinations when the multiple-handler feature exists. |
+| Boundaries | A nested match, conditional, explicit scope, deferred block, grouped expression, and handled expression each consume their own boundaries. A `satisfy` arrow inside a branch remains part of its expression. Reindentation preserves membership. | Parser trees and formatter fixtures, including direct handled-block combinations. |
 | Empty and malformed input | Reject empty written conditional branches, missing deferred expressions, missing arrows, and missing enclosing delimiters. Preserve recoverable sibling headers, the next declaration, all lossless tokens, and human diagnostic context. | Rejected grammar fixtures, parser recovery tests, CLI human diagnostic examples. |
 | Scope and result context | Reject use of one body's locals from another body or after the construct. Preserve expected result types and constructor refinement context, including a conditional inside a match arm or operation clause. | Semantic tests, navigation and rename tests, AST wire round trips. |
 | Optional else | Accept unit results and unit chains; reject a non-unit branch even in a discarded expression position. Preserve an explicit unit fallback. | Semantic tests and compiler diagnostic examples. |
