@@ -156,7 +156,6 @@ fn bytecode_backend_keeps_unsound_float_contracts_at_runtime() {
             "checked(9007199254740992.0)",
         ),
         ("9007199254740993 == 9007199254740992.0", "checked(0.0)"),
-        ("-0.0 == 0.0", "checked(0.0)"),
     ];
     for (predicate, call) in cases {
         let ir = lower_to_ir(&format!(

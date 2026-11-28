@@ -2461,6 +2461,16 @@ space, including infinities and NaN values, although source literals admit
 only finite results. Arithmetic may still produce non-finite values. Unary
 negation flips the sign of zero, so `-0.0` produces negative zero.
 
+Scalar `Float` equality and inequality use primitive binary64 semantics. NaN
+is unequal to itself and every other `Float`. Each infinity is equal to itself,
+the two infinities are unequal, and positive and negative zero are equal.
+The `<`, `<=`, `>`, and `>=` operators return false whenever either operand is
+NaN. Otherwise, negative infinity orders below every finite `Float`, and every
+finite `Float` orders below positive infinity. These rules apply to scalar
+operators; they do not define structural or container equality. The checked
+`examples/specification/run/scalar-float-nonfinite-comparisons/` case exercises
+NaN in both operand positions, both infinities, signed zero, and a finite value.
+
 An integer remainder whose divisor is written as an integer zero literal
 reports `type.remainder_by_zero` at the divisor with the operation as related
 context. A non-`Int` zero such as `0.0` reports only `type.mismatch` for the

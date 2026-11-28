@@ -148,6 +148,72 @@ fn generic_java_runtime_harness_does_not_stage_provider_support() {
 }
 
 #[test]
+fn scalar_float_comparisons_use_primitive_binary64_semantics() {
+    if jdk_is_unavailable() {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "scalar-float-comparisons",
+        "ScalarFloatComparisonHarness.java",
+        concat!(
+            "public final class ScalarFloatComparisonHarness {\n",
+            "  private static void require(boolean condition, String label) {\n",
+            "    if (!condition) throw new AssertionError(label);\n",
+            "  }\n",
+            "  private static boolean value(Object result) {\n",
+            "    return ((Boolean) result).booleanValue();\n",
+            "  }\n",
+            "  public static void main(String[] args) {\n",
+            "    Double nan = Double.longBitsToDouble(0x7ff8000000000001L);\n",
+            "    Double positiveInfinity = Double.longBitsToDouble(0x7ff0000000000000L);\n",
+            "    Double negativeInfinity = Double.longBitsToDouble(0xfff0000000000000L);\n",
+            "    Double finite = Double.longBitsToDouble(0x3ff8000000000000L);\n",
+            "    require(!value(VelnRuntime.equal(nan, nan)), \"NaN equality\");\n",
+            "    require(value(VelnRuntime.notEqual(nan, nan)), \"NaN inequality\");\n",
+            "    require(!value(VelnRuntime.equal(nan, finite)), \"NaN-finite equality\");\n",
+            "    require(!value(VelnRuntime.equal(finite, nan)), \"finite-NaN equality\");\n",
+            "    require(value(VelnRuntime.equal(positiveInfinity, positiveInfinity)), \"positive infinity equality\");\n",
+            "    require(value(VelnRuntime.equal(negativeInfinity, negativeInfinity)), \"negative infinity equality\");\n",
+            "    require(value(VelnRuntime.notEqual(positiveInfinity, negativeInfinity)), \"infinity inequality\");\n",
+            "    require(value(VelnRuntime.equal(Double.valueOf(0.0), Double.valueOf(-0.0))), \"signed zero equality\");\n",
+            "    require(!value(VelnRuntime.notEqual(Double.valueOf(0.0), Double.valueOf(-0.0))), \"signed zero inequality\");\n",
+            "    Object[] others = { nan, finite, positiveInfinity, negativeInfinity };\n",
+            "    String[] names = { \"NaN\", \"finite\", \"positive infinity\", \"negative infinity\" };\n",
+            "    for (int index = 0; index < others.length; index += 1) {\n",
+            "      Object other = others[index];\n",
+            "      require(!value(VelnRuntime.less(nan, other)), \"NaN < \" + names[index]);\n",
+            "      require(!value(VelnRuntime.less(other, nan)), names[index] + \" < NaN\");\n",
+            "      require(!value(VelnRuntime.lessEqual(nan, other)), \"NaN <= \" + names[index]);\n",
+            "      require(!value(VelnRuntime.lessEqual(other, nan)), names[index] + \" <= NaN\");\n",
+            "      require(!value(VelnRuntime.greater(nan, other)), \"NaN > \" + names[index]);\n",
+            "      require(!value(VelnRuntime.greater(other, nan)), names[index] + \" > NaN\");\n",
+            "      require(!value(VelnRuntime.greaterEqual(nan, other)), \"NaN >= \" + names[index]);\n",
+            "      require(!value(VelnRuntime.greaterEqual(other, nan)), names[index] + \" >= NaN\");\n",
+            "    }\n",
+            "    require(value(VelnRuntime.less(negativeInfinity, finite)), \"negative infinity < finite\");\n",
+            "    require(value(VelnRuntime.less(finite, positiveInfinity)), \"finite < positive infinity\");\n",
+            "    require(value(VelnRuntime.less(negativeInfinity, positiveInfinity)), \"ordered infinities\");\n",
+            "    require(value(VelnRuntime.lessEqual(positiveInfinity, positiveInfinity)), \"positive infinity <= itself\");\n",
+            "    require(value(VelnRuntime.greaterEqual(negativeInfinity, negativeInfinity)), \"negative infinity >= itself\");\n",
+            "    require(value(VelnRuntime.equal(Long.valueOf(7L), Long.valueOf(7L))), \"integer equality\");\n",
+            "    require(!value(VelnRuntime.equal(Long.valueOf(7L), finite)), \"mixed equality\");\n",
+            "    require(value(VelnRuntime.equal(java.util.List.of(nan), java.util.List.of(nan))), \"structural equality\");\n",
+            "  }\n",
+            "}\n",
+        ),
+        &program,
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn io_provider_append_file_capabilities_retain_captured_handlers() {
     run_io_provider_runtime_harness(
         "io-provider-append-file-identities",
