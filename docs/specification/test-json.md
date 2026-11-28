@@ -266,6 +266,15 @@ When runtime tracing is available, stdio operations are serialized before
 capture. The `sequence` field defines the observed operation order across
 stdout and stderr, including output produced by spawned tasks.
 
+Output emitted while an ordered handler list unwinds remains in the case event
+list in observed operation order. If cleanup fails after a successful body,
+the case has `failure.kind: "runtime"`. If a contract failure is already
+primary, the case keeps `failure.kind: "contract"` while retaining the cleanup
+events. The [execution boundary](execution.md#runtime-readiness-and-host-boundaries)
+defines cleanup ordering and failure precedence. The checked
+[`multiple-handler-cleanup-failure-precedence`](../../examples/specification/test/multiple-handler-cleanup-failure-precedence/)
+case exercises both outcomes through serial `veln test --json` execution.
+
 ## Static Gate
 
 Parse and semantic diagnostics in the selected test analysis set block the
