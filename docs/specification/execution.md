@@ -290,6 +290,11 @@ at rounding boundaries. The
 [`Float literal conversion`](../../examples/specification/run/float-literal-conversion/)
 evidence covers that agreement together with finite-subnormal and positive-
 and negative-zero execution.
+Scalar `Float` comparisons at execution follow the
+[operator contract](types.md#operators-and-diagnostics), including its
+non-finite and signed-zero boundaries. The checked
+[`scalar-float-nonfinite-comparisons`](../../examples/specification/run/scalar-float-nonfinite-comparisons/)
+case exercises that source-visible contract through the JVM backend.
 
 Typed-IR lowering replaces each successfully evaluated closed `Int` or `Bool`
 operator subtree in a function or test body with one scalar constant before

@@ -63,9 +63,12 @@ comparisons, and symbol-dependent Float comparisons remain runtime-required.
 Top-level `and` and `or` can combine directly proven Float-literal
 comparisons. A predicate that contains both a Float literal and an integer
 remainder remains runtime-required; the classifier does not combine the
-Float-literal path with remainder folding. Runtime boxed equality likewise
-keeps `Int` and `Float` values distinct and
-distinguishes the two zero bit patterns, as Float-literal patterns do. A
+Float-literal path with remainder folding. Runtime equality keeps `Int` and
+`Float` values distinct. When both operands are `Float`, runtime equality
+follows the scalar [operator contract](types.md#operators-and-diagnostics), so
+positive and negative zero compare equal and NaN does not equal itself.
+Float-literal patterns retain their separate bitwise matching behavior and
+distinguish the two zero bit patterns. A
 nonzero literal that would round to infinity or zero fails during parsing and
 never becomes a contract obligation. The shared source admission and
 diagnostic boundary is specified under

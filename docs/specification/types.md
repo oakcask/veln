@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#representative-usage; behavior=#inference-rules; limits=#compatibility-and-limits
-update-when: Veln type annotations, inference, assignment compatibility, operator typing, type-checker behavior, or the type-feature implementation boundary changes.
+update-when: Veln type annotations, inference, assignment compatibility, operator typing or scalar operator behavior, type-checker behavior, or the type-feature implementation boundary changes.
 ---
 
 # Types
@@ -22,7 +22,7 @@ The expected return type determines the `Ok` constructor type. A nullary generic
 constructor without concrete context remains ambiguous.
 
 This file specifies implemented type annotations, inference, assignment
-compatibility, and operator typing.
+compatibility, operator typing, and scalar operator behavior.
 
 ## Usage and annotations
 

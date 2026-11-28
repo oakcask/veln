@@ -258,5 +258,4 @@ Implementation is complete only when every acceptance row has checked
 evidence, and the source-surface, types, execution, and relevant standard-library
 specifications explain the supported behavior. Add representative checked
 usage examples at that point. Remove this proposal and its catalog entry once
-the current specifications own the delivered contract. This documentation-only
-proposal does not change current specifications or executable examples.
+the current specifications own the delivered contract.
