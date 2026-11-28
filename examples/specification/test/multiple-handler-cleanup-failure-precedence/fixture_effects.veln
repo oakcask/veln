@@ -1,0 +1,52 @@
+use host_effects from "std"
+
+pub effect Selected
+	value() -> String
+end
+
+pub effect Trace
+	record(value: String) -> ()
+end
+
+pub handler selected(value: String) for Selected
+	value() => value
+end
+
+pub handler recording() for Trace effects [stdio]
+	record(value) => stdio::println(value)
+end
+
+pub handler failing_network(listens: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Network effects [concurrency, stdio]
+	request(operation, subject, bytes, remaining_ms, cancelled) => if operation == "resolve_tcp4"
+		{ status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_cons({ network: "tcp4", address: "127.0.0.1" }, list_nil()), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+	else if operation == "listen"
+		match channel::recv(listens.rx)
+			Some(count) => begin
+				let _ = channel::send(listens.tx, count + 1)
+				{ status: "ok", value: if count == 0
+					"outer"
+				else if count == 1
+					"middle"
+				else
+					"inner"
+				end, local: "127.0.0.1:41000", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+			end
+			None => { status: "error", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "invalid_input", phase: "during_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "missing listen count" }
+		end
+	else if operation == "close_listener"
+		begin
+			stdio::println(string::concat(subject, " cleanup"))
+			{ status: "error", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "forced_failure", phase: "during_operation", input_committed: 0, output_committed: 0, ownership_committed: -1, cause: string::concat(subject, " cleanup failure") }
+		end
+	else
+		{ status: "error", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "invalid_input", phase: "during_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: string::concat("unexpected operation: ", operation) }
+	end
+end
+
+pub fn selected_value() -> String effects [Selected]
+	perform Selected::value()
+end
+
+pub fn record(value: String) -> () effects [Trace]
+	perform Trace::record(value)
+end

@@ -27,8 +27,8 @@ also states it.
   use `CancelOwner` for cancellation and observation-only `CancelToken` for waits.
 - [Multiple-handler Migration and Acceptance](multiple-handler-syntax.md):
   expand migration to other multiline-body and comment-preserving cases, and
-  complete the remaining cleanup-failure, task, provider-capture, and direct-IO
-  acceptance cases.
+  complete the remaining task, provider-capture, and direct-IO acceptance
+  cases.
 - [Generic Functions](generic-functions.md): implement explicit rank-one type
   schemes, independent call instantiation, scheme-preserving aliases,
   artifacts and tooling, and backend acceptance. Current declaration syntax

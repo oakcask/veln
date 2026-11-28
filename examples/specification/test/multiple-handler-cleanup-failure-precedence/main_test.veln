@@ -1,0 +1,123 @@
+use net from "std"
+use fixture_effects
+
+# Each later context acquires one listener under the preceding net::system
+# frame. The flat list therefore has the same three cleanup boundaries as the
+# nested single-handler oracle, while scoped Veln handlers keep the host fake
+# and observations separate from production behavior.
+
+fn acquire(label: String) -> Result<String, String> effects [net::IO]
+	match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
+		Ok(_) => Ok(label)
+		Err(_) => Err("listener setup failed")
+	end
+end
+
+fn successful_body() -> Result<(), String> effects [fixture_effects::Selected, fixture_effects::Trace]
+	fixture_effects::record(fixture_effects::selected_value())
+	Ok(())
+end
+
+fn contract_body() -> Result<(), String> effects [fixture_effects::Selected, fixture_effects::Trace]
+	require false
+	fixture_effects::record(fixture_effects::selected_value())
+	Ok(())
+end
+
+fn flat_success() -> Result<(), String> effects [net, time, concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	handle successful_body() with
+		net::system(),
+		fixture_effects::selected(acquire("outer")?),
+		net::system(),
+		fixture_effects::selected(acquire("middle")?),
+		net::system(),
+		fixture_effects::selected(acquire("inner")?)
+	end
+end
+
+fn nested_success() -> Result<(), String> effects [net, time, concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	handle (handle (handle (handle (handle (handle successful_body() with fixture_effects::selected(acquire("inner")?)) with net::system()) with fixture_effects::selected(acquire("middle")?)) with net::system()) with fixture_effects::selected(acquire("outer")?)) with net::system()
+end
+
+fn flat_contract() -> Result<(), String> effects [net, time, concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	handle contract_body() with
+		net::system(),
+		fixture_effects::selected(acquire("outer")?),
+		net::system(),
+		fixture_effects::selected(acquire("middle")?),
+		net::system(),
+		fixture_effects::selected(acquire("inner")?)
+	end
+end
+
+fn nested_contract() -> Result<(), String> effects [net, time, concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	handle (handle (handle (handle (handle (handle contract_body() with fixture_effects::selected(acquire("inner")?)) with net::system()) with fixture_effects::selected(acquire("middle")?)) with net::system()) with fixture_effects::selected(acquire("outer")?)) with net::system()
+end
+
+fn verify_flat_success() -> Result<(), String> effects [net, time, concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	defer
+		fixture_effects::record(fixture_effects::selected_value())
+	end
+	flat_success()
+end
+
+fn verify_nested_success() -> Result<(), String> effects [net, time, concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	defer
+		fixture_effects::record(fixture_effects::selected_value())
+	end
+	nested_success()
+end
+
+fn verify_flat_contract() -> Result<(), String> effects [net, time, concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	defer
+		fixture_effects::record(fixture_effects::selected_value())
+	end
+	flat_contract()
+end
+
+fn verify_nested_contract() -> Result<(), String> effects [net, time, concurrency, fixture_effects::Selected, fixture_effects::Trace]
+	defer
+		fixture_effects::record(fixture_effects::selected_value())
+	end
+	nested_contract()
+end
+
+pub fn run_flat_success() -> Result<(), String> effects [net, time, concurrency, stdio]
+	let listens = channel::bounded<Int>(1)
+	let _ = channel::send(listens.tx, 0)
+	handle (handle (handle verify_flat_success() with fixture_effects::selected("ambient")) with fixture_effects::recording()) with fixture_effects::failing_network(listens)
+end
+
+pub fn run_nested_success() -> Result<(), String> effects [net, time, concurrency, stdio]
+	let listens = channel::bounded<Int>(1)
+	let _ = channel::send(listens.tx, 0)
+	handle (handle (handle verify_nested_success() with fixture_effects::selected("ambient")) with fixture_effects::recording()) with fixture_effects::failing_network(listens)
+end
+
+pub fn run_flat_contract() -> Result<(), String> effects [net, time, concurrency, stdio]
+	let listens = channel::bounded<Int>(1)
+	let _ = channel::send(listens.tx, 0)
+	handle (handle (handle verify_flat_contract() with fixture_effects::selected("ambient")) with fixture_effects::recording()) with fixture_effects::failing_network(listens)
+end
+
+pub fn run_nested_contract() -> Result<(), String> effects [net, time, concurrency, stdio]
+	let listens = channel::bounded<Int>(1)
+	let _ = channel::send(listens.tx, 0)
+	handle (handle (handle verify_nested_contract() with fixture_effects::selected("ambient")) with fixture_effects::recording()) with fixture_effects::failing_network(listens)
+end
+
+test success_flat() -> Result<(), String> effects [net, time, concurrency, stdio]
+	run_flat_success()
+end
+
+test success_nested() -> Result<(), String> effects [net, time, concurrency, stdio]
+	run_nested_success()
+end
+
+test contract_flat() -> Result<(), String> effects [net, time, concurrency, stdio]
+	run_flat_contract()
+end
+
+test contract_nested() -> Result<(), String> effects [net, time, concurrency, stdio]
+	run_nested_contract()
+end
