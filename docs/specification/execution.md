@@ -485,7 +485,17 @@ later contexts and body, and restored surrounding handler. The checked
 case exercises both body forms, ordered context evaluation, inner shadowing,
 and non-unit result preservation through JVM execution. The checked
 [`multiple-handler-context-failure-restoration`](../../examples/specification/test/multiple-handler-context-failure-restoration/)
-case compares the flat and nested failure paths through the JVM backend.
+case compares the flat and nested context-failure paths through the JVM
+backend. Cleanup registered by handler frames follows the same complete-list
+unwind. Every inner-to-outer cleanup runs after a successful body even when an
+inner cleanup fails; the first cleanup failure becomes primary and later
+failures are ordered related failures. An existing contract or runtime failure
+remains primary while every cleanup failure is attached in execution order.
+Only after the complete list unwinds does the surrounding handler become active
+again. The checked
+[`multiple-handler-cleanup-failure-precedence`](../../examples/specification/test/multiple-handler-cleanup-failure-precedence/)
+case compares those flat and nested outcomes through scoped Veln host fakes and
+JVM execution.
 
 Integer remainder evaluates the left operand once and then the right operand
 once. A failure in the left operand prevents evaluation of the right operand.

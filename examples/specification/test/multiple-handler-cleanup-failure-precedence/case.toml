@@ -1,0 +1,154 @@
+# This integration case detects JVM handler-frame cleanup failures that a
+# standard-library companion cannot observe: flat-list lowering must match the
+# nested single-handler oracle through process failure and captured test events.
+command = ["test", "--json", "--jobs", "1", "main_test.veln", "fixture_effects.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "diagnostics"
+length = 0
+
+[[json_assert]]
+path = "summary.total"
+equals = 4
+
+[[json_assert]]
+path = "summary.passed"
+equals = 0
+
+[[json_assert]]
+path = "summary.failed"
+equals = 4
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "success_flat"
+
+[[json_assert]]
+path = "cases.0.failure.kind"
+equals = "runtime"
+
+[[json_assert]]
+path = "cases.0.events"
+length = 20
+
+[[json_assert]]
+path = "cases.1.name"
+equals = "success_nested"
+
+[[json_assert]]
+path = "cases.1.failure.kind"
+equals = "runtime"
+
+[[json_assert]]
+path = "cases.1.events"
+length = 20
+
+[[json_assert]]
+path = "cases.2.name"
+equals = "contract_flat"
+
+[[json_assert]]
+path = "cases.2.failure.kind"
+equals = "contract"
+
+[[json_assert]]
+path = "cases.2.events"
+length = 19
+
+[[json_assert]]
+path = "cases.3.name"
+equals = "contract_nested"
+
+[[json_assert]]
+path = "cases.3.failure.kind"
+equals = "contract"
+
+[[json_assert]]
+path = "cases.3.events"
+length = 19
+
+[[json_assert]]
+path = "cases.0.events.0.text"
+equals = "inner"
+
+[[json_assert]]
+path = "cases.1.events.0.text"
+equals = "inner"
+
+[[json_assert]]
+path = "cases.0.events.1.text"
+equals = "inner-1 cleanup"
+
+[[json_assert]]
+path = "cases.1.events.1.text"
+equals = "inner-1 cleanup"
+
+[[json_assert]]
+path = "cases.0.events.4.text"
+equals = "middle-2 cleanup"
+
+[[json_assert]]
+path = "cases.1.events.4.text"
+equals = "middle-2 cleanup"
+
+[[json_assert]]
+path = "cases.0.events.10.text"
+equals = "outer-3 cleanup"
+
+[[json_assert]]
+path = "cases.1.events.10.text"
+equals = "outer-3 cleanup"
+
+[[json_assert]]
+path = "cases.0.events.19.text"
+equals = "ambient"
+
+[[json_assert]]
+path = "cases.1.events.19.text"
+equals = "ambient"
+
+[[json_assert]]
+path = "cases.2.events.0.text"
+equals = "inner-1 cleanup"
+
+[[json_assert]]
+path = "cases.3.events.0.text"
+equals = "inner-1 cleanup"
+
+[[json_assert]]
+path = "cases.2.events.3.text"
+equals = "middle-2 cleanup"
+
+[[json_assert]]
+path = "cases.3.events.3.text"
+equals = "middle-2 cleanup"
+
+[[json_assert]]
+path = "cases.2.events.9.text"
+equals = "outer-3 cleanup"
+
+[[json_assert]]
+path = "cases.3.events.9.text"
+equals = "outer-3 cleanup"
+
+[[json_assert]]
+path = "cases.2.events.18.text"
+equals = "ambient"
+
+[[json_assert]]
+path = "cases.3.events.18.text"
+equals = "ambient"

@@ -46,6 +46,148 @@ pub(super) fn lower_with_network_facade(text: &str) -> TypedProgram {
     lower_network_facade_entry_to_ir(text, "main")
 }
 
+fn lower_multiple_handler_cleanup_entry(entry: &str) -> TypedProgram {
+    let analysis = analyze_project(
+        Project {
+            root: std::path::PathBuf::new(),
+            files: vec![
+                SourceFile::new(
+                    "main_test.veln",
+                    include_str!(
+                        "../../../../examples/specification/test/multiple-handler-cleanup-failure-precedence/main_test.veln"
+                    ),
+                ),
+                SourceFile::new(
+                    "fixture_effects.veln",
+                    include_str!(
+                        "../../../../examples/specification/test/multiple-handler-cleanup-failure-precedence/fixture_effects.veln"
+                    ),
+                ),
+            ],
+            manifest: None,
+        },
+        DoctestMode::Exclude,
+    );
+    let diagnostics = analysis.checked_diagnostics();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let lowered = analysis
+        .lower_reachable_entry(entry, FunctionKind::Function)
+        .lowered;
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    lowered.ir.expect("cleanup fixture entry should lower")
+}
+
+fn run_multiple_handler_cleanup_entry(entry: &str) -> Option<std::process::Output> {
+    let ir = lower_multiple_handler_cleanup_entry(entry);
+    let program = generate_classfiles_with_entry(&ir, entry);
+    run_jvm_program_when_java_is_available(entry, &program, &[])
+}
+
+fn assert_ordered_fragments(text: &str, fragments: &[&str]) {
+    let mut remaining = text;
+    for fragment in fragments {
+        let index = remaining
+            .find(fragment)
+            .unwrap_or_else(|| panic!("missing ordered fragment {fragment:?} in {text:?}"));
+        remaining = &remaining[index + fragment.len()..];
+    }
+}
+
+fn assert_successful_body_cleanup_projection(
+    flat_success: &std::process::Output,
+    nested_success: &std::process::Output,
+) {
+    assert_eq!(flat_success.status.code(), Some(1));
+    assert_eq!(nested_success.status.code(), Some(1));
+    assert_eq!(flat_success.stdout, nested_success.stdout);
+    assert_eq!(flat_success.stderr, nested_success.stderr);
+    assert_eq!(
+        String::from_utf8_lossy(&flat_success.stdout),
+        concat!(
+            "inner\n",
+            "inner-1 cleanup\ninner-1 cleanup\ninner-1 cleanup\n",
+            "middle-2 cleanup\nmiddle-1 cleanup\n",
+            "middle-2 cleanup\nmiddle-1 cleanup\n",
+            "middle-2 cleanup\nmiddle-1 cleanup\n",
+            "outer-3 cleanup\nouter-2 cleanup\nouter-1 cleanup\n",
+            "outer-3 cleanup\nouter-2 cleanup\nouter-1 cleanup\n",
+            "outer-3 cleanup\nouter-2 cleanup\nouter-1 cleanup\n",
+            "ambient\n",
+        )
+    );
+    let success_stderr = String::from_utf8_lossy(&flat_success.stderr);
+    assert!(success_stderr.starts_with(
+        "network system cleanup could not confirm closure of 1 resource(s) with 0 producer(s) still active\n"
+    ));
+    assert_eq!(
+        success_stderr.matches("related cleanup failure:").count(),
+        2
+    );
+    assert_ordered_fragments(
+        &success_stderr,
+        &[
+            "related cleanup failure: network system cleanup could not confirm closure of 2 resource(s) with 0 producer(s) still active",
+            "related cleanup failure: network system cleanup could not confirm closure of 3 resource(s) with 0 producer(s) still active",
+        ],
+    );
+}
+
+fn assert_contract_body_cleanup_projection(
+    flat_contract: &std::process::Output,
+    nested_contract: &std::process::Output,
+) {
+    assert_eq!(flat_contract.status.code(), Some(1));
+    assert_eq!(nested_contract.status.code(), Some(1));
+    assert_eq!(flat_contract.stdout, nested_contract.stdout);
+    assert_eq!(flat_contract.stderr, nested_contract.stderr);
+    assert_eq!(
+        String::from_utf8_lossy(&flat_contract.stdout),
+        concat!(
+            "inner-1 cleanup\ninner-1 cleanup\ninner-1 cleanup\n",
+            "middle-2 cleanup\nmiddle-1 cleanup\n",
+            "middle-2 cleanup\nmiddle-1 cleanup\n",
+            "middle-2 cleanup\nmiddle-1 cleanup\n",
+            "outer-3 cleanup\nouter-2 cleanup\nouter-1 cleanup\n",
+            "outer-3 cleanup\nouter-2 cleanup\nouter-1 cleanup\n",
+            "outer-3 cleanup\nouter-2 cleanup\nouter-1 cleanup\n",
+            "ambient\n",
+        )
+    );
+    let contract_stderr = String::from_utf8_lossy(&flat_contract.stderr);
+    assert!(
+        contract_stderr
+            .starts_with("contract failure: require `false` in `contract_body` blame caller")
+    );
+    assert_eq!(
+        contract_stderr.matches("related cleanup failure:").count(),
+        3
+    );
+    assert_ordered_fragments(
+        &contract_stderr,
+        &[
+            "related cleanup failure: network system cleanup could not confirm closure of 1 resource(s) with 0 producer(s) still active",
+            "related cleanup failure: network system cleanup could not confirm closure of 2 resource(s) with 0 producer(s) still active",
+            "related cleanup failure: network system cleanup could not confirm closure of 3 resource(s) with 0 producer(s) still active",
+        ],
+    );
+}
+
+#[test]
+fn multiple_handler_cleanup_failures_match_nested_oracles() {
+    let Some(flat_success) = run_multiple_handler_cleanup_entry("run_flat_success") else {
+        return;
+    };
+    let nested_success = run_multiple_handler_cleanup_entry("run_nested_success")
+        .expect("Java availability was established");
+    let flat_contract = run_multiple_handler_cleanup_entry("run_flat_contract")
+        .expect("Java availability was established");
+    let nested_contract = run_multiple_handler_cleanup_entry("run_nested_contract")
+        .expect("Java availability was established");
+
+    assert_successful_body_cleanup_projection(&flat_success, &nested_success);
+    assert_contract_body_cleanup_projection(&flat_contract, &nested_contract);
+}
+
 #[test]
 fn wall_clock_values_are_normalized_and_may_move_backwards() {
     let ir = lower_with_clock(

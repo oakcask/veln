@@ -419,6 +419,11 @@ cleanup cannot publish a listener or stream after its owner closes and that an
 uncommitted retry does not clear earlier lifecycle uncertainty. It also counts
 resource-identity equality checks while successfully closing 4,000 and 8,000
 retained streams, establishing bounded linear release work without wall-clock
-timing. The focused
-effect-injection case checks that a cleanup failure during propagated-result
-unwind still runs enclosing deferred cleanup and restores enclosing handlers.
+timing. Focused effect-injection cases check that cleanup failure during
+propagated-result unwind still runs enclosing deferred cleanup and restores
+enclosing handlers. The checked
+[`multiple-handler-cleanup-failure-precedence`](../../examples/specification/test/multiple-handler-cleanup-failure-precedence/)
+case compares flat ordered handler lists with nested single-handler oracles. It
+checks complete inner-to-outer network cleanup, primary and related failure
+precedence, and restoration of the surrounding handler after the complete list
+unwinds.

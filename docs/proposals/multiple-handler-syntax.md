@@ -53,7 +53,6 @@ The existing nested single-handler behavior remains the independent oracle.
 The following cases still need focused acceptance before this proposal is
 complete:
 
-- cleanup-failure precedence across the complete list;
 - child-task inheritance and cancellation restoration;
 - provider-bound resource capture that outlives the list scope;
 - the motivating direct-IO chain rewritten automatically without changing its
