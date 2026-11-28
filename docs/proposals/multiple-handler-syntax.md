@@ -10,8 +10,8 @@ defines the implemented terminated expression-body and block-body handler
 lists. The [effects specification](../specification/effects.md) defines their
 outermost-first ordered semantics, and the
 [format specification](../specification/command-fmt.md) defines canonical
-formatting for directly written lists and the implemented short and mixed-chain
-migration.
+formatting for directly written lists and the implemented short, mixed-chain,
+direct-`begin`, and existing-block migration.
 
 This proposal now covers only the remaining migration forms and
 ordered-contract cases that are not yet accepted by focused executable
@@ -22,19 +22,18 @@ evidence.
 The current [format specification](../specification/command-fmt.md) defines the
 implemented migration for comment-free single-line and eligible multiline
 short chains and for eligible mixtures of short and terminated
-expression-body forms. Remaining migration should support the other body and
+expression-body forms. It also defines migration of a direct terminal `begin`
+and of outer expression-bodied handlers around an existing handled block.
+Remaining migration should support other multiline expression bodies and
 comment forms without crossing a statement, `defer`, function call, branch, or
-postfix operator. A `begin` used as the direct outer body should become a
-handled block without removing the cleanup boundary.
+postfix operator.
 
 The migrated output should use the short single-handler form when one handler
 and a one-line body remain. Multiple handlers with a one-line body should use
-the terminated expression form. A direct `begin Body end` should become a
-handled block, while an existing handled block should retain that explicit
-boundary even when it contains one expression. Any other multiline expression
-body should become the body of a handled block without removing its own
-delimiters. Comments that need the list header or an entry line should keep a
-terminated list even when only one handler remains.
+the terminated expression form. Any remaining multiline expression body should
+become the body of a handled block without removing its own delimiters.
+Comments that need the list header or an entry line should keep a terminated
+list even when only one handler remains.
 
 Parentheses that only group the direct handled body may disappear. A comment
 attached to a grouping or delimiter that would disappear prevents that local
@@ -71,10 +70,10 @@ are required. Production handlers continue to use real host effects.
 ## Acceptance evidence
 
 Implementation is complete when checked formatter cases cover migration of the
-remaining single-entry, multiline-expression, block, and comment-preserving
-inputs, and semantic/backend cases cover the remaining contract above. The
-current parse-before-write gate must continue to leave every selected file
-unchanged when any file has a parse diagnostic.
+remaining single-entry, multiline-expression, and comment-preserving inputs,
+and semantic/backend cases cover the remaining contract above. The current
+parse-before-write gate must continue to leave every selected file unchanged
+when any file has a parse diagnostic.
 
 After those checks pass, remove this proposal and its Ready catalog entry. The
 current specifications and executable examples must remain the authority for

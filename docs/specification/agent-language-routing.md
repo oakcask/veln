@@ -31,10 +31,24 @@ vocabulary. It removes unrelated topics and selects at most three. If no topic
 is relevant, it stops after listing and reports that the published reference
 has no relevant topic.
 
+Application-design questions also use the language route. Topic selection
+includes the language building blocks needed for a design, even when no topic
+names the application itself. For example, a question about representing an
+in-memory datastore can select types and aggregates rather than requiring a
+datastore topic.
+
 For each selected topic, the skill calls `read_doc` with the exact listed
-snapshot topic URI. It does not derive or construct a URI. The answer can
-contain only claims supported by successfully read selected resources and
-reports all of their exact URIs as sources.
+snapshot topic URI. It does not derive or construct a URI. Claims about Veln
+language behavior must be supported by successfully read selected resources.
+The answer reports all of their exact URIs as sources.
+
+The agent can reason from those verified features to propose representations,
+examples, and tradeoffs. It distinguishes documented language facts from its
+own design suggestions and assumptions. The reference need not describe the
+proposed application. An unverified API, performance property, or implementation
+detail limits that part of the answer; it does not prevent answering the
+supported parts. Suggestions must not invent Veln syntax, APIs, runtime
+guarantees, or claims that code was tested.
 
 For repository inspection, changes, and proposal selection, the skill starts
 at `docs/README.md`. It follows the smallest linked repository documentation
@@ -130,6 +144,13 @@ decision table. The topic oracle checks representative English, non-English,
 absent-topic, and unrelated-vocabulary requests. Both corpora are
 reviewed finite evidence for semantic instructions, not executable general
 natural-language classifiers.
+
+The non-English topic-selection scenario also records an in-memory datastore
+design question. It separates resource-backed language claims from reviewed
+design suggestions. Replay checks that the suggestions are present and separate
+from the factual claims; it does not establish that arbitrary generated advice
+is correct. Review must assess whether the advice follows from the read
+features and makes its assumptions and unverified details clear.
 
 The harness rejects oversized or excessive-work skill, schema, documentation,
 catalog, snapshot, and fixture inputs with a bounded failure. Stress checks use

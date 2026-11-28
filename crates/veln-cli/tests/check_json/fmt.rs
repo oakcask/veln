@@ -175,6 +175,151 @@ fn fmt_migrates_nested_short_handlers_before_jvm_execution() {
 }
 
 #[test]
+fn fmt_migrates_block_handler_chains_without_changing_cleanup_timing() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("fmt-block-handler-migration");
+    project.write(
+        "veln.toml",
+        "[package]\nname = \"fmt-block-handler-migration\"\n",
+    );
+    project.write(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "\n",
+            "handler ask(value: Int) for Ask\n",
+            "  value() => value\n",
+            "end\n",
+            "\n",
+            "fn context(label: String, value: Int) -> Int effects [stdio]\n",
+            "  stdio::println(label)\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn migrated_begin() -> Int effects [stdio]\n",
+            "  let result = handle (handle begin\n",
+            "    defer\n",
+            "      stdio::println(\"begin cleanup\")\n",
+            "      ()\n",
+            "    end\n",
+            "    stdio::println(\"begin body\")\n",
+            "    perform Ask::value()\n",
+            "  end with ask(context(\"begin inner context\", 2))) with ask(context(\"begin outer context\", 1))\n",
+            "  stdio::println(\"begin after\")\n",
+            "  result\n",
+            "end\n",
+            "\n",
+            "fn migrated_existing_block() -> Int effects [stdio]\n",
+            "  let result = handle (handle\n",
+            "    defer\n",
+            "      stdio::println(\"block cleanup\")\n",
+            "      ()\n",
+            "    end\n",
+            "    stdio::println(\"block body\")\n",
+            "    perform Ask::value()\n",
+            "  with\n",
+            "    ask(context(\"block inner context\", 4))\n",
+            "  end) with ask(context(\"block outer context\", 3))\n",
+            "  stdio::println(\"block after\")\n",
+            "  result\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> () effects [stdio]\n",
+            "  stdio::println(int_to_string(migrated_begin()))\n",
+            "  stdio::println(int_to_string(migrated_existing_block()))\n",
+            "end\n",
+        ),
+    );
+
+    let expected = concat!(
+        "effect Ask\n",
+        "\tvalue() -> Int\n",
+        "end\n",
+        "\n",
+        "handler ask(value: Int) for Ask\n",
+        "\tvalue() => value\n",
+        "end\n",
+        "\n",
+        "fn context(label: String, value: Int) -> Int effects [stdio]\n",
+        "\tstdio::println(label)\n",
+        "\tvalue\n",
+        "end\n",
+        "\n",
+        "fn migrated_begin() -> Int effects [stdio]\n",
+        "\tlet result = handle\n",
+        "\t\tdefer\n",
+        "\t\t\tstdio::println(\"begin cleanup\")\n",
+        "\t\t\t()\n",
+        "\t\tend\n",
+        "\t\tstdio::println(\"begin body\")\n",
+        "\t\tperform Ask::value()\n",
+        "\twith\n",
+        "\t\task(context(\"begin outer context\", 1)),\n",
+        "\t\task(context(\"begin inner context\", 2))\n",
+        "\tend\n",
+        "\tstdio::println(\"begin after\")\n",
+        "\tresult\n",
+        "end\n",
+        "\n",
+        "fn migrated_existing_block() -> Int effects [stdio]\n",
+        "\tlet result = handle\n",
+        "\t\tdefer\n",
+        "\t\t\tstdio::println(\"block cleanup\")\n",
+        "\t\t\t()\n",
+        "\t\tend\n",
+        "\t\tstdio::println(\"block body\")\n",
+        "\t\tperform Ask::value()\n",
+        "\twith\n",
+        "\t\task(context(\"block outer context\", 3)),\n",
+        "\t\task(context(\"block inner context\", 4))\n",
+        "\tend\n",
+        "\tstdio::println(\"block after\")\n",
+        "\tresult\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "\tstdio::println(int_to_string(migrated_begin()))\n",
+        "\tstdio::println(int_to_string(migrated_existing_block()))\n",
+        "end\n",
+    );
+    let expected_output = concat!(
+        "begin outer context\n",
+        "begin inner context\n",
+        "begin body\n",
+        "begin cleanup\n",
+        "begin after\n",
+        "2\n",
+        "block outer context\n",
+        "block inner context\n",
+        "block body\n",
+        "block cleanup\n",
+        "block after\n",
+        "4\n",
+    );
+
+    let nested_output = project.run(&["main", "main.veln"]);
+    assert!(nested_output.status.success(), "{}", stderr(&nested_output));
+    assert_eq!(stdout(&nested_output), expected_output);
+    assert_eq!(stderr(&nested_output), "");
+
+    project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);
+
+    let migrated_output = project.run(&["main", "main.veln"]);
+    assert!(
+        migrated_output.status.success(),
+        "{}",
+        stderr(&migrated_output)
+    );
+    assert_eq!(stdout(&migrated_output), expected_output);
+    assert_eq!(stderr(&migrated_output), "");
+}
+
+#[test]
 fn fmt_formats_focused_supported_forms_across_multiple_files() {
     let project = TestProject::new("fmt-focused-golden");
     project.write(

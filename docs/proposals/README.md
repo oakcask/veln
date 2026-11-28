@@ -26,9 +26,9 @@ also states it.
 - [Separate Cancellation Authority From Observation](cancellation-capabilities.md):
   use `CancelOwner` for cancellation and observation-only `CancelToken` for waits.
 - [Multiple-handler Migration and Acceptance](multiple-handler-syntax.md):
-  expand migration to block, other multiline-body, and comment-preserving
-  cases, and complete the remaining failure, cleanup, task, provider-capture,
-  and acceptance matrix.
+  expand migration to other multiline-body and comment-preserving cases, and
+  complete the remaining failure, cleanup, task, provider-capture, and
+  acceptance matrix.
 - [Generic Functions](generic-functions.md): implement explicit rank-one type
   schemes, independent call instantiation, scheme-preserving aliases,
   artifacts and tooling, and backend acceptance. Current declaration syntax

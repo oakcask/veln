@@ -74,12 +74,27 @@ entries already grouped in one list retain their written order. The migration
 preserves the handled body and each handler context expression. Reformatting
 the migrated result produces identical bytes.
 
+The formatter also migrates a comment-free directly nested chain when its
+innermost handled body is `begin Body end`, or when its innermost handler
+already has a block body. The result is one terminated block-body list. The
+chain must contain at least two directly nested handler forms. A single handler
+form around `begin Body end` retains the single-expression form, including when
+that form contains multiple entries. The explicit body remains
+a block, including when it contains one expression, so its lexical and cleanup
+boundary is unchanged. Handler entries run from the
+outermost handler to the innermost handler, including the entries from an
+existing inner list. Context expressions keep their evaluation count and
+order. The migrated body keeps its result, effects, and cleanup timing.
+Reformatting the result produces identical bytes.
+
 During one formatting pass, the formatter leaves the chain nested if it
-contains comments, uses a handled block or `begin`, has a body that formats
-across multiple lines, or reaches another handler only through a statement,
-`defer`, call, branch, or postfix operator. An ineligible comment-free
-multiline chain keeps a canonical multiline nested form that is byte-identical
-on a second pass. Eligibility applies to the complete directly nested chain:
+contains comments, has another expression body that formats across multiple
+lines, or reaches another handler only through a statement, `defer`, call,
+branch, or postfix operator. A `begin` is eligible only as the direct terminal
+body, and a handled block is eligible only as the innermost directly nested
+handler. An ineligible comment-free multiline chain keeps a canonical
+multiline nested form that is byte-identical on a second pass. Eligibility
+applies to the complete directly nested chain:
 when an outer form is ineligible, no directly nested suffix of that chain
 migrates on its own. A statement, `defer`, call, branch, or postfix operator
 ends that direct chain, so an eligible chain inside the independent expression
@@ -153,7 +168,9 @@ case covers ordinary and effect declaration binders, trailing-comma removal,
 and idempotence. The checked
 [`multiple-handler-expressions`](../../examples/specification/fmt/multiple-handler-expressions/)
 case covers handler-list formatting, nested-chain migration, comment ownership,
-and idempotence through two command passes. Focused formatter tests cover the
-migration boundaries and comment-preservation rules above. They reparse the
-first output, compare syntax ownership where formatting moves delimiters, and
+explicit block preservation, and idempotence through two command passes.
+Focused formatter and CLI tests cover the migration boundaries, context order,
+result and cleanup preservation, and comment-preservation rules above. They
+reparse the first output, compare syntax ownership where formatting moves
+delimiters, execute nested and migrated forms where behavior is observable, and
 require byte-identical output on the second pass.

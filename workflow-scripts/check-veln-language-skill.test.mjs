@@ -53,6 +53,33 @@ function matchingTurn(document) {
   return scenario(document, "language-match").turns[0];
 }
 
+function designTurn(document) {
+  return scenario(document, "language-topic-selection").turns[1];
+}
+
+test("answers application design with verified facts and separate suggestions", () => {
+  const document = fixture();
+  const turn = designTurn(document);
+  assert.equal(turn.request.text, "veln でインメモリのデータストアを表現する手段にはどういう物が考えられる？");
+  assert.deepEqual(turn.expected.selected_topic_ids, ["types-inference-constructors"]);
+  assert.equal(turn.events.at(-1).status, "answered");
+  assert.ok(turn.events.at(-1).design_suggestions.length > 0);
+  assert.equal(validateScenarioDocument(document, options), 17);
+});
+
+test("rejects refusing application design after reading relevant building blocks", () => {
+  const document = fixture();
+  designTurn(document).events.at(-1).design_suggestions = [];
+  assert.throws(() => validateScenarioDocument(document, options), /design answer must offer bounded suggestions/);
+});
+
+test("rejects presenting design suggestions as documented language facts", () => {
+  const document = fixture();
+  const answer = designTurn(document).events.at(-1);
+  answer.claims.push(answer.design_suggestions[0]);
+  assert.throws(() => validateScenarioDocument(document, options), /claim must match unambiguous selected-resource evidence/);
+});
+
 function staleTurn(document) {
   return scenario(document, "stale-snapshot-uri").turns[1];
 }
