@@ -60,6 +60,10 @@ between Float literals use their admitted binary64 values and the same scalar
 operators as runtime evaluation. Positive and negative zero therefore compare
 equal. Unsupported Float arithmetic, mixed numeric
 comparisons, and symbol-dependent Float comparisons remain runtime-required.
+That runtime-required boundary includes `Float` fields selected from parameters
+or from record-returning pure calls. Repeating the same field or call expression
+on both sides of equality does not prove the predicate, because the value can
+be NaN and NaN does not equal itself.
 Top-level `and` and `or` can combine directly proven Float-literal
 comparisons. A predicate that contains both a Float literal and an integer
 remainder remains runtime-required; the classifier does not combine the
