@@ -26,7 +26,7 @@ fn contract_static_analysis_compares_integer_radices_by_value() {
 }
 
 #[test]
-fn float_dependent_contract_proofs_remain_runtime_required() {
+fn float_dependent_contract_proofs_use_scalar_signed_zero_equality() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -35,6 +35,7 @@ fn float_dependent_contract_proofs_remain_runtime_required() {
             "require not (value >= 9007199254740993.0 and value <= 9007199254740992.0)\n",
             "require 9007199254740993 == 9007199254740992.0\n",
             "require -0.0 == 0.0\n",
+            "require -0.0 != 0.0\n",
             "  value\n",
             "end\n",
         ),
@@ -44,9 +45,20 @@ fn float_dependent_contract_proofs_remain_runtime_required() {
     let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
-    assert!(core.functions[0].contracts.iter().all(|contract| {
-        contract.obligation_status == ContractObligationStatus::RuntimeRequired
-    }));
+    assert_eq!(
+        core.functions[0]
+            .contracts
+            .iter()
+            .map(|contract| contract.obligation_status)
+            .collect::<Vec<_>>(),
+        vec![
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::RuntimeRequired,
+            ContractObligationStatus::StaticallyProven,
+            ContractObligationStatus::RuntimeRequired,
+        ]
+    );
 }
 
 #[test]

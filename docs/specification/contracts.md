@@ -56,9 +56,9 @@ An accepted dotted-decimal Float literal contributes its once-rounded binary64
 value to contract classification and runtime emission. A clause is classified
 from the operations and values in that clause; a `Float` parameter or result
 type does not make an unrelated clause runtime-required. Direct comparisons
-between Float literals use their admitted binary64 values. Equality and
-disequality compare bits, including the two zero bit patterns, while ordering
-compares the finite values. Unsupported Float arithmetic, mixed numeric
+between Float literals use their admitted binary64 values and the same scalar
+operators as runtime evaluation. Positive and negative zero therefore compare
+equal. Unsupported Float arithmetic, mixed numeric
 comparisons, and symbol-dependent Float comparisons remain runtime-required.
 Top-level `and` and `or` can combine directly proven Float-literal
 comparisons. A predicate that contains both a Float literal and an integer
@@ -180,7 +180,7 @@ The classifier combines these rule classes:
 
 | Class | Supported rule |
 | --- | --- |
-| Literal values | Boolean and string equality/disequality; `Int` equality, disequality, and ordering; direct Float-literal comparison from admitted binary64 bits. Parentheses do not change the result. A function signature does not affect classification of an unrelated clause. |
+| Literal values | Boolean and string equality/disequality; `Int` equality, disequality, and ordering; direct Float-literal comparison between admitted binary64 values using scalar comparison semantics. Parentheses do not change the result. A function signature does not affect classification of an unrelated clause. |
 | Literal arithmetic | Literal-only `+`, `-`, `*`, and comparison-only `/` expressions without Float literals use exact integer or rational reasoning. Bitwise and shift expressions use signed 64-bit values; shift counts outside `0..63` are not folded as valid operations. |
 | Integer remainder | A literal-only `%` subexpression is folded when both signed 64-bit operands are known and the divisor is nonzero. The `%` node and an ancestor arithmetic node whose normal operand types select `Int` use runtime `Int` behavior, including truncating division and wrapping arithmetic. A surrounding ordinary arithmetic node follows its normal inferred type, so a `Float` operand selects `Float` for that node without widening either remainder operand. Boolean branches and the two sides of a comparison remain independent expressions. Remainder uses the runtime signed result, including `0` for minimum `Int` remainder by `-1`. A nonliteral remainder subexpression remains `runtime_required`. |
 | Boolean identities | Literal folding, `not`, complementary predicates, boolean equality/disequality, same-shape comparisons, and tautological `and`/`or` forms. Whitespace, redundant atom parentheses, and commuted ordering are normalized where the rule says so. |

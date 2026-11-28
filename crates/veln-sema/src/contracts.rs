@@ -120,13 +120,15 @@ fn static_boolean_value_with_float_literals(
         ) else {
             return static_non_float_boolean_value(predicate);
         };
+        let left = f64::from_bits(left_bits);
+        let right = f64::from_bits(right_bits);
         let value = match operator {
-            "==" => left_bits == right_bits,
-            "!=" => left_bits != right_bits,
-            "<" => f64::from_bits(left_bits) < f64::from_bits(right_bits),
-            "<=" => f64::from_bits(left_bits) <= f64::from_bits(right_bits),
-            ">" => f64::from_bits(left_bits) > f64::from_bits(right_bits),
-            ">=" => f64::from_bits(left_bits) >= f64::from_bits(right_bits),
+            "==" => left == right,
+            "!=" => left != right,
+            "<" => left < right,
+            "<=" => left <= right,
+            ">" => left > right,
+            ">=" => left >= right,
             _ => return StaticBooleanValue::Unknown,
         };
         return if value {
