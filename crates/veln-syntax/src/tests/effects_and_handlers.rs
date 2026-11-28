@@ -602,6 +602,83 @@ fn formatter_migrates_handler_chains_to_explicit_block_bodies() {
 }
 
 #[test]
+fn formatter_preserves_parseability_at_cleanup_nesting_limit() {
+    for terminal in [HandlerChainTerminal::Begin, HandlerChainTerminal::Block] {
+        let safe = handler_chain_with_nested_context(terminal, 127);
+        let parsed = parse(&SourceFile::new("safe.veln", safe.clone()));
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let formatted = format_tree(&parsed.tree);
+        assert_ne!(formatted, safe);
+        let reparsed = parse(&SourceFile::new("safe-formatted.veln", formatted));
+        assert!(
+            reparsed.diagnostics.is_empty(),
+            "{:#?}",
+            reparsed.diagnostics
+        );
+
+        let boundary = handler_chain_with_nested_context(terminal, 128);
+        let parsed = parse(&SourceFile::new("boundary.veln", boundary.clone()));
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        assert_eq!(format_tree(&parsed.tree), boundary);
+    }
+}
+
+#[test]
+fn formatter_preserves_parseability_when_migrations_combine_cleanup_depth() {
+    let safe = nested_migrating_handler_chains(126);
+    let parsed = parse(&SourceFile::new("combined-safe.veln", safe.clone()));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let formatted = format_tree(&parsed.tree);
+    assert_ne!(formatted, safe);
+    let reparsed = parse(&SourceFile::new("combined-safe-formatted.veln", formatted));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+
+    let boundary = nested_migrating_handler_chains(127);
+    let parsed = parse(&SourceFile::new("combined-boundary.veln", boundary.clone()));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    assert_eq!(format_tree(&parsed.tree), boundary);
+}
+
+#[derive(Clone, Copy)]
+enum HandlerChainTerminal {
+    Begin,
+    Block,
+}
+
+fn handler_chain_with_nested_context(terminal: HandlerChainTerminal, depth: usize) -> String {
+    let terminal = match terminal {
+        HandlerChainTerminal::Begin => {
+            "handle (handle begin\n    1\n  end with inner()) with outer".to_string()
+        }
+        HandlerChainTerminal::Block => {
+            "handle (handle\n    1\n  with\n    inner()\n  end) with outer".to_string()
+        }
+    };
+    format!(
+        "fn sample() -> Int\n  {terminal}({})\nend\n",
+        nested_begin_expression(depth)
+    )
+}
+
+fn nested_migrating_handler_chains(depth: usize) -> String {
+    let inner = format!(
+        "handle (handle begin\n      2\n    end with second_inner()) with second_outer({})",
+        nested_begin_expression(depth)
+    );
+    format!(
+        "fn combined() -> Int\n  handle (handle begin\n    1\n  end with first_inner()) with first_outer({inner})\nend\n"
+    )
+}
+
+fn nested_begin_expression(depth: usize) -> String {
+    format!("{}0{}", "begin\n".repeat(depth), "\nend".repeat(depth))
+}
+
+#[test]
 fn formatter_emits_migrated_and_listed_handler_entries_identically() {
     let source = SourceFile::new(
         "main.veln",

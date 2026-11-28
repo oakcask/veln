@@ -85,6 +85,8 @@ boundary is unchanged. Handler entries run from the
 outermost handler to the innermost handler, including the entries from an
 existing inner list. Context expressions keep their evaluation count and
 order. The migrated body keeps its result, effects, and cleanup timing.
+If a propagated failure exits the migrated body, cleanup observes the same
+handler scopes and runs in the same order as it does for the nested input.
 Reformatting the result produces identical bytes.
 
 During one formatting pass, the formatter leaves the chain nested if it
@@ -99,6 +101,9 @@ when an outer form is ineligible, no directly nested suffix of that chain
 migrates on its own. A statement, `defer`, call, branch, or postfix operator
 ends that direct chain, so an eligible chain inside the independent expression
 may migrate without changing the ineligible outer form.
+If flattening one or more chains would make the output exceed the parser's
+cleanup-nesting limit, the formatter preserves the file unchanged instead of
+writing source that a later command cannot parse.
 
 In structurally recognized variant-refinement type text, the formatter writes
 one space on each side of `|`. It preserves the written alternative order,
@@ -170,7 +175,8 @@ and idempotence. The checked
 case covers handler-list formatting, nested-chain migration, comment ownership,
 explicit block preservation, and idempotence through two command passes.
 Focused formatter and CLI tests cover the migration boundaries, context order,
-result and cleanup preservation, and comment-preservation rules above. They
-reparse the first output, compare syntax ownership where formatting moves
-delimiters, execute nested and migrated forms where behavior is observable, and
-require byte-identical output on the second pass.
+result preservation, cleanup on normal and propagated-failure paths, and the
+comment-preservation rules above. They reparse the first output, compare syntax
+ownership where formatting moves delimiters, execute nested and migrated forms
+where behavior is observable, and require byte-identical output on the second
+pass.
