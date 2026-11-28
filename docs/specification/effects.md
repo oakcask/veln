@@ -204,10 +204,10 @@ the body effects. The remaining effects are `R_1`, where
 discharge its own arguments or effects retained by an earlier outer handler.
 The rule reduces to the existing single-handler rule for one entry. The checked
 [`multiple-handler-retained-effect-order`](../../examples/specification/check/multiple-handler-retained-effect-order/)
-case compares flat lists with nested single-handler expressions. It covers an
-outer entry discharging an inner handler dependency, the reversed order
-retaining that dependency, and an outer entry retaining its own argument
-effect.
+case compares flat lists with nested single-handler expressions at public-body
+and inferred-private-helper call boundaries. It covers an outer entry
+discharging an inner handler dependency, the reversed order retaining that
+dependency, and an outer entry retaining its own argument effect.
 
 The runtime evaluates entries from first to last. It evaluates each entry's
 arguments once from left to right before entering that handler, then evaluates

@@ -72,3 +72,60 @@ end
 pub fn missing_nested_outer_argument() -> Int
 	handle handle 0 with request() with supply(perform Supply::value())
 end
+
+fn inferred_flat_dependency() -> Int
+	handle request_value() with
+		supply(42),
+		request()
+	end
+end
+
+fn inferred_nested_dependency() -> Int
+	handle handle request_value() with request() with supply(42)
+end
+
+fn inferred_flat_reversed() -> Int
+	handle request_value() with
+		request(),
+		supply(42)
+	end
+end
+
+fn inferred_nested_reversed() -> Int
+	handle handle request_value() with supply(42) with request()
+end
+
+fn inferred_flat_outer_argument() -> Int
+	handle 0 with
+		supply(perform Supply::value()),
+		request()
+	end
+end
+
+fn inferred_nested_outer_argument() -> Int
+	handle handle 0 with request() with supply(perform Supply::value())
+end
+
+pub fn call_flat_dependency() -> Int
+	inferred_flat_dependency()
+end
+
+pub fn call_nested_dependency() -> Int
+	inferred_nested_dependency()
+end
+
+pub fn call_flat_reversed() -> Int
+	inferred_flat_reversed()
+end
+
+pub fn call_nested_reversed() -> Int
+	inferred_nested_reversed()
+end
+
+pub fn call_flat_outer_argument() -> Int
+	inferred_flat_outer_argument()
+end
+
+pub fn call_nested_outer_argument() -> Int
+	inferred_nested_outer_argument()
+end
