@@ -58,8 +58,11 @@ from the operations and values in that clause; a `Float` parameter or result
 type does not make an unrelated clause runtime-required. Direct comparisons
 between Float literals use their admitted binary64 values and the same scalar
 operators as runtime evaluation. Positive and negative zero therefore compare
-equal. Unsupported Float arithmetic, mixed numeric
-comparisons, and symbol-dependent Float comparisons remain runtime-required.
+equal. Unsupported Float arithmetic, mixed numeric comparisons, and
+symbol-dependent Float comparisons whose truth depends on the operand values
+remain runtime-required. The classifier can prove `not (value < value)` and
+`not (value > value)` for a `Float` value because strict self-ordering is false
+for every binary64 value, including NaN.
 That runtime-required boundary includes `Float` fields selected from parameters
 or from record-returning pure calls. Repeating the same field or call expression
 on both sides of equality does not prove the predicate, because the value can
