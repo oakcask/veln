@@ -19,15 +19,19 @@ fn child_local_body(context: { ready : Sender<String>, gate : Receiver<String> }
 	fixture_effects::record("unexpected child continuation")
 end
 
-fn child(context: { ready : Sender<String>, gate : Receiver<String> }) -> () effects [concurrency, fixture_effects::Selected, fixture_effects::Trace]
-	fixture_effects::record(string::concat("child inherited ", fixture_effects::selected_value()))
+fn child(context: { ready : Sender<String>, gate : Receiver<String> }) -> () effects [concurrency, fixture_effects::InnerInherited, fixture_effects::OuterInherited, fixture_effects::Selected, fixture_effects::Trace]
+	fixture_effects::record(string::concat("child inherited outer ", fixture_effects::outer_inherited_value()))
+	fixture_effects::record(string::concat("child inherited inner ", fixture_effects::inner_inherited_value()))
+	fixture_effects::record(string::concat("child inherited selected ", fixture_effects::selected_value()))
 	defer
-		fixture_effects::record(string::concat("child outer cleanup ", fixture_effects::selected_value()))
+		fixture_effects::record(string::concat("child outer cleanup outer ", fixture_effects::outer_inherited_value()))
+		fixture_effects::record(string::concat("child outer cleanup inner ", fixture_effects::inner_inherited_value()))
+		fixture_effects::record(string::concat("child outer cleanup selected ", fixture_effects::selected_value()))
 	end
 	handle child_local_body(context) with fixture_effects::selected("child local")
 end
 
-fn cancel_child() -> Result<(), String> effects [concurrency, fixture_effects::Selected, fixture_effects::Trace]
+fn cancel_child() -> Result<(), String> effects [concurrency, fixture_effects::InnerInherited, fixture_effects::OuterInherited, fixture_effects::Selected, fixture_effects::Trace]
 	let ready = channel::bounded<String>(1)
 	let gate = channel::bounded<String>(0)
 	let context = { ready: ready.tx, gate: gate.rx }
@@ -51,12 +55,14 @@ end
 fn flat_scope() -> Result<(), String> effects [concurrency, fixture_effects::Selected, fixture_effects::Trace]
 	handle cancel_child() with
 		fixture_effects::selected(context("outer")),
+		fixture_effects::outer_inherited("outer frame"),
+		fixture_effects::inner_inherited("inner frame"),
 		fixture_effects::selected(context("inner"))
 	end
 end
 
 fn nested_scope() -> Result<(), String> effects [concurrency, fixture_effects::Selected, fixture_effects::Trace]
-	handle (handle cancel_child() with fixture_effects::selected(context("inner"))) with fixture_effects::selected(context("outer"))
+	handle (handle (handle (handle cancel_child() with fixture_effects::selected(context("inner"))) with fixture_effects::inner_inherited("inner frame")) with fixture_effects::outer_inherited("outer frame")) with fixture_effects::selected(context("outer"))
 end
 
 fn run_case(flat: Bool) -> Result<(), String> effects [concurrency, fixture_effects::Selected, fixture_effects::Trace]

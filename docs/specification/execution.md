@@ -497,10 +497,13 @@ again. The checked
 case compares those flat and nested outcomes through scoped Veln host fakes and
 JVM execution.
 The same ordered frames are inherited when the handled body creates a child
-task. Cancellation unwinds a child-local frame before cleanup resumes under
-the inherited innermost frame. Joining that child does not alter the parent's
-handler stack. The parent continues under the list's innermost frame until the
-list exits, then observes the surrounding frame. The checked
+task. The child can dispatch distinct nominal effects to inherited outer and
+inner frames, while a repeated effect dispatches to the inherited innermost
+frame. Cancellation unwinds a child-local frame before cleanup resumes with
+both distinct inherited frames and the repeated-effect dispatch still active.
+Joining that child does not alter the parent's handler stack. The parent
+continues under the list's innermost repeated-effect frame until the list
+exits, then observes the surrounding frame. The checked
 [`multiple-handler-child-cancellation-restoration`](../../examples/specification/test/multiple-handler-child-cancellation-restoration/)
 case compares the flat-list and nested-single-handler traces through the JVM
 backend.

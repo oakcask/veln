@@ -237,13 +237,17 @@ propagation; enclosing cleanup registrations and handler frames still unwind.
 Cleanup failure precedence and task-cancellation behavior are specified by
 [execution.md](execution.md#runtime-readiness-and-host-boundaries).
 When a child task is created inside an ordered handler list, it inherits every
-active frame in the same outermost-first order. A handler installed only by
-the child shadows those inherited frames until cancellation unwinds the child
-scope. Cleanup registered inside the child-local handled body observes that
-local frame. After the local frame is restored, cleanup registered outside it
-observes the inherited innermost frame. The parent retains its own active
-frame, and leaving the parent list restores the handler that surrounded the
-list. The checked
+active frame in the same outermost-first order. Operations for distinct nominal
+effects can reach both an inherited outer frame and an inherited inner frame;
+when frames handle the same effect, the inherited innermost frame remains the
+dispatch target. A handler installed only by the child shadows matching
+inherited frames until cancellation unwinds the child scope. Cleanup
+registered inside the child-local handled body observes that local frame.
+After the local frame is restored, cleanup registered outside it can still
+reach both distinct inherited frames and observes the inherited innermost
+frame for the repeated effect. The parent retains its own active frame, and
+leaving the parent list restores the handler that surrounded the list. The
+checked
 [`multiple-handler-child-cancellation-restoration`](../../examples/specification/test/multiple-handler-child-cancellation-restoration/)
 case compares these observations with nested single-handler expressions.
 

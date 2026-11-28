@@ -2,11 +2,27 @@ pub effect Selected
 	value() -> String
 end
 
+pub effect OuterInherited
+	value() -> String
+end
+
+pub effect InnerInherited
+	value() -> String
+end
+
 pub effect Trace
 	record(value: String) -> ()
 end
 
 pub handler selected(value: String) for Selected
+	value() => value
+end
+
+pub handler outer_inherited(value: String) for OuterInherited
+	value() => value
+end
+
+pub handler inner_inherited(value: String) for InnerInherited
 	value() => value
 end
 
@@ -16,6 +32,14 @@ end
 
 pub fn selected_value() -> String effects [Selected]
 	perform Selected::value()
+end
+
+pub fn outer_inherited_value() -> String effects [OuterInherited]
+	perform OuterInherited::value()
+end
+
+pub fn inner_inherited_value() -> String effects [InnerInherited]
+	perform InnerInherited::value()
 end
 
 pub fn record(value: String) -> () effects [Trace]

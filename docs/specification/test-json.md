@@ -278,7 +278,9 @@ When a spawned task is cancelled, output from its cleanup remains in the
 spawning test's event list before output emitted after the parent joins that
 task. The checked
 [`multiple-handler-child-cancellation-restoration`](../../examples/specification/test/multiple-handler-child-cancellation-restoration/)
-case verifies that order through serial `veln test --json` execution. The
+case checks that serial `veln test --json` preserves the event projection of
+the same child-cancellation trace. The independent flat-list versus nested
+handler equivalence check remains at the JVM execution boundary. The
 [execution boundary](execution.md#runtime-readiness-and-host-boundaries)
 defines the child-handler restoration and cancellation behavior.
 
