@@ -202,7 +202,12 @@ effects, let `D_i` be its handler declaration effects, and let `R_(n+1)` be
 the body effects. The remaining effects are `R_1`, where
 `R_i = A_i union (R_(i+1) minus {E_i}) union D_i`. Thus an entry does not
 discharge its own arguments or effects retained by an earlier outer handler.
-The rule reduces to the existing single-handler rule for one entry.
+The rule reduces to the existing single-handler rule for one entry. The checked
+[`multiple-handler-retained-effect-order`](../../examples/specification/check/multiple-handler-retained-effect-order/)
+case compares flat lists with nested single-handler expressions. It covers an
+outer entry discharging an inner handler dependency, the reversed order
+retaining that dependency, and an outer entry retaining its own argument
+effect.
 
 The runtime evaluates entries from first to last. It evaluates each entry's
 arguments once from left to right before entering that handler, then evaluates

@@ -1,0 +1,74 @@
+effect Supply
+	value() -> Int
+end
+
+effect Request
+	value() -> Int
+end
+
+handler supply(value: Int) for Supply
+	value() => value
+end
+
+handler request() for Request effects [Supply]
+	value() => perform Supply::value()
+end
+
+fn request_value() -> Int effects [Request]
+	perform Request::value()
+end
+
+pub fn flat_dependency() -> Int
+	handle request_value() with
+		supply(42),
+		request()
+	end
+end
+
+pub fn nested_dependency() -> Int
+	handle handle request_value() with request() with supply(42)
+end
+
+pub fn flat_reversed() -> Int effects [Supply]
+	handle request_value() with
+		request(),
+		supply(42)
+	end
+end
+
+pub fn nested_reversed() -> Int effects [Supply]
+	handle handle request_value() with supply(42) with request()
+end
+
+pub fn flat_outer_argument() -> Int effects [Supply]
+	handle 0 with
+		supply(perform Supply::value()),
+		request()
+	end
+end
+
+pub fn nested_outer_argument() -> Int effects [Supply]
+	handle handle 0 with request() with supply(perform Supply::value())
+end
+
+pub fn missing_flat_reversed() -> Int
+	handle request_value() with
+		request(),
+		supply(42)
+	end
+end
+
+pub fn missing_nested_reversed() -> Int
+	handle handle request_value() with supply(42) with request()
+end
+
+pub fn missing_flat_outer_argument() -> Int
+	handle 0 with
+		supply(perform Supply::value()),
+		request()
+	end
+end
+
+pub fn missing_nested_outer_argument() -> Int
+	handle handle 0 with request() with supply(perform Supply::value())
+end
