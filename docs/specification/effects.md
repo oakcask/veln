@@ -222,11 +222,14 @@ as they leave handled
 expressions. A cleanup registered inside a handled expression runs before that
 expression's handler frame is restored. If cleanup registered outside an inner
 handled expression performs the same effect, the cleanup observes the outer
-handler. Cleanup registrations and handler frames unwind in reverse lexical
-nesting order. If restoring a handler frame fails while `?` is propagating an
-ordinary `Err` result, the cleanup failure interrupts that result propagation;
-enclosing cleanup registrations and handler frames still unwind. Cleanup
-failure precedence and task-cancellation behavior are specified by
+handler. If a later entry's context exits through `?` propagation or an abrupt
+failure, every earlier frame entered for that list is restored. No later entry
+context or handled body runs, and the surrounding handler is active after the
+list unwinds. Cleanup registrations and handler frames unwind in reverse
+lexical nesting order. If restoring a handler frame fails while `?` is
+propagating an ordinary `Err` result, the cleanup failure interrupts that result
+propagation; enclosing cleanup registrations and handler frames still unwind.
+Cleanup failure precedence and task-cancellation behavior are specified by
 [execution.md](execution.md#runtime-readiness-and-host-boundaries).
 
 Effects in a `begin` body and in every deferred block contribute to the
