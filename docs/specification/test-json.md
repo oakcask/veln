@@ -317,6 +317,10 @@ startup. The
 [`java-modern-underscore-rejected-json`](../../examples/specification/test/java-modern-underscore-rejected-json/)
 case checks the runner-error case record and absence of entry launch when the
 selected runtime reports `25_0`.
+The
+[`multiple-handler-context-failure-restoration`](../../examples/specification/test/multiple-handler-context-failure-restoration/)
+case checks failed contract case records and captured event order while flat
+and nested handler contexts unwind.
 
 ## Usage and limits
 
