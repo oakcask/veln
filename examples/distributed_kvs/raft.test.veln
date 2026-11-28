@@ -1,7 +1,6 @@
 use command as domain
 use raft
 use protocol
-use state as node_state
 use storage
 
 fn expect(condition: Bool, message: String) -> Result<(), String>
@@ -27,27 +26,27 @@ fn accepted(reply: protocol::PeerReply) -> Bool
 	end
 end
 
-fn elect(s: node_state::State, peer: node_state::State) -> node_state::State
+fn elect(s: raft::State::Follower | raft::State::Candidate, peer: raft::State) -> Result<raft::State::Leader, String>
 	let candidate = raft::campaign(s, 10)
 	let sent = raft::vote_request(candidate)
 	let received = raft::incoming(peer, sent, 11)
-	raft::received(candidate, sent, received.reply, 12)
+	as_leader(raft::received(candidate, protocol::complete(sent, received.reply)?, 12))
 end
 
-fn replicate(leader: node_state::State, follower: node_state::State) -> { leader : node_state::State, follower : node_state::State }
-	let sent = raft::replication(leader, node_state::id(follower))
+fn replicate(leader: raft::State::Leader, follower: raft::State) -> Result<{ leader : raft::State::Leader, follower : raft::State }, String>
+	let sent = raft::replication(leader, raft::id(follower))
 	let received = raft::incoming(follower, sent, 20)
-	{ leader: raft::received(leader, sent, received.reply, 21), follower: received.state }
+	Ok({ leader: as_leader(raft::received(leader, protocol::complete(sent, received.reply)?, 21))?, follower: received.state })
 end
 
 test majority_commits_and_reads_execute_in_log_order() -> Result<(), String>
-	let pair = replicate(elect(raft::initial(1, 0), raft::initial(2, 0)), raft::initial(2, 0))
+	let pair = replicate(elect(raft::initial(1, 0), raft::initial(2, 0))?, raft::initial(2, 0))?
 	let proposed = raft::propose(pair.leader, put(1, "61", "62"))
-	let _ = expect(node_state::commit(proposed) == 1 and not dict_contains(node_state::values(proposed), "61"), "unreplicated write became visible")?
-	let written = replicate(proposed, pair.follower)
-	let read = replicate(raft::propose(written.leader, read(2, "61")), written.follower)
-	match dict_get(node_state::replies(read.leader), "7:2")
-		Some(domain::Value(Some(value))) => expect(node_state::commit(read.leader) == 3 and value == "62", "logged read did not see preceding committed write")
+	let _ = expect(raft::commit(proposed) == 1 and not dict_contains(raft::values(proposed), "61"), "unreplicated write became visible")?
+	let written = replicate(proposed, pair.follower)?
+	let read = replicate(raft::propose(written.leader, read(2, "61")), written.follower)?
+	match dict_get(raft::replies(read.leader), "7:2")
+		Some(domain::Value(Some(value))) => expect(raft::commit(read.leader) == 3 and value == "62", "logged read did not see preceding committed write")
 		_ => Err("committed read result is missing")
 	end
 end
@@ -57,46 +56,103 @@ test one_vote_per_term_and_stale_candidate_cannot_win() -> Result<(), String>
 	let voted = raft::incoming(raft::initial(3, 0), raft::vote_request(first), 11)
 	let other = raft::campaign(raft::initial(2, 0), 10)
 	let refused = raft::incoming(voted.state, raft::vote_request(other), 12)
-	let _ = expect(accepted(voted.reply) and not accepted(refused.reply) and option_unwrap_or(node_state::voted_for(refused.state), 0) == 1, "node granted two votes in one term")?
-	let advanced = raft::propose(raft::lead(first), put(1, "61", "62"))
+	let _ = expect(accepted(voted.reply) and not accepted(refused.reply) and option_unwrap_or(raft::voted_for(refused.state), 0) == 1, "node granted two votes in one term")?
+	let advanced = raft::propose(elect(raft::initial(1, 0), raft::initial(2, 0))?, put(1, "61", "62"))
 	let stale = raft::incoming(advanced, raft::vote_request(raft::campaign(other, 30)), 31)
 	expect(not accepted(stale.reply), "candidate missing newer log entries received a vote")
 end
 
 test leader_replacement_preserves_majority_write_and_rejects_old_leader() -> Result<(), String>
-	let ready = replicate(elect(raft::initial(1, 0), raft::initial(2, 0)), raft::initial(2, 0))
+	let ready = replicate(elect(raft::initial(1, 0), raft::initial(2, 0))?, raft::initial(2, 0))?
 	let sent = raft::replication(raft::propose(ready.leader, put(1, "61", "62")), 2)
 	# The follower has the write, but the old leader has not received its ACK.
 	let copied = raft::incoming(ready.follower, sent, 22)
-	let replacement = elect(copied.state, raft::initial(3, 0))
-	let retry = replicate(replacement, ready.leader)
-	let prefix = replicate(retry.leader, retry.follower)
-	let caught = replicate(prefix.leader, prefix.follower)
-	let _ = expect(node_state::commit(caught.leader) >= 3 and option_unwrap_or(dict_get(node_state::values(caught.leader), "61"), "") == "62", "new-term entry did not commit the preserved prefix")?
+	let replacement = elect(as_follower(copied.state)?, raft::initial(3, 0))?
+	let retry = replicate(replacement, ready.leader)?
+	let prefix = replicate(retry.leader, retry.follower)?
+	let caught = replicate(prefix.leader, prefix.follower)?
+	let _ = expect(raft::commit(caught.leader) >= 3 and option_unwrap_or(dict_get(raft::values(caught.leader), "61"), "") == "62", "new-term entry did not commit the preserved prefix")?
 	let rejected = raft::incoming(caught.follower, sent, 50)
-	expect(not accepted(rejected.reply) and node_state::term(rejected.state) > protocol::request_term(sent), "superseded leader was accepted")
+	expect(not accepted(rejected.reply) and raft::term(rejected.state) > protocol::request_term(sent), "superseded leader was accepted")
 end
 
 test duplicate_write_does_not_overwrite_a_later_value() -> Result<(), String>
-	let initial = replicate(elect(raft::initial(1, 0), raft::initial(2, 0)), raft::initial(2, 0))
-	let first = replicate(raft::propose(initial.leader, put(1, "61", "62")), initial.follower)
-	let second = replicate(raft::propose(first.leader, put(2, "61", "63")), first.follower)
-	let duplicate = replicate(raft::propose(second.leader, put(1, "61", "62")), second.follower)
-	expect(option_unwrap_or(dict_get(node_state::values(duplicate.leader), "61"), "") == "63", "retry replayed an already applied write")
+	let initial = replicate(elect(raft::initial(1, 0), raft::initial(2, 0))?, raft::initial(2, 0))?
+	let first = replicate(raft::propose(initial.leader, put(1, "61", "62")), initial.follower)?
+	let second = replicate(raft::propose(first.leader, put(2, "61", "63")), first.follower)?
+	let duplicate = replicate(raft::propose(second.leader, put(1, "61", "62")), second.follower)?
+	expect(option_unwrap_or(dict_get(raft::values(duplicate.leader), "61"), "") == "63", "retry replayed an already applied write")
 end
 
 test journal_round_trip_keeps_vote_and_log_but_rebuilds_application_state() -> Result<(), String>
-	let elected = elect(raft::initial(1, 0), raft::initial(2, 0))
-	let record = storage::record(storage::Journal(".", 1, 19000), node_state::persistent(elected))
+	let elected = elect(raft::initial(1, 0), raft::initial(2, 0))?
+	let record = storage::record(storage::Journal(".", 1, 19000), raft::persistent(elected))
 	match protocol::unpack_journal(protocol::pack_journal(record)?)?
 		protocol::JournalRecord(_, _, delta) => begin
-			let persistent = storage::restore(node_state::empty_persistent(), delta)?
-			let restored = node_state::from_persistent(1, persistent, 0)
-			let follower = match node_state::role(restored)
-				node_state::Follower(_, _) => true
-				_ => false
-			end
-			expect(node_state::term(restored) == node_state::term(elected) and option_unwrap_or(node_state::voted_for(restored), 0) == 1 and node_state::size(restored) == 1 and node_state::commit(restored) == 0 and follower, "journal restored unsafe volatile state or lost durable state")
+			let persistent = raft::restore(raft::empty_persistent(), delta)?
+			let restored = raft::from_persistent(1, persistent, 0)
+			let follower = not raft::is_leader(restored)
+			expect(raft::term(restored) == raft::term(elected) and option_unwrap_or(raft::voted_for(restored), 0) == 1 and raft::size(restored) == 1 and raft::commit(restored) == 0 and follower, "journal restored unsafe volatile state or lost durable state")
 		end
 	end
+end
+
+fn as_leader(s: raft::State) -> Result<raft::State::Leader, String>
+	match s
+		raft::Leader(_) => Ok(s)
+		_ => Err("expected leader after majority confirmation")
+	end
+end
+
+fn as_follower(s: raft::State) -> Result<raft::State::Follower, String>
+	match s
+		raft::Follower(_) => Ok(s)
+		_ => Err("expected follower after append")
+	end
+end
+
+test election_needs_another_vote_and_duplicate_votes_do_not_promote_twice() -> Result<(), String>
+	let candidate = raft::campaign(raft::initial(1, 0), 10)
+	let _ = expect(not raft::is_leader(candidate), "self vote elected a leader")?
+	let sent = raft::vote_request(candidate)
+	let denied = raft::received(candidate, protocol::VoteCompleted(sent, protocol::VoteReply(1, 2, false)), 11)
+	let _ = expect(not raft::is_leader(denied), "rejected vote elected a leader")?
+	let completion = protocol::VoteCompleted(sent, protocol::VoteReply(1, 2, true))
+	let elected = raft::received(denied, completion, 12)
+	let duplicate = raft::received(elected, completion, 13)
+	expect(raft::is_leader(elected) and raft::size(elected) == 1 and raft::size(duplicate) == 1, "majority did not elect exactly once")
+end
+
+test stale_vote_and_same_term_vote_after_append_cannot_elect() -> Result<(), String>
+	let candidate = raft::campaign(raft::initial(1, 0), 10)
+	let sent = raft::vote_request(candidate)
+	let completion = protocol::VoteCompleted(sent, protocol::VoteReply(1, 2, true))
+	let newer = raft::campaign(candidate, 20)
+	let stale = raft::received(newer, completion, 21)
+	let _ = expect(not raft::is_leader(stale) and raft::term(stale) == 2, "stale vote elected in a newer term")?
+	let followed = raft::incoming(candidate, protocol::AppendEntries(1, 3, protocol::LogPosition(0, 0), 0, None), 22)
+	let late = raft::received(followed.state, completion, 23)
+	expect(not raft::is_leader(late) and option_unwrap_or(raft::known_leader(late), 0) == 3, "late vote promoted a follower")
+end
+
+fn rejected_restore(previous: raft::PersistentState, delta: protocol::JournalDelta) -> Result<(), String>
+	match raft::restore(previous, delta)
+		Err(_) => Ok(())
+		Ok(_) => Err("invalid durable transition was accepted")
+	end
+end
+
+test recovery_rejects_holes_invalid_votes_and_nonmonotone_terms() -> Result<(), String>
+	let empty = raft::empty_persistent()
+	let _ = rejected_restore(empty, protocol::JournalDelta(1, None, protocol::LogPosition(-1, 0), None))?
+	let _ = rejected_restore(empty, protocol::JournalDelta(1, None, protocol::LogPosition(2, 1), Some(domain::LogEntry(1, domain::NoOp))))?
+	let _ = rejected_restore(empty, protocol::JournalDelta(1, Some(0), protocol::LogPosition(0, 0), None))?
+	let _ = rejected_restore(empty, protocol::JournalDelta(1, Some(4), protocol::LogPosition(0, 0), None))?
+	let voted = raft::restore(empty, protocol::JournalDelta(2, Some(1), protocol::LogPosition(1, 2), Some(domain::LogEntry(2, domain::NoOp))))?
+	let _ = rejected_restore(voted, protocol::JournalDelta(1, Some(1), protocol::LogPosition(1, 1), Some(domain::LogEntry(1, domain::NoOp))))?
+	let _ = rejected_restore(voted, protocol::JournalDelta(2, None, protocol::LogPosition(1, 2), Some(domain::LogEntry(2, domain::NoOp))))?
+	let _ = rejected_restore(voted, protocol::JournalDelta(2, Some(2), protocol::LogPosition(1, 2), Some(domain::LogEntry(2, domain::NoOp))))?
+	let _ = rejected_restore(voted, protocol::JournalDelta(3, None, protocol::LogPosition(2, 1), Some(domain::LogEntry(1, domain::NoOp))))?
+	let recovered = raft::restore(voted, protocol::JournalDelta(3, Some(2), protocol::LogPosition(2, 3), Some(domain::LogEntry(3, domain::NoOp))))?
+	expect(raft::persistent_term(recovered) == 3 and raft::log_size(raft::persistent_log(recovered)) == 2 and raft::persistent_term(voted) == 2 and raft::log_size(raft::persistent_log(voted)) == 1, "recovery changed its input or rejected a valid transition")
 end

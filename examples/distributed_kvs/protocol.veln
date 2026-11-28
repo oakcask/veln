@@ -179,6 +179,25 @@ pub type PeerReply
 	pub AppendReply(term: Int, node: Int, accepted: Bool, matched: Int)
 end
 
+# Successful exchanges retain the request/reply relationship after decoding.
+pub type PeerCompletion
+	pub VoteCompleted(sent: PeerRequest::RequestVote, reply: PeerReply::VoteReply)
+	pub AppendCompleted(sent: PeerRequest::AppendEntries, reply: PeerReply::AppendReply)
+end
+
+pub fn complete(sent: PeerRequest, reply: PeerReply) -> Result<PeerCompletion, String>
+	match sent
+		RequestVote(_, _, _) => match reply
+			VoteReply(_, _, _) => Ok(VoteCompleted(sent, reply))
+			AppendReply(_, _, _, _) => Err("vote request received an append reply")
+		end
+		AppendEntries(_, _, _, _, _) => match reply
+			AppendReply(_, _, _, _) => Ok(AppendCompleted(sent, reply))
+			VoteReply(_, _, _) => Err("append request received a vote reply")
+		end
+	end
+end
+
 pub type Request
 	pub Peer(request: PeerRequest)
 	pub Client(request: domain::ClientRequest, forwarded: Bool)

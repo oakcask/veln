@@ -1,6 +1,5 @@
-use command as domain
 use protocol
-use state as node_state
+use raft
 
 fn host_unit(value: Result<(), FsError>) -> Result<(), String>
 	match value
@@ -33,59 +32,35 @@ fn filename(journal: Journal, serial: Int) -> Path
 	end
 end
 
-pub fn record(journal: Journal, persistent: node_state::PersistentState) -> protocol::JournalRecord
+pub fn record(journal: Journal, persistent: raft::PersistentState) -> protocol::JournalRecord
 	match journal
 		Journal(_, node, base_port) => begin
-			let log = node_state::persistent_log(persistent)
-			let size = node_state::log_size(log)
-			protocol::JournalRecord(node, base_port, protocol::JournalDelta(node_state::persistent_term(persistent), node_state::persistent_vote(persistent), protocol::LogPosition(size, node_state::log_term(log, size)), node_state::log_entry(log, size)))
+			let log = raft::persistent_log(persistent)
+			let size = raft::log_size(log)
+			protocol::JournalRecord(node, base_port, protocol::JournalDelta(raft::persistent_term(persistent), raft::persistent_vote(persistent), protocol::LogPosition(size, raft::log_term(log, size)), raft::log_entry(log, size)))
 		end
 	end
 end
 
 # Completed record writes cover process termination, not machine power loss.
-pub fn save(journal: Journal, serial: Int, persistent: node_state::PersistentState) -> Result<(), String> effects [fs]
+pub fn save(journal: Journal, serial: Int, persistent: raft::PersistentState) -> Result<(), String> effects [fs]
 	let bytes = protocol::pack_journal(record(journal, persistent))?
 	host_unit(fs::write_string(filename(journal, serial), protocol::hex(protocol::view(bytes)?)?))
 end
 
-pub fn restore(previous: node_state::PersistentState, delta: protocol::JournalDelta) -> Result<node_state::PersistentState, String>
-	match delta
-		protocol::JournalDelta(term, voted_for, protocol::LogPosition(size, last_term), entry) => begin
-			let log = node_state::persistent_log(previous)
-			if term < node_state::persistent_term(previous) or size > node_state::log_size(log) + 1 or size == 0 and last_term != 0 or size > 0 and (last_term == 0 or last_term > term)
-				Err("invalid journal transition")
-			else
-				match entry
-					None => if size == 0
-						Ok(node_state::PersistentState(term, voted_for, node_state::ReplicatedLog(0, {})))
-					else
-						Err("journal entry is missing")
-					end
-					Some(item) => if size > 0 and domain::entry_term(item) == last_term
-						Ok(node_state::PersistentState(term, voted_for, node_state::append_log(node_state::truncate_log(log, size - 1), item)))
-					else
-						Err("journal entry does not match its position")
-					end
-				end
-			end
-		end
-	end
-end
-
-fn recover_record(journal: Journal, persistent: node_state::PersistentState, record: protocol::JournalRecord) -> Result<node_state::PersistentState, String>
+fn recover_record(journal: Journal, persistent: raft::PersistentState, record: protocol::JournalRecord) -> Result<raft::PersistentState, String>
 	match journal
 		Journal(_, node, base_port) => match record
 			protocol::JournalRecord(saved_node, saved_port, delta) => if saved_node != node or saved_port != base_port
 				Err("journal belongs to a different node or cluster port configuration")
 			else
-				restore(persistent, delta)
+				raft::restore(persistent, delta)
 			end
 		end
 	end
 end
 
-fn recover_from(journal: Journal, serial: Int, persistent: node_state::PersistentState) -> Result<{ persistent : node_state::PersistentState, serial : Int }, String> effects [fs]
+fn recover_from(journal: Journal, serial: Int, persistent: raft::PersistentState) -> Result<{ persistent : raft::PersistentState, serial : Int }, String> effects [fs]
 	if not host_bool(fs::exists(filename(journal, serial)))?
 		Ok({ persistent: persistent, serial: serial })
 	else
@@ -108,6 +83,6 @@ fn decode_record(text: String) -> Result<protocol::JournalRecord, String>
 	protocol::unpack_journal(byte_chunk_from_hex(text)?)
 end
 
-pub fn recover(journal: Journal) -> Result<{ persistent : node_state::PersistentState, serial : Int }, String> effects [fs]
-	recover_from(journal, 0, node_state::empty_persistent())
+pub fn recover(journal: Journal) -> Result<{ persistent : raft::PersistentState, serial : Int }, String> effects [fs]
+	recover_from(journal, 0, raft::empty_persistent())
 end

@@ -97,3 +97,24 @@ test peer_codecs_preserve_vote_and_replication_coordinates() -> Result<(), Strin
 		_ => Err("append reply lost its matched index")
 	end
 end
+
+test completion_boundary_rejects_mismatched_decoded_replies() -> Result<(), String>
+	let vote = protocol::RequestVote(1, 1, protocol::LogPosition(0, 0))
+	let append = protocol::AppendEntries(1, 1, protocol::LogPosition(0, 0), 0, None)
+	let _ = match protocol::complete(vote, protocol::AppendReply(1, 2, true, 1))
+		Err(_) => Ok(())
+		Ok(_) => Err("vote completed with append reply")
+	end?
+	let _ = match protocol::complete(append, protocol::VoteReply(1, 2, true))
+		Err(_) => Ok(())
+		Ok(_) => Err("append completed with vote reply")
+	end?
+	let _ = match protocol::complete(vote, protocol::VoteReply(1, 2, true))?
+		protocol::VoteCompleted(_, _) => Ok(())
+		_ => Err("vote completion changed family")
+	end?
+	match protocol::complete(append, protocol::AppendReply(1, 2, true, 1))?
+		protocol::AppendCompleted(_, _) => Ok(())
+		_ => Err("append completion changed family")
+	end
+end

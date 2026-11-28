@@ -152,29 +152,54 @@ log entries and application replies as named ADTs. A log entry contains its
 term and command; a cached reply contains the application result rather than
 a transport packet.
 
-[state.veln](state.veln) groups the Raft state by lifetime and responsibility:
+[raft.veln](raft.veln) owns the state representation and pure consensus and
+application transitions in one module. Its public state variants carry distinct
+opaque payloads. An importing module can inspect the role and call read-only
+queries, but cannot construct the payloads, persistent state or log directly.
+It cannot replace the commit index or application state through setters.
 
 | Type | Contents |
 | --- | --- |
-| `State` | node ID, persistent state, volatile state, application state |
-| `PersistentState` | term, optional vote, replicated log |
-| `ReplicatedLog` | last index and typed log entries |
-| `VolatileState` | commit index and role |
-| `Role` | follower leader hint/deadline, candidate votes/deadline, or leader peer progress |
-| `PeerProgress` | next index and matched index for one peer |
-| `ApplicationState` | applied index, KVS values and cached application replies |
+| `State` | `Follower(FollowerState)`, `Candidate(CandidateState)` or `Leader(LeaderState)` |
+| `FollowerState` | common node data, leader hint and election deadline |
+| `CandidateState` | common node data, votes and election deadline |
+| `LeaderState` | common node data and peer progress |
+| `NodeData` | private node ID, persistent state, commit index and application state |
+| `PersistentState` | term, optional vote and replicated log; private constructor |
+| `ReplicatedLog` | last index and contiguous typed entries; private constructor |
+| `PeerProgress` | private next index and matched index for one peer |
+| `ApplicationState` | private applied index, KVS values and cached replies |
 
-The constructors and focused access/update functions keep these shapes out of
-function signatures. Role-specific data lives in its matching variant.
-[raft.veln](raft.veln) owns pure consensus and application transitions over
-`State`, typed peer requests and typed peer replies. Small local records still
-name multi-result boundaries, such as a next state and reply.
+Variant-refined signatures restrict which roles can perform each operation.
+The server matches the state directly; Veln narrows that same value in each arm.
+
+| Operation | Accepted state | Result |
+| --- | --- | --- |
+| `initial`, `from_persistent` | node configuration and persistent state | `State::Follower` |
+| `campaign` | `State::Follower` or `State::Candidate` | `State::Candidate` |
+| `vote_request` | `State::Candidate` | `PeerRequest::RequestVote` |
+| `propose` | `State::Leader` | `State::Leader` |
+| `replication` | `State::Leader` | `PeerRequest::AppendEntries` |
+| `incoming`, `received` | any `State` | next state, which may change role |
+
+Leader promotion is private and requires a candidate. Its caller checks the
+majority before promoting. Log continuity, term and vote rules, and
+`last_applied <= commit_index <= last_index` remain runtime invariants enforced
+by consensus and checked recovery. The ADT restrictions do not constitute a
+proof of those numeric or distributed properties. Recovery accepts journal
+deltas through `raft::restore`; it rejects holes, decreasing terms, invalid
+voters, a changed vote in the same term, and inconsistent entry positions.
 
 [protocol.veln](protocol.veln) translates between these domain values and the
 binary schema. Numeric tags and the overloaded wire fields `a`, `b` and `c`
 stay inside that codec. The reply decoder receives the original request so
 an empty successful Get remains distinct from a successful Put or Delete,
-although their existing wire reply shapes overlap.
+although their existing wire reply shapes overlap. `PeerCompletion` retains
+successful exchanges as `VoteCompleted(RequestVote, VoteReply)` or
+`AppendCompleted(AppendEntries, AppendReply)` using variant-refined payloads.
+The transport validates a decoded pair before creating a completion. The actor
+and consensus boundary consume that completion, so a mismatched pair cannot
+be queued as a successful exchange.
 
 [server.veln](server.veln) owns one state loop, bounded event channels,
 independent per-peer RPC tasks and at most 32 concurrent inbound connections.
@@ -194,7 +219,7 @@ example, not a production storage service.
 ## Verification
 
 Build the CLI, then run the example's companion tests from its directory and
-the real-process integration test from the repository root:
+the source-boundary and real-process integration tests from the repository root:
 
 ```sh
 cargo build --locked -p veln-cli
@@ -213,7 +238,14 @@ bash ../../scripts/agent-run ../../target/debug/veln test .
 
 Companion tests cover a binary wire vector, invalid UTF-8 and framing,
 maximum-size strings, vote exclusion, log ordering, leader replacement,
-duplicate requests and durable-state reconstruction. Integration tests use
+duplicate requests, late votes after role changes and checked durable-state
+reconstruction. [types.test.mjs](types.test.mjs) checks a valid importing module
+and compile rejection for wrong-role operations, direct state construction,
+unchecked updates and mismatched RPC completions. It uses ordinary imports so
+exact-companion private access cannot hide a public API regression. Both source
+checks and integration tests run through `pnpm test:example:kvs`.
+
+Integration tests use
 three real Veln processes and an independently encoded JavaScript client.
 They cover all ingress nodes, malformed and fragmented HTTP/2 bodies, a paused
 leader, a killed leader, partial-tail recovery, complete process restart,
