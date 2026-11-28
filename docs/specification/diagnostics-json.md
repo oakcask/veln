@@ -405,8 +405,9 @@ reports `parse.float_literal` at the complete literal span. The message
 distinguishes a value that is too large for a finite `Float` from a value that
 is too small for a nonzero `Float`. Details use `float_literal` as the parser
 context, retain the complete Float token as `unexpected`, and name the required
-finite or nonzero outcome in `expected`. Recovery uses `none`, drops no tokens,
-and supplies no repair candidate. The checked
+outcome in `expected`: overflow uses `["finite Float value"]`, and nonzero
+underflow uses `["nonzero Float value"]`. Recovery uses `none`, drops no
+tokens, and supplies no repair candidate. The checked
 [`float literal range errors`](../../examples/specification/check/float-literal-range-errors/)
 case fixes the human messages.
 The checked

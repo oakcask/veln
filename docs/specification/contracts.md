@@ -60,7 +60,11 @@ between Float literals use their admitted binary64 values. Equality and
 disequality compare bits, including the two zero bit patterns, while ordering
 compares the finite values. Unsupported Float arithmetic, mixed numeric
 comparisons, and symbol-dependent Float comparisons remain runtime-required.
-Runtime boxed equality likewise keeps `Int` and `Float` values distinct and
+Top-level `and` and `or` can combine directly proven Float-literal
+comparisons. A predicate that contains both a Float literal and an integer
+remainder remains runtime-required; the classifier does not combine the
+Float-literal path with remainder folding. Runtime boxed equality likewise
+keeps `Int` and `Float` values distinct and
 distinguishes the two zero bit patterns, as Float-literal patterns do. A
 nonzero literal that would round to infinity or zero fails during parsing and
 never becomes a contract obligation. The shared source admission and
