@@ -54,8 +54,8 @@ also states it.
   canonical formatting; parser/backend/formatter checks establish completion.
 - [Standard-library Numeric Constants](numeric-constants.md): implement typed
   module values for `Int` bounds and `Float` limits and special values through
-  the specified narrow scalar-data boundary; construction and non-finite
-  comparison checks are completion requirements.
+  the specified narrow scalar-data boundary; construction, forwarding, API,
+  and discovery checks are completion requirements.
 - [Floating-point Exponent Literals](floating-point-literals.md): implement
   decimal and hexadecimal exponent notation with the specified token,
   conversion-extension, and tooling rules on the implemented shared

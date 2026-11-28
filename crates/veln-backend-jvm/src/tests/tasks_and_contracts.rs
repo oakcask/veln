@@ -156,7 +156,6 @@ fn bytecode_backend_keeps_unsound_float_contracts_at_runtime() {
             "checked(9007199254740992.0)",
         ),
         ("9007199254740993 == 9007199254740992.0", "checked(0.0)"),
-        ("-0.0 == 0.0", "checked(0.0)"),
     ];
     for (predicate, call) in cases {
         let ir = lower_to_ir(&format!(
@@ -185,6 +184,176 @@ fn bytecode_backend_keeps_unsound_float_contracts_at_runtime() {
             "{predicate}: {stderr}"
         );
     }
+}
+
+#[test]
+fn bytecode_backend_enforces_scalar_signed_zero_contracts() {
+    let passing_ir = lower_to_ir(concat!(
+        "fn literal() -> Float\n",
+        "require -0.0 == 0.0\n",
+        "  0.0\n",
+        "end\n",
+        "fn parameterized(left: Float, right: Float) -> Float\n",
+        "require left == right\n",
+        "  left\n",
+        "end\n",
+        "pub fn main() -> ()\n",
+        "  literal()\n",
+        "  parameterized(-0.0, 0.0)\n",
+        "  ()\n",
+        "end\n",
+    ));
+    assert_eq!(
+        passing_ir.functions[0].contracts[0].obligation_status,
+        veln_core::ContractObligationStatus::StaticallyProven
+    );
+    assert_eq!(
+        passing_ir.functions[1].contracts[0].obligation_status,
+        veln_core::ContractObligationStatus::RuntimeRequired
+    );
+    let failing_ir = lower_to_ir(concat!(
+        "fn rejected() -> Float\n",
+        "require -0.0 != 0.0\n",
+        "  0.0\n",
+        "end\n",
+        "pub fn main() -> ()\n",
+        "  rejected()\n",
+        "  ()\n",
+        "end\n",
+    ));
+    assert_eq!(
+        failing_ir.functions[0].contracts[0].obligation_status,
+        veln_core::ContractObligationStatus::RuntimeRequired
+    );
+    let failing_predicate = failing_ir.functions[0].contracts[0].predicate.clone();
+
+    let passing_program = generate_classfiles_with_entry(&passing_ir, "main");
+    let Some(passing_output) = run_jvm_program_when_java_is_available(
+        "bytecode-signed-zero-contract-success",
+        &passing_program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        passing_output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&passing_output.stderr)
+    );
+
+    let failing_program = generate_classfiles_with_entry(&failing_ir, "main");
+    let Some(failing_output) = run_jvm_program_when_java_is_available(
+        "bytecode-signed-zero-contract-failure",
+        &failing_program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(!failing_output.status.success());
+    let stderr = String::from_utf8_lossy(&failing_output.stderr);
+    assert!(
+        stderr.contains(&format!("contract failure: require `{failing_predicate}`")),
+        "{stderr}"
+    );
+}
+
+#[test]
+fn bytecode_backend_keeps_symbol_dependent_float_equality_at_runtime() {
+    let ir = lower_to_ir(concat!(
+        "fn reflexive(value: Float) -> Float\n",
+        "require value == value\n",
+        "  value\n",
+        "end\n",
+        "pub fn main() -> ()\n",
+        "  reflexive(0.0 / 0.0)\n",
+        "  ()\n",
+        "end\n",
+    ));
+    assert_eq!(
+        ir.functions[0].contracts[0].obligation_status,
+        veln_core::ContractObligationStatus::RuntimeRequired
+    );
+    let predicate = ir.functions[0].contracts[0].predicate.clone();
+
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "bytecode-symbol-dependent-float-contract",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(&format!("contract failure: require `{predicate}`")),
+        "{stderr}"
+    );
+}
+
+#[test]
+fn bytecode_backend_enforces_float_equality_from_record_returning_calls() {
+    let passing_ir = lower_to_ir(concat!(
+        "fn boxed() -> {inner: Float}\n",
+        "  {inner: 1.5}\n",
+        "end\n",
+        "fn checked() -> ()\n",
+        "require boxed().inner == boxed().inner\n",
+        "  ()\n",
+        "end\n",
+        "pub fn main() -> ()\n",
+        "  checked()\n",
+        "end\n",
+    ));
+    assert_eq!(
+        passing_ir.functions[1].contracts[0].obligation_status,
+        veln_core::ContractObligationStatus::RuntimeRequired
+    );
+    let passing_program = generate_classfiles_with_entry(&passing_ir, "main");
+    let Some(passing_output) = run_jvm_program_when_java_is_available(
+        "bytecode-record-float-contract-success",
+        &passing_program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        passing_output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&passing_output.stderr)
+    );
+
+    let failing_ir = lower_to_ir(concat!(
+        "fn boxed() -> {inner: Float}\n",
+        "  {inner: 0.0 / 0.0}\n",
+        "end\n",
+        "fn checked() -> ()\n",
+        "require boxed().inner == boxed().inner\n",
+        "  ()\n",
+        "end\n",
+        "pub fn main() -> ()\n",
+        "  checked()\n",
+        "end\n",
+    ));
+    assert_eq!(
+        failing_ir.functions[1].contracts[0].obligation_status,
+        veln_core::ContractObligationStatus::RuntimeRequired
+    );
+    let failing_predicate = failing_ir.functions[1].contracts[0].predicate.clone();
+    let failing_program = generate_classfiles_with_entry(&failing_ir, "main");
+    let Some(failing_output) = run_jvm_program_when_java_is_available(
+        "bytecode-record-nan-contract-failure",
+        &failing_program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(!failing_output.status.success());
+    let stderr = String::from_utf8_lossy(&failing_output.stderr);
+    assert!(
+        stderr.contains(&format!("contract failure: require `{failing_predicate}`")),
+        "{stderr}"
+    );
 }
 
 #[test]

@@ -127,72 +127,167 @@ impl<'a> CoreLowerer<'a> {
         let contracts = self.function.contracts.clone();
         contracts
             .iter()
-            .map(|contract| {
-                for token in &contract.predicate_tokens {
-                    if let Some(Err(error)) = token.float_bits {
-                        self.invalid_float_literal(error, &token.source_span);
-                    }
-                }
-                let float_literals = contract
-                    .predicate_tokens
-                    .iter()
-                    .filter_map(|token| {
-                        let bits = token.float_bits?.ok()?;
-                        Some(CoreFloatLiteral {
-                            spelling: contract.text.get(token.text_range.clone())?.to_string(),
-                            bits,
-                        })
-                    })
-                    .collect::<Vec<_>>();
-                let indexed_float_literals = float_literals
-                    .iter()
-                    .map(|literal| (literal.spelling.clone(), literal.bits))
-                    .collect::<HashMap<_, _>>();
-                let obligation_status =
-                    if contract_predicate_is_statically_true_with_float_literals(
-                        &contract.text,
-                        &contract.remainder_spans,
-                        &indexed_float_literals,
-                    ) {
-                        ContractObligationStatus::StaticallyProven
-                    } else {
-                        ContractObligationStatus::RuntimeRequired
-                    };
-                let callsite_calls = contract
-                    .call_callee_spans
-                    .iter()
-                    .filter_map(|(callee, span)| {
-                        let call = self.contract_callsite_abi(callee)?;
-                        if self.block_unsupported_callsite_runtime
-                            && self.function.callsite.is_none()
-                            && obligation_status == ContractObligationStatus::RuntimeRequired
-                        {
-                            self.unsupported_callsite_contract_call(contract.node_id, span, callee);
-                        }
-                        Some(call)
-                    })
-                    .collect::<Vec<_>>();
-                CoreContract {
-                    node_id: contract.node_id,
-                    kind: contract.kind,
-                    predicate: contract.text.clone(),
-                    float_literals,
-                    remainder_spans: contract.remainder_spans.clone(),
-                    callsite_calls,
-                    obligation_status,
-                    span: contract.span.clone(),
-                }
+            .map(|contract| self.lower_contract(contract))
+            .collect()
+    }
+
+    fn lower_contract(&mut self, contract: &veln_ast::Contract) -> CoreContract {
+        self.validate_contract_float_literals(contract);
+        let float_literals = self.contract_float_literals(contract);
+        let indexed_float_literals = float_literals
+            .iter()
+            .map(|literal| (literal.spelling.clone(), literal.bits))
+            .collect::<HashMap<_, _>>();
+        let contract_bindings = self.contract_bindings(contract.kind);
+        let obligation_status = if contract_predicate_is_statically_true_with_float_literals(
+            &contract.text,
+            &contract.remainder_spans,
+            &indexed_float_literals,
+            &contract_bindings,
+            &|callee| self.contract_call_return_type(callee),
+        ) {
+            ContractObligationStatus::StaticallyProven
+        } else {
+            ContractObligationStatus::RuntimeRequired
+        };
+        CoreContract {
+            node_id: contract.node_id,
+            kind: contract.kind,
+            predicate: contract.text.clone(),
+            float_literals,
+            remainder_spans: contract.remainder_spans.clone(),
+            callsite_calls: self.contract_callsite_calls(contract, obligation_status),
+            obligation_status,
+            span: contract.span.clone(),
+        }
+    }
+
+    fn validate_contract_float_literals(&mut self, contract: &veln_ast::Contract) {
+        for token in &contract.predicate_tokens {
+            if let Some(Err(error)) = token.float_bits {
+                self.invalid_float_literal(error, &token.source_span);
+            }
+        }
+    }
+
+    fn contract_float_literals(&self, contract: &veln_ast::Contract) -> Vec<CoreFloatLiteral> {
+        contract
+            .predicate_tokens
+            .iter()
+            .filter_map(|token| {
+                let bits = token.float_bits?.ok()?;
+                Some(CoreFloatLiteral {
+                    spelling: contract.text.get(token.text_range.clone())?.to_string(),
+                    bits,
+                })
             })
             .collect()
     }
 
-    fn contract_callsite_abi(&self, callee: &str) -> Option<CoreContractCall> {
+    fn contract_callsite_calls(
+        &mut self,
+        contract: &veln_ast::Contract,
+        obligation_status: ContractObligationStatus,
+    ) -> Vec<CoreContractCall> {
+        contract
+            .call_callee_spans
+            .iter()
+            .filter_map(|(callee, span)| {
+                let call = self.contract_callsite_abi(callee)?;
+                if self.block_unsupported_callsite_runtime
+                    && self.function.callsite.is_none()
+                    && obligation_status == ContractObligationStatus::RuntimeRequired
+                {
+                    self.unsupported_callsite_contract_call(contract.node_id, span, callee);
+                }
+                Some(call)
+            })
+            .collect()
+    }
+
+    fn contract_bindings(&self, kind: veln_ast::ContractKind) -> Vec<Binding> {
+        let signature = self.environment.function_for(self.function);
+        let mut bindings = self
+            .function
+            .params
+            .iter()
+            .enumerate()
+            .map(|(index, param)| self.contract_parameter_binding(param, index, signature))
+            .collect::<Vec<_>>();
+        if self.function.callsite.is_some() {
+            bindings.push(Binding::builtin_callsite());
+        }
+        if kind == veln_ast::ContractKind::Ensure
+            && let Some(result) = &self.function.return_binding
+        {
+            bindings.push(self.contract_result_binding(result, signature));
+        }
+        bindings
+    }
+
+    fn contract_parameter_binding(
+        &self,
+        param: &veln_ast::Param,
+        index: usize,
+        signature: Option<&crate::types::signatures::FunctionSignature>,
+    ) -> Binding {
+        let annotation_type = || {
+            param
+                .ty
+                .as_deref()
+                .and_then(|annotation| parse_type_annotation(annotation).ok())
+        };
+        let ty = if param.is_variadic {
+            annotation_type()
+                .or_else(|| signature.and_then(|value| value.variadic.clone()))
+                .map(Type::list)
+                .unwrap_or(Type::Unknown)
+        } else {
+            signature
+                .and_then(|value| value.params.get(index).cloned())
+                .or_else(annotation_type)
+                .unwrap_or(Type::Unknown)
+        };
+        Binding::new(param.name.clone(), ty)
+    }
+
+    fn contract_result_binding(
+        &self,
+        result: &veln_ast::ResultBinding,
+        signature: Option<&crate::types::signatures::FunctionSignature>,
+    ) -> Binding {
+        let ty = signature
+            .map(|value| value.return_type.clone())
+            .or_else(|| {
+                self.function
+                    .return_type
+                    .as_deref()
+                    .and_then(|annotation| parse_type_annotation(annotation).ok())
+            })
+            .unwrap_or(Type::Unknown);
+        Binding::new(result.name.clone(), ty)
+    }
+
+    fn contract_call_return_type(&self, callee: &str) -> Option<Type> {
         let segments = callee
             .split("::")
             .filter(|segment| !segment.is_empty())
             .map(str::to_string)
             .collect::<Vec<_>>();
-        let signature = match segments.as_slice() {
+        self.contract_function_signature(&segments)
+            .map(|signature| signature.return_type.clone())
+            .or_else(|| match segments.as_slice() {
+                [name] => prelude_signature(name, None).map(|(_, return_type)| return_type),
+                _ => qualified_prelude_signature(&segments, None)
+                    .map(|(_, _, return_type)| return_type),
+            })
+    }
+
+    fn contract_function_signature(
+        &self,
+        segments: &[String],
+    ) -> Option<&crate::types::signatures::FunctionSignature> {
+        match segments {
             [name] => self
                 .environment
                 .unqualified_function_in_owner(
@@ -202,12 +297,22 @@ impl<'a> CoreLowerer<'a> {
                 )
                 .found(),
             _ => self.environment.function_path_in_owner(
-                &segments,
+                segments,
                 self.function.module_name.as_deref(),
                 self.function.package_name.as_deref(),
             ),
-        };
-        let signature = signature.filter(|signature| signature.callsite)?;
+        }
+    }
+
+    fn contract_callsite_abi(&self, callee: &str) -> Option<CoreContractCall> {
+        let segments = callee
+            .split("::")
+            .filter(|segment| !segment.is_empty())
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        let signature = self
+            .contract_function_signature(&segments)
+            .filter(|signature| signature.callsite)?;
         Some(CoreContractCall {
             callee: callee.to_string(),
             target: signature.target_name.clone(),

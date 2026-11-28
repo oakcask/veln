@@ -1,0 +1,57 @@
+# Scalar Float comparison follows binary64 behavior for non-finite values.
+fn bool_text(value: Bool) -> String
+	if value
+		"true"
+	else
+		"false"
+	end
+end
+
+fn emit(value: Bool) -> () effects [stdio]
+	stdio::println(bool_text(value))
+end
+
+pub fn main() -> () effects [stdio]
+	let nan: Float = 0.0 / 0.0
+	let positive_infinity: Float = 1.0 / 0.0
+	let negative_infinity: Float = -1.0 / 0.0
+	let finite: Float = 1.5
+
+	# Equality and inequality use scalar comparison, not boxed identity.
+	emit(not (nan == nan))
+	emit(nan != nan)
+	emit(not (nan == finite))
+	emit(not (finite == nan))
+	emit(nan != positive_infinity)
+	emit(positive_infinity != nan)
+	emit(positive_infinity == positive_infinity)
+	emit(negative_infinity == negative_infinity)
+	emit(positive_infinity != negative_infinity)
+	emit(0.0 == -0.0)
+	emit(not (0.0 != -0.0))
+
+	# Every ordered operator is false with NaN in either operand position.
+	emit(not (nan < finite))
+	emit(not (finite < nan))
+	emit(not (nan <= finite))
+	emit(not (finite <= nan))
+	emit(not (nan > finite))
+	emit(not (finite > nan))
+	emit(not (nan >= finite))
+	emit(not (finite >= nan))
+	emit(not (nan < positive_infinity))
+	emit(not (positive_infinity < nan))
+	emit(not (nan <= negative_infinity))
+	emit(not (negative_infinity <= nan))
+	emit(not (nan > negative_infinity))
+	emit(not (negative_infinity > nan))
+	emit(not (nan >= positive_infinity))
+	emit(not (positive_infinity >= nan))
+
+	# The ordinary binary64 order still applies when neither operand is NaN.
+	emit(negative_infinity < finite)
+	emit(finite < positive_infinity)
+	emit(negative_infinity < positive_infinity)
+	emit(positive_infinity <= positive_infinity)
+	emit(negative_infinity >= negative_infinity)
+end

@@ -161,17 +161,21 @@
     }
 
     public static Object equal(Object left, Object right) {
-        return Boolean.valueOf(java.util.Objects.equals(
-            diagnosticResultValue(left),
-            diagnosticResultValue(right)
-        ));
+        Object leftValue = diagnosticResultValue(left);
+        Object rightValue = diagnosticResultValue(right);
+        if (isFloating(leftValue) && isFloating(rightValue)) {
+            return Boolean.valueOf(asDouble(leftValue) == asDouble(rightValue));
+        }
+        return Boolean.valueOf(java.util.Objects.equals(leftValue, rightValue));
     }
 
     public static Object notEqual(Object left, Object right) {
-        return Boolean.valueOf(!java.util.Objects.equals(
-            diagnosticResultValue(left),
-            diagnosticResultValue(right)
-        ));
+        Object leftValue = diagnosticResultValue(left);
+        Object rightValue = diagnosticResultValue(right);
+        if (isFloating(leftValue) && isFloating(rightValue)) {
+            return Boolean.valueOf(asDouble(leftValue) != asDouble(rightValue));
+        }
+        return Boolean.valueOf(!java.util.Objects.equals(leftValue, rightValue));
     }
 
     public static Object less(Object left, Object right) {

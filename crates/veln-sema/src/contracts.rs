@@ -73,13 +73,117 @@ pub(crate) fn contract_predicate_is_statically_true_with_float_literals(
     predicate: &str,
     remainders: &[PredicateRemainder],
     float_literals: &HashMap<String, u64>,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
 ) -> bool {
-    if float_literals.is_empty() {
-        return contract_predicate_is_statically_true_with_remainders(predicate, remainders);
+    let is_statically_true = if float_literals.is_empty() {
+        contract_predicate_is_statically_true_with_remainders(predicate, remainders)
+    } else {
+        remainders.is_empty()
+            && static_boolean_value_with_float_literals(predicate, float_literals)
+                == StaticBooleanValue::True
+    };
+    is_statically_true
+        && !predicate_has_symbol_dependent_float_comparison(
+            predicate,
+            float_literals,
+            bindings,
+            call_type,
+        )
+}
+
+fn predicate_has_symbol_dependent_float_comparison(
+    predicate: &str,
+    float_literals: &HashMap<String, u64>,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> bool {
+    let has_float_binding = bindings
+        .iter()
+        .any(|binding| type_contains_float(&binding.ty));
+    let has_float_call = contract_calls(predicate).iter().any(|call| {
+        call_type(&call.callee)
+            .as_ref()
+            .is_some_and(type_contains_float)
+    });
+    if !has_float_binding && !has_float_call {
+        return false;
     }
-    remainders.is_empty()
-        && static_boolean_value_with_float_literals(predicate, float_literals)
-            == StaticBooleanValue::True
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    for keyword in ["or", "and"] {
+        let clauses = split_top_level_keyword(predicate, keyword);
+        if clauses.len() > 1 {
+            return clauses.into_iter().any(|clause| {
+                predicate_has_symbol_dependent_float_comparison(
+                    clause,
+                    float_literals,
+                    bindings,
+                    call_type,
+                )
+            });
+        }
+    }
+    if let Some(inner) = whole_negated_predicate_inner(predicate) {
+        return predicate_has_symbol_dependent_float_comparison(
+            inner,
+            float_literals,
+            bindings,
+            call_type,
+        );
+    }
+    for operators in [&["==", "!="][..], &["<=", ">=", "<", ">"][..]] {
+        let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
+        else {
+            continue;
+        };
+        let has_float_operand = [left, right].into_iter().any(|operand| {
+            predicate_type_with_calls(operand, bindings, call_type) == Some(Type::float())
+        });
+        if has_float_operand
+            && !(indexed_float_literal_bits(left, float_literals).is_some()
+                && indexed_float_literal_bits(right, float_literals).is_some())
+        {
+            let strict_self_comparison = matches!(operator, "<" | ">")
+                && compact_predicate_text(left) == compact_predicate_text(right);
+            if !strict_self_comparison {
+                return true;
+            }
+        }
+        return predicate_has_symbol_dependent_float_comparison(
+            left,
+            float_literals,
+            bindings,
+            call_type,
+        ) || predicate_has_symbol_dependent_float_comparison(
+            right,
+            float_literals,
+            bindings,
+            call_type,
+        );
+    }
+    false
+}
+
+fn type_contains_float(ty: &Type) -> bool {
+    match ty {
+        Type::Unknown => false,
+        Type::Named { name, args, .. } | Type::VariantRefinement { name, args, .. } => {
+            (name == "Float" && args.is_empty()) || args.iter().any(type_contains_float)
+        }
+        Type::Record(fields) => fields
+            .iter()
+            .any(|(_, field_type)| type_contains_float(field_type)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params.iter().any(type_contains_float)
+                || variadic.as_deref().is_some_and(type_contains_float)
+                || type_contains_float(return_type)
+        }
+    }
 }
 
 fn static_boolean_value_with_float_literals(
@@ -120,13 +224,15 @@ fn static_boolean_value_with_float_literals(
         ) else {
             return static_non_float_boolean_value(predicate);
         };
+        let left = f64::from_bits(left_bits);
+        let right = f64::from_bits(right_bits);
         let value = match operator {
-            "==" => left_bits == right_bits,
-            "!=" => left_bits != right_bits,
-            "<" => f64::from_bits(left_bits) < f64::from_bits(right_bits),
-            "<=" => f64::from_bits(left_bits) <= f64::from_bits(right_bits),
-            ">" => f64::from_bits(left_bits) > f64::from_bits(right_bits),
-            ">=" => f64::from_bits(left_bits) >= f64::from_bits(right_bits),
+            "==" => left == right,
+            "!=" => left != right,
+            "<" => left < right,
+            "<=" => left <= right,
+            ">" => left > right,
+            ">=" => left >= right,
             _ => return StaticBooleanValue::Unknown,
         };
         return if value {

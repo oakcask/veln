@@ -9,8 +9,8 @@ Expose the principal bounds and special values of `Int` and `Float` through
 typed immutable standard-library values. Users should not need to copy large
 decimal literals or manufacture infinity through arithmetic. This is planned
 behavior and a Ready implementation target. The public values, scalar-data
-admission boundary, and comparison outcomes below define its contract;
-construction and comparison tests are implementation acceptance.
+admission boundary, and encodings below define its contract; construction and
+API tests are implementation acceptance.
 
 ## Current boundary and purpose
 
@@ -110,22 +110,17 @@ numeric widths, and a public bit-conversion API are outside this delivery.
 
 ### Special-value observations
 
-For an ordinary finite `Float` `x`,
-`float::neg_infinity < x` and `x < float::infinity` are true.
-Positive and negative infinity compare equal to themselves and unequal to
-each other. For `n = float::nan`, `n == n` is false and `n != n` is true.
-Equality with any other float is false; every ordered comparison involving
-NaN is false, including comparison with itself or infinity. These rules apply
-to ordinary scalar operators, not structural container equality or sorting.
-They are delivery requirements to audit against current runtime behavior,
-not claims that all current operators already satisfy them.
+Scalar `Float` comparison already follows the fixed binary64 contract in the
+[type specification](../specification/types.md#operators-and-diagnostics).
+When the proposed constants are delivered, they participate in those existing
+operators without defining a separate comparison mode.
 
 A NaN read must not throw or require handling an effect. NaN sign, payload,
 object identity, and propagation through arithmetic are not guaranteed.
-Public classification functions are not a prerequisite: `x != x` can detect
-NaN under the scalar comparison contract above. Text formatting, parsing,
-serialization, total ordering, and non-finite arithmetic policy are separate
-contracts; publishing constants must not silently redefine them.
+Public classification functions are not a prerequisite for publishing these
+values. Text formatting, parsing, serialization, total ordering, and
+non-finite arithmetic policy are separate contracts; publishing constants
+must not silently redefine them.
 
 ## Literal policy
 
@@ -193,8 +188,9 @@ it does not prove Veln conformance.
   and maximum. Adopt these as independent acceptance vectors, but reject the
   name `min_value` for a positive float: integer minimum and float minimum
   would otherwise have different meanings. Java's boxed `Double.equals`
-  differs from scalar NaN equality; only the documented primitive comparison
-  rules inform the proposed scalar contract.
+  differs from primitive floating-point equality, so use the field definitions
+  as evidence for the constant encodings rather than treating boxed equality
+  as an authority for this API.
 
 Other considered choices:
 
@@ -219,8 +215,8 @@ tests may inspect raw bits without adding a public bit-conversion API.
 | Integer bounds | Both values equal the signed 64-bit endpoints, with exact `Int` type | Integer-module companion tests; independent literal/host vectors for the lower endpoint |
 | Finite float values | Each of the five finite constants has exactly the listed bits; both positive minima remain nonzero and distinct | Float-module companion arithmetic/order tests and focused JVM materialization bit checks |
 | Epsilon | `1.0 + epsilon > 1.0`; the representable binary64 gap has bits `3cb0000000000000` | Float companion tests and independent bit inspection |
-| Infinities | Signs, exact encodings, self-equality, and ordering against finite extrema match the contract | Float companion tests; JVM bit checks |
-| NaN | The value is quiet NaN; self-inequality and all specified scalar equality/order outcomes hold for NaN on either side | Float companion tests; quiet-bit check in backend tests, without asserting payload or sign |
+| Infinities | Signs and exact encodings match the contract | Float companion tests; JVM bit checks |
+| NaN | The value is a quiet NaN and reading it requires no effect | Float companion tests; quiet-bit check in backend tests, without asserting payload or sign |
 | Reads and forwarding | Pure functions and annotated module values can read each constant; aliases and nested records preserve bits | Companion API tests plus focused compiler/core/IR and JVM tests for scalar-data preservation |
 | Invalid use | Calling a constant fails as a non-callable value; assigning it to the other scalar type fails | Checked specification diagnostic examples exercising the existing type contracts |
 | Import and origin boundary | Qualified and aliased imports select the standard declarations; local names obey ordinary shadowing; spoofed bridge origins receive no privilege | Focused package-loading and name-resolution tests, including cached standard environments |
@@ -236,19 +232,16 @@ coverage. No fake host effects are needed for these pure values.
 
 ## Readiness and completion
 
-Ready selection uses the public value and comparison tables and the narrow
-construction boundary above. No prototype or passing numeric API suite is
-required before implementation. Private scalar representation does not change
-those public decisions, and any existing equality or ordering mismatch is an
-implementation defect to fix against the specified non-finite rows.
+Ready selection uses the public value table and the narrow construction
+boundary above. No prototype or passing numeric API suite is required before
+implementation. Private scalar representation does not change those public
+decisions.
 
 During implementation:
 
 1. Verify the narrow construction bridge, including `Int`'s lower bound,
    subnormals, quiet NaN, and package-origin rejection.
-2. Audit and correct scalar equality and ordering against the non-finite rows;
-   do not infer correctness from JVM boxing or host equality helpers.
-3. Run companion coverage through `bash scripts/agent-stdlib-test`, add focused
+2. Run companion coverage through `bash scripts/agent-stdlib-test`, add focused
    backend bit-inspection tests through `bash scripts/agent-test`, and verify
    normal standard-package loading, navigation, and generated documentation.
 
@@ -256,5 +249,4 @@ Implementation is complete only when every acceptance row has checked
 evidence, and the source-surface, types, execution, and relevant standard-library
 specifications explain the supported behavior. Add representative checked
 usage examples at that point. Remove this proposal and its catalog entry once
-the current specifications own the delivered contract. This documentation-only
-proposal does not change current specifications or executable examples.
+the current specifications own the delivered contract.

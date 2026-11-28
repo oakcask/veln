@@ -25,9 +25,9 @@ use crate::contracts::contract_predicate_is_statically_true_with_float_literals;
 use crate::effects::{core_concurrency_signature, is_concurrency_call};
 use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
+    prelude_signature, qualified_prelude_signature,
 };
-use crate::semantic_model::StateCallTypes;
-use crate::semantic_model::Type;
+use crate::semantic_model::{Binding, StateCallTypes, Type};
 use crate::type_lowering::core_type;
 use crate::type_syntax::{parse_type_annotation, parse_type_or_unknown};
 use crate::types::environment::TypeEnvironment;
