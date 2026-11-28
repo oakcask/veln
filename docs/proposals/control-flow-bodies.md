@@ -42,7 +42,7 @@ expression form.
 | `defer Expr` | One expression starting on the `defer` line. | Register the equivalent one-expression deferred block in the enclosing cleanup scope. |
 | `defer NL Body end` | An explicitly delimited deferred body. | Same registration and cleanup rules as the short form; its body can contain local statements. |
 | Function and test bodies | Existing block forms ending in `end`. | Retain existing parameter, result, effect, and cleanup rules; no new short form. |
-| Handled body | Current `handle Expr with Handler(...) end` takes one expression, and `handle NL Body with Handlers end` provides an explicitly delimited block form. | Retain the handler and cleanup model defined by the [current source-surface specification](../specification/source-surface.md#executable-grammar). |
+| Handled body | Current `handle Expr with Handler(...)` takes one expression, and `handle NL Body with Handlers end` provides an explicitly delimited block form. | Retain the handler and cleanup model defined by the [current source-surface specification](../specification/source-surface.md#executable-grammar). |
 
 All new forms below are proposed, including `defer Expr`. Existing block-only
 `defer` remains current behavior until implementation. This classification
