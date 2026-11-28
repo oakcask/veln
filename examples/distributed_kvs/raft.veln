@@ -1,0 +1,253 @@
+use command as domain
+use protocol
+use state as node_state
+
+pub fn initial(id: Int, now: Int) -> node_state::State
+	node_state::from_persistent(id, node_state::empty_persistent(), now)
+end
+
+pub fn term_at(s: node_state::State, index: Int) -> Int
+	node_state::log_term(node_state::log(s), index)
+end
+
+pub fn campaign(s: node_state::State, now: Int) -> node_state::State
+	let term = node_state::term(s) + 1
+	let elected = node_state::with_election(s, term, Some(node_state::id(s)))
+	node_state::with_role(elected, node_state::Candidate(dict_insert({}, node_state::id(s), true), node_state::election_due(node_state::id(s), term, now)))
+end
+
+pub fn vote_request(s: node_state::State) -> protocol::PeerRequest
+	protocol::RequestVote(node_state::term(s), node_state::id(s), protocol::LogPosition(node_state::size(s), term_at(s, node_state::size(s))))
+end
+
+pub fn follower(s: node_state::State, term: Int, now: Int) -> node_state::State
+	if term > node_state::term(s)
+		node_state::with_role(node_state::with_election(s, term, None), node_state::Follower(None, node_state::election_due(node_state::id(s), term, now)))
+	else
+		s
+	end
+end
+
+fn vote(s: node_state::State, term: Int, candidate: Int, last: protocol::LogPosition, now: Int) -> { state : node_state::State, reply : protocol::PeerReply }
+	match last
+		protocol::LogPosition(index, last_term) => begin
+			let current = follower(s, term, now)
+			let local_term = term_at(current, node_state::size(current))
+			let fresh = last_term > local_term or last_term == local_term and index >= node_state::size(current)
+			let voted_for: Int = option_unwrap_or(node_state::voted_for(current), 0)
+			let granted = term == node_state::term(current) and (voted_for == 0 or voted_for == candidate) and fresh
+			let next = if granted
+				node_state::with_role(node_state::with_election(current, term, Some(candidate)), node_state::Follower(None, node_state::election_due(node_state::id(current), term, now)))
+			else
+				current
+			end
+			{ state: next, reply: protocol::VoteReply(node_state::term(next), node_state::id(next), granted) }
+		end
+	end
+end
+
+fn append_reply(s: node_state::State, accepted: Bool, matched: Int) -> protocol::PeerReply
+	protocol::AppendReply(node_state::term(s), node_state::id(s), accepted, matched)
+end
+
+fn extend(s: node_state::State, previous: Int, entry: Option<domain::LogEntry>) -> node_state::State
+	match entry
+		None => s
+		Some(item) => if previous < node_state::size(s) and term_at(s, previous + 1) == domain::entry_term(item)
+			s
+		else
+			node_state::with_log(s, node_state::append_log(node_state::truncate_log(node_state::log(s), previous), item))
+		end
+	end
+end
+
+fn accept_append(s: node_state::State, previous: protocol::LogPosition, committed: Int, entry: Option<domain::LogEntry>) -> { state : node_state::State, reply : protocol::PeerReply }
+	match previous
+		protocol::LogPosition(index, term) => begin
+			let entry_term = match entry
+				None => 0
+				Some(item) => domain::entry_term(item)
+			end
+			if index > node_state::size(s) or term_at(s, index) != term
+				{ state: s, reply: append_reply(s, false, 0) }
+			else if entry_term != 0 and index < node_state::commit(s) and term_at(s, index + 1) != entry_term
+				{ state: s, reply: append_reply(s, false, 0) }
+			else
+				begin
+					let updated = extend(s, index, entry)
+					let matched = index + if entry_term == 0
+						0
+					else
+						1
+					end
+					let limit = if committed < matched
+						committed
+					else
+						matched
+					end
+					let next = if limit > node_state::commit(updated)
+						apply(node_state::with_commit(updated, limit))
+					else
+						updated
+					end
+					{ state: next, reply: append_reply(next, true, matched) }
+				end
+			end
+		end
+	end
+end
+
+pub fn incoming(s: node_state::State, request: protocol::PeerRequest, now: Int) -> { state : node_state::State, reply : protocol::PeerReply }
+	match request
+		protocol::RequestVote(term, candidate, last) => vote(s, term, candidate, last, now)
+		protocol::AppendEntries(term, leader, previous, committed, entry) => begin
+			let current = follower(s, term, now)
+			if term < node_state::term(current)
+				{ state: current, reply: append_reply(current, false, 0) }
+			else
+				accept_append(node_state::with_role(current, node_state::Follower(Some(leader), node_state::election_due(node_state::id(current), term, now))), previous, committed, entry)
+			end
+		end
+	end
+end
+
+pub fn lead(s: node_state::State) -> node_state::State
+	let progress = node_state::PeerProgress(node_state::size(s) + 1, 0)
+	let peers: Dict<Int, node_state::PeerProgress> = dict_insert(dict_insert(dict_insert({}, 1, progress), 2, progress), 3, progress)
+	let leader = node_state::with_role(s, node_state::Leader(peers))
+	node_state::with_log(leader, node_state::append_log(node_state::log(leader), domain::LogEntry(node_state::term(leader), domain::NoOp)))
+end
+
+pub fn propose(s: node_state::State, request: domain::ClientRequest) -> node_state::State
+	node_state::with_log(s, node_state::append_log(node_state::log(s), domain::LogEntry(node_state::term(s), domain::Execute(request))))
+end
+
+pub fn replication(s: node_state::State, peer: Int) -> protocol::PeerRequest
+	match node_state::progress(s, peer)
+		node_state::PeerProgress(next, _) => protocol::AppendEntries(node_state::term(s), node_state::id(s), protocol::LogPosition(next - 1, term_at(s, next - 1)), node_state::commit(s), node_state::log_entry(node_state::log(s), next))
+	end
+end
+
+fn count_votes(count: Int, id: Int, granted: Bool) -> Int
+	count + if granted
+		1
+	else
+		0
+	end
+end
+
+fn count_matches(index: Int, count: Int, peer: Int, progress: node_state::PeerProgress) -> Int
+	match progress
+		node_state::PeerProgress(_, matched) => count + if matched >= index
+			1
+		else
+			0
+		end
+	end
+end
+
+fn commit_from(s: node_state::State, index: Int) -> node_state::State
+	match node_state::role(s)
+		node_state::Leader(peers) => if index <= node_state::commit(s)
+			s
+		else if term_at(s, index) == node_state::term(s) and dict_fold_with(index, peers, 1, count_matches) >= 2
+			apply(node_state::with_commit(s, index))
+		else
+			commit_from(s, index - 1)
+		end
+		_ => s
+	end
+end
+
+fn received_vote(s: node_state::State, node: Int, granted: Bool) -> node_state::State
+	match node_state::role(s)
+		node_state::Candidate(votes, due) => begin
+			let next = dict_insert(votes, node, granted)
+			let updated = node_state::with_role(s, node_state::Candidate(next, due))
+			if dict_fold(next, 0, count_votes) >= 2
+				lead(updated)
+			else
+				updated
+			end
+		end
+		_ => s
+	end
+end
+
+fn received_append(s: node_state::State, node: Int, accepted: Bool, matched: Int) -> node_state::State
+	if not node_state::is_leader(s)
+		s
+	else if accepted
+		begin
+			let progressed = node_state::with_progress(s, node, node_state::PeerProgress(matched + 1, matched))
+			commit_from(progressed, node_state::size(progressed))
+		end
+	else
+		match node_state::progress(s, node)
+			node_state::PeerProgress(old, previous_match) => begin
+				let next = if old > 1
+					old - 1
+				else
+					1
+				end
+				node_state::with_progress(s, node, node_state::PeerProgress(next, previous_match))
+			end
+		end
+	end
+end
+
+pub fn received(s: node_state::State, sent: protocol::PeerRequest, reply: protocol::PeerReply, now: Int) -> node_state::State
+	let identity = protocol::reply_identity(reply)
+	let current = follower(s, identity.term, now)
+	if node_state::term(current) != protocol::request_term(sent) or identity.term != protocol::request_term(sent)
+		current
+	else
+		match sent
+			protocol::RequestVote(_, _, _) => match reply
+				protocol::VoteReply(_, node, granted) => received_vote(current, node, granted)
+				_ => current
+			end
+			protocol::AppendEntries(_, _, _, _, _) => match reply
+				protocol::AppendReply(_, node, accepted, matched) => received_append(current, node, accepted, matched)
+				_ => current
+			end
+		end
+	end
+end
+
+fn execute(values: Dict<String, String>, operation: domain::Operation) -> { values : Dict<String, String>, reply : domain::ClientReply }
+	match operation
+		domain::Put(key, value) => { values: dict_insert(values, key, value), reply: domain::Applied }
+		domain::Get(key) => { values: values, reply: domain::Value(dict_get(values, key)) }
+		domain::Delete(key) => { values: dict_remove(values, key), reply: domain::Applied }
+	end
+end
+
+fn apply_one(s: node_state::State, entry: domain::LogEntry) -> node_state::State
+	match node_state::application(s)
+		node_state::ApplicationState(applied, values, replies) => match domain::entry_command(entry)
+			domain::NoOp => node_state::with_application(s, node_state::ApplicationState(applied + 1, values, replies))
+			domain::Execute(request) => if dict_contains(replies, domain::request_id(request))
+				node_state::with_application(s, node_state::ApplicationState(applied + 1, values, replies))
+			else
+				match request
+					domain::ClientRequest(_, operation) => begin
+						let result = execute(values, operation)
+						node_state::with_application(s, node_state::ApplicationState(applied + 1, result.values, dict_insert(replies, domain::request_id(request), result.reply)))
+					end
+				end
+			end
+		end
+	end
+end
+
+pub fn apply(s: node_state::State) -> node_state::State
+	if node_state::applied(s) >= node_state::commit(s)
+		s
+	else
+		match node_state::log_entry(node_state::log(s), node_state::applied(s) + 1)
+			Some(entry) => apply(apply_one(s, entry))
+			None => s
+		end
+	end
+end

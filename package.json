@@ -4,6 +4,8 @@
   "scripts": {
     "test:vscode": "pnpm --filter veln-language test",
     "vsix": "pnpm --filter veln-language vsix",
+    "example:kvs": "node examples/distributed_kvs/run.mjs",
+    "test:example:kvs": "node --test examples/distributed_kvs/test.mjs",
     "example:csv": "node examples/csv_analyzer/dev.mjs",
     "test:example:csv": "node --test examples/csv_analyzer/test.mjs examples/csv_analyzer/dev.test.mjs"
   },

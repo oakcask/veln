@@ -1,0 +1,113 @@
+use command as domain
+use protocol
+use state as node_state
+
+fn host_unit(value: Result<(), FsError>) -> Result<(), String>
+	match value
+		Ok(result) => Ok(result)
+		Err(_) => Err("journal filesystem operation failed")
+	end
+end
+
+fn host_bool(value: Result<Bool, FsError>) -> Result<Bool, String>
+	match value
+		Ok(result) => Ok(result)
+		Err(_) => Err("journal filesystem operation failed")
+	end
+end
+
+fn host_text(value: Result<String, FsError>) -> Result<String, String>
+	match value
+		Ok(result) => Ok(result)
+		Err(_) => Err("journal filesystem operation failed")
+	end
+end
+
+pub type Journal
+	pub Journal(directory: String, node: Int, base_port: Int)
+end
+
+fn filename(journal: Journal, serial: Int) -> Path
+	match journal
+		Journal(directory, _, _) => fs::path(string::concat(directory, string::concat("/record-", string::concat(int_to_string(serial), ".hex"))))
+	end
+end
+
+pub fn record(journal: Journal, persistent: node_state::PersistentState) -> protocol::JournalRecord
+	match journal
+		Journal(_, node, base_port) => begin
+			let log = node_state::persistent_log(persistent)
+			let size = node_state::log_size(log)
+			protocol::JournalRecord(node, base_port, protocol::JournalDelta(node_state::persistent_term(persistent), node_state::persistent_vote(persistent), protocol::LogPosition(size, node_state::log_term(log, size)), node_state::log_entry(log, size)))
+		end
+	end
+end
+
+# Completed record writes cover process termination, not machine power loss.
+pub fn save(journal: Journal, serial: Int, persistent: node_state::PersistentState) -> Result<(), String> effects [fs]
+	let bytes = protocol::pack_journal(record(journal, persistent))?
+	host_unit(fs::write_string(filename(journal, serial), protocol::hex(protocol::view(bytes)?)?))
+end
+
+pub fn restore(previous: node_state::PersistentState, delta: protocol::JournalDelta) -> Result<node_state::PersistentState, String>
+	match delta
+		protocol::JournalDelta(term, voted_for, protocol::LogPosition(size, last_term), entry) => begin
+			let log = node_state::persistent_log(previous)
+			if term < node_state::persistent_term(previous) or size > node_state::log_size(log) + 1 or size == 0 and last_term != 0 or size > 0 and (last_term == 0 or last_term > term)
+				Err("invalid journal transition")
+			else
+				match entry
+					None => if size == 0
+						Ok(node_state::PersistentState(term, voted_for, node_state::ReplicatedLog(0, {})))
+					else
+						Err("journal entry is missing")
+					end
+					Some(item) => if size > 0 and domain::entry_term(item) == last_term
+						Ok(node_state::PersistentState(term, voted_for, node_state::append_log(node_state::truncate_log(log, size - 1), item)))
+					else
+						Err("journal entry does not match its position")
+					end
+				end
+			end
+		end
+	end
+end
+
+fn recover_record(journal: Journal, persistent: node_state::PersistentState, record: protocol::JournalRecord) -> Result<node_state::PersistentState, String>
+	match journal
+		Journal(_, node, base_port) => match record
+			protocol::JournalRecord(saved_node, saved_port, delta) => if saved_node != node or saved_port != base_port
+				Err("journal belongs to a different node or cluster port configuration")
+			else
+				restore(persistent, delta)
+			end
+		end
+	end
+end
+
+fn recover_from(journal: Journal, serial: Int, persistent: node_state::PersistentState) -> Result<{ persistent : node_state::PersistentState, serial : Int }, String> effects [fs]
+	if not host_bool(fs::exists(filename(journal, serial)))?
+		Ok({ persistent: persistent, serial: serial })
+	else
+		begin
+			let text = host_text(fs::read_to_string(filename(journal, serial)))?
+			let decoded = decode_record(text)
+			match decoded
+				Err(_) => if host_bool(fs::exists(filename(journal, serial + 1)))?
+					Err("corrupt journal before its final record")
+				else
+					Ok({ persistent: persistent, serial: serial })
+				end
+				Ok(record) => recover_from(journal, serial + 1, recover_record(journal, persistent, record)?)
+			end
+		end
+	end
+end
+
+fn decode_record(text: String) -> Result<protocol::JournalRecord, String>
+	protocol::unpack_journal(byte_chunk_from_hex(text)?)
+end
+
+pub fn recover(journal: Journal) -> Result<{ persistent : node_state::PersistentState, serial : Int }, String> effects [fs]
+	recover_from(journal, 0, node_state::empty_persistent())
+end
