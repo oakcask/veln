@@ -274,6 +274,13 @@ events. The [execution boundary](execution.md#runtime-readiness-and-host-boundar
 defines cleanup ordering and failure precedence. The checked
 [`multiple-handler-cleanup-failure-precedence`](../../examples/specification/test/multiple-handler-cleanup-failure-precedence/)
 case exercises both outcomes through serial `veln test --json` execution.
+When a spawned task is cancelled, output from its cleanup remains in the
+spawning test's event list before output emitted after the parent joins that
+task. The checked
+[`multiple-handler-child-cancellation-restoration`](../../examples/specification/test/multiple-handler-child-cancellation-restoration/)
+case verifies that order through serial `veln test --json` execution. The
+[execution boundary](execution.md#runtime-readiness-and-host-boundaries)
+defines the child-handler restoration and cancellation behavior.
 
 ## Static Gate
 

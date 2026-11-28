@@ -239,9 +239,11 @@ Cleanup failure precedence and task-cancellation behavior are specified by
 When a child task is created inside an ordered handler list, it inherits every
 active frame in the same outermost-first order. A handler installed only by
 the child shadows those inherited frames until cancellation unwinds the child
-scope. Child cleanup then observes the restored inherited frame. The parent
-retains its own active frame, and leaving the parent list restores the handler
-that surrounded the list. The checked
+scope. Cleanup registered inside the child-local handled body observes that
+local frame. After the local frame is restored, cleanup registered outside it
+observes the inherited innermost frame. The parent retains its own active
+frame, and leaving the parent list restores the handler that surrounded the
+list. The checked
 [`multiple-handler-child-cancellation-restoration`](../../examples/specification/test/multiple-handler-child-cancellation-restoration/)
 case compares these observations with nested single-handler expressions.
 
