@@ -183,6 +183,60 @@ fn production_paths_report_mixed_case_outcomes_in_discovered_order() {
 }
 
 #[test]
+fn runnable_case_coordinator_preserves_order_for_shared_runner_errors() {
+    let project = TempProject::new("coordinated-runner-errors");
+    project.write(
+        "main_test.veln",
+        concat!(
+            "test alpha() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "test beta() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let (analysis, cases) = analyzed_cases(&project.root);
+    let _hook = TestProgramHookGuard::install(Arc::new(
+        |_case_name,
+         _build_dir,
+         _event_file,
+         _contract_error_file,
+         _result_error_file,
+         _java_args| {
+            Some(TestExecution::ToolError(
+                "injected shared runner error".to_string(),
+            ))
+        },
+    ));
+    let mut timings = TestTimings {
+        records: Some(Vec::new()),
+    };
+    let execution = Arc::new(TestJvmExecution::ready(JvmExecution::for_test(
+        project.root.join("cache/jvm"),
+    )));
+
+    let (_, records) = execute_runnable_test_cases_with_execution(
+        analysis,
+        cases,
+        Some(2),
+        &mut timings,
+        execution,
+    )
+    .expect("coordinated cases should complete");
+
+    assert_eq!(case_names_of(&records), ["alpha", "beta"]);
+    assert!(records.iter().all(|case| {
+        case.status == TestCaseStatus::Error
+            && case.reason.as_deref() == Some("runner_error")
+            && case
+                .failure
+                .as_ref()
+                .is_some_and(|failure| failure.message == "injected shared runner error")
+    }));
+}
+
+#[test]
 fn non_reusable_jobs_preflight_jvm_programs_before_cache_validation() {
     let project = TempProject::new("non-reusable-prepares-before-cache");
     project.write(

@@ -179,49 +179,113 @@ fn execute_runnable_test_cases(
     jobs: Option<usize>,
     timings: &mut TestTimings,
 ) -> Result<(ProjectAnalysis, Vec<TestCase>), String> {
+    execute_runnable_test_cases_with_execution(
+        analysis,
+        runnable_cases,
+        jobs,
+        timings,
+        Arc::new(TestJvmExecution::new()),
+    )
+}
+
+fn execute_runnable_test_cases_with_execution(
+    analysis: ProjectAnalysis,
+    runnable_cases: Vec<TestCase>,
+    jobs: Option<usize>,
+    timings: &mut TestTimings,
+    execution: Arc<TestJvmExecution>,
+) -> Result<(ProjectAnalysis, Vec<TestCase>), String> {
     let generation_start = Instant::now();
-    let reusable_program = analysis
-        .reusable_standard_ir()
-        .map(|ir| {
-            try_generate_classfiles_with_test_entries(
-                ir,
-                &runnable_cases
-                    .iter()
-                    .map(|case| case.name.clone())
-                    .collect::<Vec<_>>(),
-            )
-        })
-        .transpose()
-        .map_err(|error| format!("JVM backend could not generate the test program: {error}"))?;
+    let reusable_program = generate_reusable_test_program(&analysis, &runnable_cases)?;
     timings.push("jvm_generation", generation_start.elapsed());
-    let execution = Arc::new(TestJvmExecution::new());
-    let has_ready_job =
-        preflight_runnable_test_case_jobs(&analysis, reusable_program.as_ref(), &runnable_cases)?;
-    if has_ready_job {
-        execution.get()?;
-    }
+    let executor = RunnableTestCaseExecutor::new(analysis, reusable_program, execution);
+    executor.preflight(&runnable_cases)?;
     let active_jobs = resolve_test_jobs(jobs, runnable_cases.len(), || {
         std::thread::available_parallelism().ok()
     });
-    let analysis_mutex = Mutex::new(analysis);
-    let cases = run_test_case_jobs(
-        runnable_cases,
-        active_jobs,
-        |case| {
-            let analysis = analysis_mutex
-                .lock()
-                .map_err(|_| "test analysis state was poisoned".to_string())?;
-            let mut job = prepare_test_case_job(&analysis, reusable_program.as_ref(), case)?;
-            job.set_execution(Arc::clone(&execution));
-            Ok::<_, String>(job)
-        },
-        execute_test_case_job,
-    )
-    .map_err(test_scheduler_error)?;
-    let analysis = analysis_mutex
-        .into_inner()
-        .map_err(|_| "test analysis state was poisoned".to_string())?;
-    Ok((analysis, cases))
+    let cases = executor.run(runnable_cases, active_jobs)?;
+    Ok((executor.into_analysis()?, cases))
+}
+
+fn generate_reusable_test_program(
+    analysis: &ProjectAnalysis,
+    runnable_cases: &[TestCase],
+) -> Result<Option<JvmProgram>, String> {
+    analysis
+        .reusable_standard_ir()
+        .map(|ir| {
+            let case_names = runnable_cases
+                .iter()
+                .map(|case| case.name.clone())
+                .collect::<Vec<_>>();
+            try_generate_classfiles_with_test_entries(ir, &case_names)
+        })
+        .transpose()
+        .map_err(|error| format!("JVM backend could not generate the test program: {error}"))
+}
+
+struct RunnableTestCaseExecutor {
+    analysis: Mutex<ProjectAnalysis>,
+    reusable_program: Option<JvmProgram>,
+    execution: Arc<TestJvmExecution>,
+}
+
+impl RunnableTestCaseExecutor {
+    fn new(
+        analysis: ProjectAnalysis,
+        reusable_program: Option<JvmProgram>,
+        execution: Arc<TestJvmExecution>,
+    ) -> Self {
+        Self {
+            analysis: Mutex::new(analysis),
+            reusable_program,
+            execution,
+        }
+    }
+
+    fn preflight(&self, runnable_cases: &[TestCase]) -> Result<(), String> {
+        let analysis = self
+            .analysis
+            .lock()
+            .map_err(|_| "test analysis state was poisoned".to_string())?;
+        if preflight_runnable_test_case_jobs(
+            &analysis,
+            self.reusable_program.as_ref(),
+            runnable_cases,
+        )? {
+            self.execution.get()?;
+        }
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        runnable_cases: Vec<TestCase>,
+        active_jobs: usize,
+    ) -> Result<Vec<TestCase>, String> {
+        run_test_case_jobs(
+            runnable_cases,
+            active_jobs,
+            |case| {
+                let analysis = self
+                    .analysis
+                    .lock()
+                    .map_err(|_| "test analysis state was poisoned".to_string())?;
+                let mut job =
+                    prepare_test_case_job(&analysis, self.reusable_program.as_ref(), case)?;
+                job.set_execution(Arc::clone(&self.execution));
+                Ok::<_, String>(job)
+            },
+            execute_test_case_job,
+        )
+        .map_err(test_scheduler_error)
+    }
+
+    fn into_analysis(self) -> Result<ProjectAnalysis, String> {
+        self.analysis
+            .into_inner()
+            .map_err(|_| "test analysis state was poisoned".to_string())
+    }
 }
 
 fn preflight_runnable_test_case_jobs(
