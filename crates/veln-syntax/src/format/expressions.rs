@@ -401,7 +401,6 @@ fn format_handle_expr(
 enum HandleChainKind {
     Short,
     Mixed,
-    Block,
 }
 
 struct HandleChainLevel<'a> {
@@ -409,16 +408,17 @@ struct HandleChainLevel<'a> {
     terminated: bool,
 }
 
-struct DirectHandleChain<'a> {
-    body: DirectHandleBody<'a>,
-    entries: Vec<&'a HandlerEntry>,
-    levels: Vec<HandleChainLevel<'a>>,
-    kind: HandleChainKind,
-}
-
-enum DirectHandleBody<'a> {
-    Expression(&'a Expr),
-    Block(&'a [BodyLine]),
+enum DirectHandleChain<'a> {
+    Expression {
+        body: &'a Expr,
+        entries: Vec<&'a HandlerEntry>,
+        levels: Vec<HandleChainLevel<'a>>,
+        kind: HandleChainKind,
+    },
+    Block {
+        body: &'a [BodyLine],
+        entries: Vec<&'a HandlerEntry>,
+    },
 }
 
 fn format_direct_handle_chain(
@@ -428,7 +428,13 @@ fn format_direct_handle_chain(
 ) -> Option<String> {
     let chain = direct_handle_chain(expr)?;
     #[cfg(test)]
-    if matches!(chain.kind, HandleChainKind::Mixed) {
+    if matches!(
+        chain,
+        DirectHandleChain::Expression {
+            kind: HandleChainKind::Mixed,
+            ..
+        }
+    ) {
         super::record_mixed_handle_chain_candidate();
     }
 
@@ -436,43 +442,41 @@ fn format_direct_handle_chain(
         return None;
     }
 
-    if let DirectHandleBody::Block(body) = chain.body {
-        return Some(format_flattened_block_handle_chain(
+    let (body, entries, levels, kind) = match chain {
+        DirectHandleChain::Expression {
             body,
-            &chain.entries,
-            indent,
-        ));
-    }
-
-    let DirectHandleBody::Expression(body) = chain.body else {
-        unreachable!("block handler chain returned before expression formatting");
+            entries,
+            levels,
+            kind,
+        } => (body, entries, levels, kind),
+        DirectHandleChain::Block { body, entries } => {
+            return Some(format_flattened_block_handle_chain(body, &entries, indent));
+        }
     };
-    let body_indent = match chain.kind {
+    let body_indent = match kind {
         HandleChainKind::Short => indent + 1,
         HandleChainKind::Mixed => indent,
-        HandleChainKind::Block => unreachable!("block handler chain has an expression body"),
     };
     let formatted_body = format_expr_at_indent_ctx(body, body_indent, None);
     if !formatted_body.contains('\n') {
         return Some(format_flattened_short_handle_chain(
             &formatted_body,
-            &chain.entries,
+            &entries,
             indent,
         ));
     }
 
-    match chain.kind {
+    match kind {
         HandleChainKind::Short => Some(format_retained_short_handle_chain(
             formatted_body,
-            &chain.entries,
+            &entries,
             indent,
         )),
         HandleChainKind::Mixed => Some(format_retained_mixed_handle_chain(
             formatted_body,
-            &chain.levels,
+            &levels,
             indent,
         )),
-        HandleChainKind::Block => unreachable!("block handler chain returned before retention"),
     }
 }
 
@@ -502,6 +506,11 @@ fn format_retained_mixed_handle_chain(
 }
 
 fn direct_handle_chain(expr: &Expr) -> Option<DirectHandleChain<'_>> {
+    enum TerminalBody<'a> {
+        Expression(&'a Expr),
+        Block(&'a [BodyLine]),
+    }
+
     let mut current = expr;
     let mut entries = Vec::new();
     let mut levels = Vec::new();
@@ -533,31 +542,34 @@ fn direct_handle_chain(expr: &Expr) -> Option<DirectHandleChain<'_>> {
                 terminated: true,
             } if !levels.is_empty() => {
                 entries.extend(current_entries);
-                break DirectHandleBody::Block(body);
+                break TerminalBody::Block(body);
             }
             ExprKind::Begin { body, .. } if levels.len() >= 2 => {
-                break DirectHandleBody::Block(body);
+                break TerminalBody::Block(body);
             }
             ExprKind::Handle { .. } | ExprKind::Begin { .. } => return None,
-            _ => break DirectHandleBody::Expression(current),
+            _ => break TerminalBody::Expression(current),
         }
     };
 
-    let kind = if matches!(body, DirectHandleBody::Block(_)) {
-        HandleChainKind::Block
-    } else if saw_short && saw_terminated {
-        HandleChainKind::Mixed
-    } else if saw_short && levels.len() >= 2 {
-        HandleChainKind::Short
-    } else {
-        return None;
-    };
-    Some(DirectHandleChain {
-        body,
-        entries,
-        levels,
-        kind,
-    })
+    match body {
+        TerminalBody::Block(body) => Some(DirectHandleChain::Block { body, entries }),
+        TerminalBody::Expression(body) => {
+            let kind = if saw_short && saw_terminated {
+                HandleChainKind::Mixed
+            } else if saw_short && levels.len() >= 2 {
+                HandleChainKind::Short
+            } else {
+                return None;
+            };
+            Some(DirectHandleChain::Expression {
+                body,
+                entries,
+                levels,
+                kind,
+            })
+        }
+    }
 }
 
 fn format_flattened_block_handle_chain(
