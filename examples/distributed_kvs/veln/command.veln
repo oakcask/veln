@@ -1,0 +1,46 @@
+# Domain values contain no packet tags, forwarding fields or HTTP statuses.
+pub type RequestId
+	pub RequestId(client: Int, sequence: Int)
+end
+
+pub type Operation
+	pub Put(key: String, value: String)
+	pub Get(key: String)
+	pub Delete(key: String)
+end
+
+pub type ClientRequest
+	pub ClientRequest(id: RequestId, operation: Operation)
+end
+
+pub type Command
+	pub NoOp
+	pub Execute(request: ClientRequest)
+end
+
+pub type LogEntry
+	pub LogEntry(term: Int, command: Command)
+end
+
+pub type ClientReply
+	pub Applied
+	pub Value(Option<String>)
+end
+
+pub fn request_id(request: ClientRequest) -> String
+	match request
+		ClientRequest(RequestId(client, sequence), _) => string::concat(int_to_string(client), string::concat(":", int_to_string(sequence)))
+	end
+end
+
+pub fn entry_term(entry: LogEntry) -> Int
+	match entry
+		LogEntry(term, _) => term
+	end
+end
+
+pub fn entry_command(entry: LogEntry) -> Command
+	match entry
+		LogEntry(_, command) => command
+	end
+end

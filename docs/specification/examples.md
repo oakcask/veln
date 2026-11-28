@@ -9,6 +9,10 @@ For a runnable application, start with the
 CSV order analyzer at `examples/csv_analyzer/README.md`: a Veln HTTP/2
 backend and a TypeScript browser UI with integration checks in CI.
 
+For a distributed service, see `examples/distributed_kvs/README.md`: a
+three-node string KVS using Raft replication over HTTP/2 with binary-schema
+RPCs and real-process fault tests.
+
 Checked cases under `examples/specification/`
 are executable evidence for source behavior, command output, runtime
 boundaries, and protocol interactions. Start with that directory's README and

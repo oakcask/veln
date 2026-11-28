@@ -1,0 +1,463 @@
+use command as domain
+
+# All RPCs and journal records use the same versioned binary envelope.
+pub schema Packet
+	format binary
+
+	magic: uint16be reserves 19286
+	version: uint8 reserves 1
+	kind: uint8
+	term: uint64be
+	node: uint8
+	a: uint64be
+	b: uint64be
+	c: uint64be
+	entry_term: uint64be
+	op: uint8
+	client: uint32be
+	sequence: uint32be
+	key_size: uint16be
+	value_size: uint16be
+	key: ByteView(key_size)
+	value: ByteView(value_size)
+end
+
+fn nibble(value: Int) -> String
+	match value
+		0 => "0"
+		1 => "1"
+		2 => "2"
+		3 => "3"
+		4 => "4"
+		5 => "5"
+		6 => "6"
+		7 => "7"
+		8 => "8"
+		9 => "9"
+		10 => "a"
+		11 => "b"
+		12 => "c"
+		13 => "d"
+		14 => "e"
+		_ => "f"
+	end
+end
+
+# Balanced traversal avoids a call frame per octet. Hex strings are an
+# internal representation; clients exchange validated UTF-8 octets.
+fn hex_range(bytes: ByteView, offset: Int, count: Int) -> Result<String, String>
+	if count == 0
+		Ok("")
+	else if count == 1
+		begin
+			let value = byte_read_u8_be(byte_view_slice(bytes, byte_count(offset)?, byte_count(1)?)?)?
+			Ok(string::concat(nibble(value / 16), nibble(value % 16)))
+		end
+	else
+		begin
+			let half = count / 2
+			Ok(string::concat(hex_range(bytes, offset, half)?, hex_range(bytes, offset + half, count - half)?))
+		end
+	end
+end
+
+pub fn hex(bytes: ByteView) -> Result<String, String>
+	hex_range(bytes, 0, byte_count_to_int(byte_view_count(bytes)))
+end
+
+pub fn view(bytes: ByteChunk) -> Result<ByteView, String>
+	byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))
+end
+
+fn octet(bytes: ByteView, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view_slice(bytes, byte_count(index)?, byte_count(1)?)?)
+end
+
+# Fold UTF-8 decoder state over balanced ranges. The stack depth is logarithmic
+# even when every octet is an ASCII character.
+fn utf8_octet(first: Int, state: { remaining : Int, low : Int, high : Int }) -> Result<{ remaining : Int, low : Int, high : Int }, String>
+	if state.remaining > 0
+		if first < state.low or first > state.high
+			Err("invalid UTF-8 continuation or scalar")
+		else
+			Ok({ remaining: state.remaining - 1, low: 128, high: 191 })
+		end
+	else if first < 128
+		Ok(state)
+	else if first >= 194 and first <= 223
+		Ok({ remaining: 1, low: 128, high: 191 })
+	else if first >= 224 and first <= 239
+		Ok({ remaining: 2, low: if first == 224
+			160
+		else
+			128
+		end, high: if first == 237
+			159
+		else
+			191
+		end })
+	else if first >= 240 and first <= 244
+		Ok({ remaining: 3, low: if first == 240
+			144
+		else
+			128
+		end, high: if first == 244
+			143
+		else
+			191
+		end })
+	else
+		Err("invalid UTF-8 leading octet")
+	end
+end
+
+fn utf8_range(bytes: ByteView, offset: Int, count: Int, state: { remaining : Int, low : Int, high : Int }) -> Result<{ remaining : Int, low : Int, high : Int }, String>
+	if count == 0
+		Ok(state)
+	else if count == 1
+		utf8_octet(octet(bytes, offset)?, state)
+	else
+		begin
+			let half = count / 2
+			let left = utf8_range(bytes, offset, half, state)?
+			utf8_range(bytes, offset + half, count - half, left)
+		end
+	end
+end
+
+pub fn utf8(bytes: ByteView) -> Result<(), String>
+	let state = utf8_range(bytes, 0, byte_count_to_int(byte_view_count(bytes)), { remaining: 0, low: 128, high: 191 })?
+	if state.remaining == 0
+		Ok(())
+	else
+		Err("truncated UTF-8 string")
+	end
+end
+
+fn pack_packet(message: { kind : Int, term : Int, node : Int, a : Int, b : Int, c : Int, entry_term : Int, op : Int, client : Int, sequence : Int, key : String, value : String }) -> Result<ByteChunk, String>
+	let key = byte_chunk_from_hex(message.key)?
+	let value = byte_chunk_from_hex(message.value)?
+	match encode Packet from { kind: message.kind, term: message.term, node: message.node, a: message.a, b: message.b, c: message.c, entry_term: message.entry_term, op: message.op, client: message.client, sequence: message.sequence, key_size: byte_count_to_int(byte_chunk_count(key)), value_size: byte_count_to_int(byte_chunk_count(value)), key: view(key)?, value: view(value)? }
+		Ok(bytes) => Ok(bytes)
+		Err(_) => Err("packet cannot be encoded")
+	end
+end
+
+fn unpack_packet(bytes: ByteChunk) -> Result<{ kind : Int, term : Int, node : Int, a : Int, b : Int, c : Int, entry_term : Int, op : Int, client : Int, sequence : Int, key : String, value : String }, String>
+	if byte_count_to_int(byte_chunk_count(bytes)) > 8250
+		Err("packet exceeds example limit")
+	else
+		begin
+			let packet: { kind : Int, term : Int, node : Int, a : Int, b : Int, c : Int, entry_term : Int, op : Int, client : Int, sequence : Int, key_size : Int, value_size : Int, key : ByteView, value : ByteView } = match byte_decode_packet(view(bytes)?)
+				Ok(value) => Ok(value)
+				Err(_) => Err("malformed binary packet")
+			end?
+			if byte_count_to_int(byte_chunk_count(bytes)) != 58 + packet.key_size + packet.value_size or packet.key_size > 4096 or packet.value_size > 4096
+				Err("packet length is invalid")
+			else
+				begin
+					let _ = utf8(packet.key)?
+					let _ = utf8(packet.value)?
+					Ok({ kind: packet.kind, term: packet.term, node: packet.node, a: packet.a, b: packet.b, c: packet.c, entry_term: packet.entry_term, op: packet.op, client: packet.client, sequence: packet.sequence, key: hex(packet.key)?, value: hex(packet.value)? })
+				end
+			end
+		end
+	end
+end
+
+pub type LogPosition
+	pub LogPosition(index: Int, term: Int)
+end
+
+pub type PeerRequest
+	pub RequestVote(term: Int, candidate: Int, last: LogPosition)
+	pub AppendEntries(term: Int, leader: Int, previous: LogPosition, committed: Int, entry: Option<domain::LogEntry>)
+end
+
+pub type PeerReply
+	pub VoteReply(term: Int, node: Int, granted: Bool)
+	pub AppendReply(term: Int, node: Int, accepted: Bool, matched: Int)
+end
+
+# Successful exchanges retain the request/reply relationship after decoding.
+pub type PeerCompletion
+	pub VoteCompleted(sent: PeerRequest::RequestVote, reply: PeerReply::VoteReply)
+	pub AppendCompleted(sent: PeerRequest::AppendEntries, reply: PeerReply::AppendReply)
+end
+
+pub fn complete(sent: PeerRequest, reply: PeerReply) -> Result<PeerCompletion, String>
+	match sent
+		RequestVote(_, _, _) => match reply
+			VoteReply(_, _, _) => Ok(VoteCompleted(sent, reply))
+			AppendReply(_, _, _, _) => Err("vote request received an append reply")
+		end
+		AppendEntries(_, _, _, _, _) => match reply
+			AppendReply(_, _, _, _) => Ok(AppendCompleted(sent, reply))
+			VoteReply(_, _, _) => Err("append request received a vote reply")
+		end
+	end
+end
+
+pub type Request
+	pub Peer(request: PeerRequest)
+	pub Client(request: domain::ClientRequest, forwarded: Bool)
+	pub Status
+end
+
+pub type ClientOutcome
+	pub Completed(reply: domain::ClientReply)
+	pub Unavailable
+	pub Redirect
+end
+
+pub type NodeStatus
+	pub NodeStatus(node: Int, term: Int, leadership: { role : String, leader : Option<Int> }, log: { committed : Int, last : Int })
+end
+
+pub type Reply
+	pub PeerResponse(reply: PeerReply)
+	pub ClientResponse(term: Int, leader: Option<Int>, committed: Int, outcome: ClientOutcome)
+	pub StatusResponse(status: NodeStatus)
+end
+
+pub type JournalDelta
+	pub JournalDelta(term: Int, voted_for: Option<Int>, last: LogPosition, entry: Option<domain::LogEntry>)
+end
+
+pub type JournalRecord
+	pub JournalRecord(node: Int, base_port: Int, delta: JournalDelta)
+end
+
+# Numeric tags and overloaded coordinates belong only to the wire boundary.
+type Header
+	Header(kind: Int, term: Int, node: Int)
+end
+
+type Coordinates
+	Coordinates(a: Int, b: Int, c: Int)
+end
+
+fn command_fields(operation_value: domain::Command) -> { op : Int, id : domain::RequestId, key : String, value : String }
+	match operation_value
+		domain::NoOp => { op: 4, id: domain::RequestId(0, 0), key: "", value: "" }
+		domain::Execute(domain::ClientRequest(id, operation)) => match operation
+			domain::Put(key, value) => { op: 1, id: id, key: key, value: value }
+			domain::Get(key) => { op: 2, id: id, key: key, value: "" }
+			domain::Delete(key) => { op: 3, id: id, key: key, value: "" }
+		end
+	end
+end
+
+fn packet(header: Header, coordinates: Coordinates, entry: domain::LogEntry, value: Option<String>) -> Result<ByteChunk, String>
+	match header
+		Header(kind, term, node) => match coordinates
+			Coordinates(a, b, c) => match entry
+				domain::LogEntry(entry_term, operation) => begin
+					let fields = command_fields(operation)
+					match fields.id
+						domain::RequestId(client, sequence) => pack_packet({ kind: kind, term: term, node: node, a: a, b: b, c: c, entry_term: entry_term, op: if kind == 8 or fields.op == 4 and entry_term == 0
+							0
+						else
+							fields.op
+						end, client: client, sequence: sequence, key: fields.key, value: option_unwrap_or(value, fields.value) })
+					end
+				end
+			end
+		end
+	end
+end
+
+fn absent_entry() -> domain::LogEntry
+	domain::LogEntry(0, domain::NoOp)
+end
+
+pub fn pack_request(message: Request) -> Result<ByteChunk, String>
+	match message
+		Peer(peer) => match peer
+			RequestVote(term, candidate, LogPosition(index, last_term)) => packet(Header(1, term, candidate), Coordinates(index, last_term, 0), absent_entry(), None)
+			AppendEntries(term, leader, LogPosition(index, last_term), committed, entry) => packet(Header(3, term, leader), Coordinates(index, last_term, committed), option_unwrap_or(entry, absent_entry()), None)
+		end
+		Client(request, forwarded) => packet(Header(5, 0, 0), Coordinates(0, 0, if forwarded
+			1
+		else
+			0
+		end), domain::LogEntry(0, domain::Execute(request)), None)
+		Status => packet(Header(7, 0, 0), Coordinates(0, 0, 0), absent_entry(), None)
+	end
+end
+
+fn decoded_command(op: Int, client: Int, sequence: Int, key: String, value: String) -> Result<domain::Command, String>
+	if op == 4
+		Ok(domain::NoOp)
+	else if client == 0 or sequence == 0
+		Err("client identity must be positive")
+	else
+		begin
+			let operation = match op
+				1 => Ok(domain::Put(key, value))
+				2 => Ok(domain::Get(key))
+				3 => Ok(domain::Delete(key))
+				_ => Err("invalid operation tag")
+			end?
+			Ok(domain::Execute(domain::ClientRequest(domain::RequestId(client, sequence), operation)))
+		end
+	end
+end
+
+pub fn unpack_request(bytes: ByteChunk) -> Result<Request, String>
+	let m = unpack_packet(bytes)?
+	if m.kind == 7
+		Ok(Status)
+	else if m.kind == 5 and m.c <= 1 and m.op >= 1 and m.op <= 3
+		match decoded_command(m.op, m.client, m.sequence, m.key, m.value)?
+			domain::Execute(request) => Ok(Client(request, m.c == 1))
+			domain::NoOp => Err("client request cannot be a no-op")
+		end
+	else if m.node < 1 or m.node > 3 or m.term == 0 or m.b > m.term
+		Err("invalid peer identity, term or prefix")
+	else if m.kind == 1
+		Ok(Peer(RequestVote(m.term, m.node, LogPosition(m.a, m.b))))
+	else if m.kind == 3 and m.entry_term <= m.term
+		begin
+			let entry = if m.entry_term == 0
+				Ok(None)
+			else
+				Ok(Some(domain::LogEntry(m.entry_term, decoded_command(m.op, m.client, m.sequence, m.key, m.value)?)))
+			end?
+			Ok(Peer(AppendEntries(m.term, m.node, LogPosition(m.a, m.b), m.c, entry)))
+		end
+	else
+		Err("invalid network request kind or fields")
+	end
+end
+
+pub fn pack_reply(reply: Reply) -> Result<ByteChunk, String>
+	match reply
+		PeerResponse(VoteReply(term, node, granted)) => packet(Header(2, term, node), Coordinates(bool_tag(granted), 0, 0), absent_entry(), None)
+		PeerResponse(AppendReply(term, node, accepted, matched)) => packet(Header(4, term, node), Coordinates(bool_tag(accepted), matched, 0), absent_entry(), None)
+		ClientResponse(term, leader, committed, outcome) => begin
+			let fields = outcome_fields(outcome)
+			packet(Header(6, term, option_unwrap_or(leader, 0)), Coordinates(fields.status, 0, committed), absent_entry(), Some(fields.value))
+		end
+		StatusResponse(NodeStatus(node, term, leadership, log)) => packet(Header(8, term, node), Coordinates(role_tag(leadership.role), option_unwrap_or(leadership.leader, 0), log.committed), domain::LogEntry(log.last, domain::NoOp), None)
+	end
+end
+
+fn bool_tag(value: Bool) -> Int
+	if value
+		1
+	else
+		0
+	end
+end
+
+fn role_tag(role: String) -> Int
+	match role
+		"candidate" => 1
+		"leader" => 2
+		_ => 0
+	end
+end
+
+fn outcome_fields(outcome: ClientOutcome) -> { status : Int, value : String }
+	match outcome
+		Completed(domain::Applied) => { status: 200, value: "" }
+		Completed(domain::Value(Some(value))) => { status: 200, value: value }
+		Completed(domain::Value(None)) => { status: 404, value: "" }
+		Unavailable => { status: 503, value: "" }
+		Redirect => { status: 307, value: "" }
+	end
+end
+
+fn client_outcome(status: Int, value: String, request: domain::ClientRequest) -> Result<ClientOutcome, String>
+	match status
+		503 => Ok(Unavailable)
+		307 => Ok(Redirect)
+		200 => match request
+			domain::ClientRequest(_, domain::Get(_)) => Ok(Completed(domain::Value(Some(value))))
+			_ => Ok(Completed(domain::Applied))
+		end
+		404 => match request
+			domain::ClientRequest(_, domain::Get(_)) => Ok(Completed(domain::Value(None)))
+			_ => Err("non-read request received a missing-key reply")
+		end
+		_ => Err("invalid client reply status")
+	end
+end
+
+# The request resolves the wire's intentionally shared empty-value reply shape.
+pub fn unpack_reply(bytes: ByteChunk, expected: Request) -> Result<Reply, String>
+	let m = unpack_packet(bytes)?
+	match expected
+		Peer(RequestVote(_, _, _)) => if m.kind == 2 and m.node >= 1 and m.node <= 3 and m.a <= 1
+			Ok(PeerResponse(VoteReply(m.term, m.node, m.a == 1)))
+		else
+			Err("invalid vote reply")
+		end
+		Peer(AppendEntries(_, _, _, _, _)) => if m.kind == 4 and m.node >= 1 and m.node <= 3 and m.a <= 1
+			Ok(PeerResponse(AppendReply(m.term, m.node, m.a == 1, m.b)))
+		else
+			Err("invalid append reply")
+		end
+		Client(request, _) => if m.kind == 6 and m.node <= 3
+			Ok(ClientResponse(m.term, optional_node(m.node), m.c, client_outcome(m.a, m.value, request)?))
+		else
+			Err("invalid client reply")
+		end
+		Status => if m.kind == 8 and m.a <= 2
+			Ok(StatusResponse(NodeStatus(m.node, m.term, { role: if m.a == 2
+				"leader"
+			else if m.a == 1
+				"candidate"
+			else
+				"follower"
+			end, leader: optional_node(m.b) }, { committed: m.c, last: m.entry_term })))
+		else
+			Err("invalid status reply")
+		end
+	end
+end
+
+fn optional_node(value: Int) -> Option<Int>
+	if value == 0
+		None
+	else
+		Some(value)
+	end
+end
+
+pub fn request_term(request: PeerRequest) -> Int
+	match request
+		RequestVote(term, _, _) => term
+		AppendEntries(term, _, _, _, _) => term
+	end
+end
+
+pub fn reply_identity(reply: PeerReply) -> { term : Int, node : Int }
+	match reply
+		VoteReply(term, node, _) => { term: term, node: node }
+		AppendReply(term, node, _, _) => { term: term, node: node }
+	end
+end
+
+pub fn pack_journal(record: JournalRecord) -> Result<ByteChunk, String>
+	match record
+		JournalRecord(node, base_port, JournalDelta(term, vote, LogPosition(index, _), entry)) => packet(Header(9, term, option_unwrap_or(vote, 0)), Coordinates(index, base_port, node), option_unwrap_or(entry, absent_entry()), None)
+	end
+end
+
+pub fn unpack_journal(bytes: ByteChunk) -> Result<JournalRecord, String>
+	let m = unpack_packet(bytes)?
+	if m.kind != 9 or m.node > 3 or m.c < 1 or m.c > 3 or m.a == 0 and m.entry_term != 0 or m.a > 0 and (m.entry_term == 0 or m.entry_term > m.term)
+		Err("invalid journal identity or entry")
+	else
+		begin
+			let entry = if m.a == 0
+				Ok(None)
+			else
+				Ok(Some(domain::LogEntry(m.entry_term, decoded_command(m.op, m.client, m.sequence, m.key, m.value)?)))
+			end?
+			Ok(JournalRecord(m.c, m.b, JournalDelta(m.term, optional_node(m.node), LogPosition(m.a, m.entry_term), entry)))
+		end
+	end
+end

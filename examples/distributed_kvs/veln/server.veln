@@ -1,0 +1,362 @@
+use command as domain
+use raft
+use protocol
+use storage
+use http2_transport as transport
+use net from "std"
+
+pub type Event
+	pub Incoming(request: protocol::Request, reply: Sender<protocol::Reply>)
+	pub Finished(peer: Int, completion: Option<protocol::PeerCompletion>)
+end
+
+type PendingRequest
+	PendingRequest(request: domain::ClientRequest, reply: Sender<protocol::Reply>, expires: Int)
+end
+
+type Delivery
+	Delivery(target: Sender<protocol::Reply>, reply: protocol::Reply)
+end
+
+type Runtime
+	Runtime(serial: Int, pending: Dict<Int, PendingRequest>, busy: Dict<Int, Bool>)
+end
+
+type Context
+	Context(base_port: Int, journal: storage::Journal, events: Sender<Event>)
+end
+
+type PeerJob
+	PeerJob(peer: Int, port: Int, request: protocol::PeerRequest, events: Sender<Event>)
+end
+
+type AdmissionTicket
+	AdmissionTicket(slot: Int, slots: Sender<Int>)
+end
+
+type ConnectionJob
+	ConnectionJob(stream: NetStream, context: Context, admission: AdmissionTicket)
+end
+
+type AcceptJob
+	AcceptJob(listener: NetListener, context: Context)
+end
+
+fn rpc(port: Int, request: protocol::Request, milliseconds: Int) -> Result<protocol::Reply, String> effects [net::IO, time]
+	let bytes = transport::request(port, protocol::pack_request(request)?, time::deadline_after_ms(milliseconds))?
+	protocol::unpack_reply(bytes, request)
+end
+
+fn peer_job(job: PeerJob) -> () effects [net::IO, time, concurrency]
+	match job
+		PeerJob(peer, port, request, events) => begin
+			let reply = match rpc(port, protocol::Peer(request), 600)
+				Ok(protocol::PeerResponse(message)) => if protocol::reply_identity(message).node == peer
+					match protocol::complete(request, message)
+						Ok(completion) => Some(completion)
+						Err(_) => None
+					end
+				else
+					None
+				end
+				_ => None
+			end
+			let _ = channel::send(events, Finished(peer, reply))
+			()
+		end
+	end
+end
+
+fn send_peer(s: raft::State, busy: Dict<Int, Bool>, context: Context, peer: Int) -> Dict<Int, Bool> effects [net::IO, time, concurrency]
+	if peer == raft::id(s) or option_unwrap_or(dict_get(busy, peer), false)
+		busy
+	else
+		match s
+			raft::Follower(_) => busy
+			raft::Candidate(_) => start_peer(raft::vote_request(s), busy, context, peer)
+			raft::Leader(_) => start_peer(raft::replication(s, peer), busy, context, peer)
+		end
+	end
+end
+
+fn start_peer(request: protocol::PeerRequest, busy: Dict<Int, Bool>, context: Context, peer: Int) -> Dict<Int, Bool> effects [net::IO, time, concurrency]
+	match context
+		Context(base_port, _, events) => begin
+			let _ = task::spawn_with<(), PeerJob>(peer_job, PeerJob(peer, base_port + peer, request, events))
+			dict_insert(busy, peer, true)
+		end
+	end
+end
+
+fn send_peers(s: raft::State, busy: Dict<Int, Bool>, context: Context) -> Dict<Int, Bool> effects [net::IO, time, concurrency]
+	let first = send_peer(s, busy, context, 1)
+	let second = send_peer(s, first, context, 2)
+	send_peer(s, second, context, 3)
+end
+
+fn role_name(s: raft::State) -> String
+	match s
+		raft::Follower(_) => "follower"
+		raft::Candidate(_) => "candidate"
+		raft::Leader(_) => "leader"
+	end
+end
+
+fn status(s: raft::State) -> protocol::Reply
+	protocol::StatusResponse(protocol::NodeStatus(raft::id(s), raft::term(s), { role: role_name(s), leader: raft::known_leader(s) }, { committed: raft::commit(s), last: raft::size(s) }))
+end
+
+fn response(s: raft::State, outcome: protocol::ClientOutcome) -> protocol::Reply
+	protocol::ClientResponse(raft::term(s), raft::known_leader(s), raft::commit(s), outcome)
+end
+
+fn redirect(s: raft::State, forwarded: Bool) -> protocol::Reply
+	match raft::known_leader(s)
+		Some(_) => if not forwarded
+			response(s, protocol::Redirect)
+		else
+			response(s, protocol::Unavailable)
+		end
+		None => response(s, protocol::Unavailable)
+	end
+end
+
+fn route(s: raft::State, pending: Dict<Int, PendingRequest>, event: Event, now: Int) -> { state : raft::State, pending : Dict<Int, PendingRequest>, replies : List<Delivery> }
+	match event
+		Incoming(request, target) => match request
+			protocol::Peer(message) => begin
+				let result = raft::incoming(s, message, now)
+				{ state: result.state, pending: pending, replies: list_cons(Delivery(target, protocol::PeerResponse(result.reply)), list_nil()) }
+			end
+			protocol::Status => { state: s, pending: pending, replies: list_cons(Delivery(target, status(s)), list_nil()) }
+			protocol::Client(message, forwarded) => match s
+				raft::Leader(_) => begin
+					let next = raft::propose(s, message)
+					{ state: next, pending: dict_insert(pending, raft::size(next), PendingRequest(message, target, now + 2400)), replies: list_nil() }
+				end
+				_ => { state: s, pending: pending, replies: list_cons(Delivery(target, redirect(s, forwarded)), list_nil()) }
+			end
+		end
+		Finished(_, completion) => match completion
+			Some(message) => { state: raft::received(s, message, now), pending: pending, replies: list_nil() }
+			None => { state: s, pending: pending, replies: list_nil() }
+		end
+	end
+end
+
+fn deliver(replies: List<Delivery>) -> () effects [concurrency]
+	match replies
+		Nil => ()
+		Cons(Delivery(target, reply), tail) => begin
+			let _ = channel::send(target, reply)
+			deliver(tail)
+		end
+	end
+end
+
+fn pending_ids(acc: List<Int>, index: Int, item: PendingRequest) -> List<Int>
+	list_cons(index, acc)
+end
+
+fn completed(s: raft::State, index: Int, request: domain::ClientRequest) -> protocol::Reply
+	if raft::is_leader(s) and index <= raft::commit(s)
+		match dict_get(raft::replies(s), domain::request_id(request))
+			Some(reply) => response(s, protocol::Completed(reply))
+			None => response(s, protocol::Unavailable)
+		end
+	else
+		response(s, protocol::Unavailable)
+	end
+end
+
+fn flush(s: raft::State, pending: Dict<Int, PendingRequest>, ids: List<Int>, now: Int) -> Dict<Int, PendingRequest> effects [concurrency]
+	match ids
+		Nil => pending
+		Cons(index, tail) => match dict_get(pending, index)
+			None => flush(s, pending, tail, now)
+			Some(PendingRequest(request, target, expires)) => if not raft::is_leader(s) or now >= expires or index <= raft::commit(s)
+				begin
+					let _ = channel::send(target, completed(s, index, request))
+					flush(s, dict_remove(pending, index), tail, now)
+				end
+			else
+				flush(s, pending, tail, now)
+			end
+		end
+	end
+end
+
+fn released(busy: Dict<Int, Bool>, selected: Option<{ index : Int, value : Event }>) -> Dict<Int, Bool>
+	match selected
+		Some(event) => match event.value
+			Finished(peer, _) => dict_insert(busy, peer, false)
+			_ => busy
+		end
+		None => busy
+	end
+end
+
+fn runtime_fields(runtime: Runtime) -> { serial : Int, pending : Dict<Int, PendingRequest>, busy : Dict<Int, Bool> }
+	match runtime
+		Runtime(serial, pending, busy) => { serial: serial, pending: pending, busy: busy }
+	end
+end
+
+fn context_journal(context: Context) -> storage::Journal
+	match context
+		Context(_, journal, _) => journal
+	end
+end
+
+fn actor(s: raft::State, runtime: Runtime, rx: Receiver<Event>, context: Context) -> Result<(), String> effects [net::IO, time, concurrency, fs]
+	let current = runtime_fields(runtime)
+	let selected: Option<{ index : Int, value : Event }> = channel::select_many_timeout(list_cons(rx, list_nil()), 50)
+	let now = time::monotonic_ms()
+	let result = match selected
+		Some(event) => route(s, current.pending, event.value, now)
+		None => { state: s, pending: current.pending, replies: list_nil() }
+	end
+	let updated = match result.state
+		raft::Leader(_) => result.state
+		_ => if raft::election_expired(result.state, now)
+			raft::campaign(result.state, now)
+		else
+			result.state
+		end
+	end
+	let changed = raft::durable_changed(raft::persistent(s), raft::persistent(updated))
+	let _ = if changed
+		storage::save(context_journal(context), current.serial, raft::persistent(updated))
+	else
+		Ok(())
+	end?
+	let _ = deliver(result.replies)
+	let remaining = flush(updated, result.pending, dict_fold(result.pending, list_nil(), pending_ids), now)
+	let available = released(current.busy, selected)
+	let idle = match selected
+		None => true
+		Some(_) => false
+	end
+	let outgoing = if idle or raft::term(updated) != raft::term(s) or role_name(updated) != role_name(s) or raft::size(updated) != raft::size(s) or raft::commit(updated) != raft::commit(s)
+		send_peers(updated, available, context)
+	else
+		available
+	end
+	actor(updated, Runtime(current.serial + if changed
+		1
+	else
+		0
+	end, remaining, outgoing), rx, context)
+end
+
+fn forward(base_port: Int, request: domain::ClientRequest, leader: Int) -> Result<protocol::Reply, String> effects [net::IO, time]
+	match rpc(base_port + leader, protocol::Client(request, true), 2900)
+		Ok(reply) => Ok(reply)
+		Err(_) => Ok(protocol::ClientResponse(0, None, 0, protocol::Unavailable))
+	end
+end
+
+fn finish_reply(base_port: Int, request: protocol::Request, reply: protocol::Reply) -> Result<protocol::Reply, String> effects [net::IO, time]
+	match request
+		protocol::Client(message, false) => match reply
+			protocol::ClientResponse(_, Some(leader), _, protocol::Redirect) => forward(base_port, message, leader)
+			_ => Ok(reply)
+		end
+		_ => Ok(reply)
+	end
+end
+
+fn connection_body(stream: NetStream, context: Context) -> Result<(), String> effects [net::IO, time, concurrency]
+	match context
+		Context(base_port, _, events) => begin
+			let deadline = time::deadline_after_ms(3500)
+			let incoming = transport::receive_request(stream, deadline)?
+			let request = protocol::unpack_request(incoming.body)?
+			let replies = channel::bounded<protocol::Reply>(1)
+			let _ = channel::send(events, Incoming(request, replies.tx))
+			let selected: Option<{ index : Int, value : protocol::Reply }> = channel::select_many_timeout(list_cons(replies.rx, list_nil()), 2700)
+			let reply: protocol::Reply = match selected
+				Some(value) => Ok(value.value)
+				None => Err("consensus request timed out")
+			end?
+			let final = finish_reply(base_port, request, reply)?
+			transport::respond(stream, incoming.state, incoming.stream_id, protocol::pack_reply(final)?, deadline)
+		end
+	end
+end
+
+fn connection_job(job: ConnectionJob) -> () effects [net::IO, time, concurrency]
+	match job
+		ConnectionJob(stream, context, AdmissionTicket(slot, slots)) => begin
+			let _ = connection_body(stream, context)
+			let _ = net::close_stream(stream)
+			let _ = channel::send(slots, slot)
+			()
+		end
+	end
+end
+
+fn seed_slots(tx: Sender<Int>, count: Int) -> () effects [concurrency]
+	if count == 0
+		()
+	else
+		begin
+			let _ = channel::send(tx, count)
+			seed_slots(tx, count - 1)
+		end
+	end
+end
+
+fn accept_loop(listener: NetListener, context: Context, slots: { tx : Sender<Int>, rx : Receiver<Int> }, tasks: Dict<Int, Task<()>>) -> Result<(), String> effects [net::IO, time, concurrency]
+	let slot = match channel::recv(slots.rx)
+		Some(value) => Ok(value)
+		None => Err("connection admission closed")
+	end?
+	let _ = match dict_get(tasks, slot)
+		Some(previous) => task::join(previous)
+		None => Ok(())
+	end
+	let stream = match net::accept(listener)
+		Ok(value) => Ok(value)
+		Err(error) => Err(transport::network_error(error))
+	end?
+	let worker = task::spawn_with<(), ConnectionJob>(connection_job, ConnectionJob(stream, context, AdmissionTicket(slot, slots.tx)))
+	accept_loop(listener, context, slots, dict_insert(tasks, slot, worker))
+end
+
+fn accept_job(job: AcceptJob) -> Result<(), String> effects [net::IO, time, concurrency]
+	match job
+		AcceptJob(listener, context) => begin
+			let slots = channel::bounded<Int>(32)
+			let _ = seed_slots(slots.tx, 32)
+			accept_loop(listener, context, slots, {})
+		end
+	end
+end
+
+fn run(id: Int, base_port: Int, directory: String) -> Result<(), String> effects [net::IO, time, concurrency, fs]
+	let journal = storage::Journal(directory, id, base_port)
+	let recovered = storage::recover(journal)?
+	let _ = storage::save(journal, recovered.serial, recovered.persistent)?
+	let node = raft::from_persistent(id, recovered.persistent, time::monotonic_ms())
+	let listener = match net::listen(net::Address(net::Tcp4, "127.0.0.1", base_port + id))
+		Ok(value) => Ok(value)
+		Err(error) => Err(transport::network_error(error))
+	end?
+	let events = channel::bounded<Event>(128)
+	let context = Context(base_port, journal, events.tx)
+	let acceptor = task::spawn_with<Result<(), String>, AcceptJob>(accept_job, AcceptJob(listener, context))
+	let result = actor(node, Runtime(recovered.serial + 1, {}, {}), events.rx, context)
+	let _ = task::cancel(acceptor)
+	let _ = net::close_listener(listener)
+	channel::close(events.tx)
+	result
+end
+
+pub fn main(id: Int, base_port: Int, directory: String) -> Result<(), String> effects [net, time, concurrency, fs]
+	if id < 1 or id > 3 or base_port < 1024 or base_port > 65532
+		Err("expected node ID 1..3 and base port 1024..65532")
+	else
+		handle run(id, base_port, directory) with net::system()
+	end
+end

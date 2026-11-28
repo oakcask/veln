@@ -47,6 +47,8 @@ The `main` function declares its public signature and its `stdio` effect.
 Try the [CSV order analyzer](examples/csv_analyzer/README.md) for a Veln HTTP/2
 backend with a TypeScript browser UI. More executable examples are in
 [examples/specification/](examples/specification/).
+The [three-node distributed KVS](examples/distributed_kvs/README.md) demonstrates
+Raft replication, binary-schema RPCs over HTTP/2, and process-crash recovery.
 
 ## Language and tooling
 

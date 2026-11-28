@@ -1,0 +1,192 @@
+use http2::core from "std"
+use http2::frame from "std"
+use http2::hpack from "std"
+use net from "std"
+
+pub fn network_error(error: net::NetError) -> String
+	match error
+		net::NetError(operation, _, _, _, message) => string::concat(operation, string::concat(": ", message))
+	end
+end
+
+pub fn read_exact(stream: net::Stream, buffered: ByteChunk, count: Int, deadline: Deadline) -> Result<{ bytes : ByteChunk, rest : ByteChunk }, String> effects [net::IO]
+	if byte_count_to_int(byte_chunk_count(buffered)) >= count
+		Ok({ bytes: byte_take(buffered, byte_count(count)?)?, rest: byte_drop(buffered, byte_count(count)?)? })
+	else
+		match net::read_with(stream, Some(deadline), None)
+			Ok(net::ReadOutcome::Chunk(chunk)) => read_exact(stream, byte_append(buffered, chunk), count, deadline)
+			Ok(net::ReadOutcome::End) => Err("incomplete request")
+			Err(error) => Err(network_error(error))
+		end
+	end
+end
+
+pub fn write_bytes(stream: net::Stream, bytes: ByteChunk, deadline: Deadline) -> Result<(), String> effects [net::IO]
+	match net::write_all(stream, bytes, Some(deadline), None)
+		net::Complete(_) => Ok(())
+		net::Failed(_, error) => Err(network_error(error))
+		net::InvalidReply(_, error) => Err(network_error(error))
+	end
+end
+
+fn receive(state: http2::core::CoreReceiveConnectionState, bytes: ByteChunk) -> Result<http2::core::CoreReceiveConnectionState, String>
+	let decision = http2::core::receive_connection_chunk(state, bytes)?
+	if http2::core::receive_connection_status(decision) == "accepted"
+		http2::core::receive_connection_state_from_decision(decision)
+	else
+		begin
+			let failure = http2::core::receive_connection_failure(decision)?
+			Err(http2::core::receive_connection_failure_id(failure))
+		end
+	end
+end
+
+fn header(headers: http2::hpack::HeaderList, name: String, index: Int) -> Result<String, String>
+	match http2::hpack::header_list_at(headers, index)
+		None => Ok("")
+		Some(field) => if http2::hpack::header_field_name(field) == name
+			byte_chunk_to_visible_ascii_string(http2::hpack::header_field_value(field))
+		else
+			header(headers, name, index + 1)
+		end
+	end
+end
+
+fn request_from_event(events: List<http2::core::Http2ApplicationEvent>, previous: { stream_id : Int, method : String, path : String }) -> Result<{ stream_id : Int, method : String, path : String }, String>
+	match events
+		Nil => Ok(previous)
+		Cons(event, tail) => if previous.stream_id != 0
+			Err("only one request per connection is supported")
+		else
+			begin
+				let headers = http2::core::application_event_headers(event)
+				let request = { stream_id: http2::core::application_event_stream_id(event), method: header(headers, ":method", 0)?, path: header(headers, ":path", 0)? }
+				request_from_event(tail, request)
+			end
+		end
+	end
+end
+
+fn response_header(name: String, value: String, tail: http2::hpack::HeaderList) -> Result<http2::hpack::HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(http2::hpack::header_field(name, byte_chunk_from_visible_ascii_string(value)?), tail))
+end
+
+fn data_payload(payload: ByteView, flags: Int) -> Result<ByteChunk, String>
+	if flags % 16 >= 8
+		begin
+			let padding = byte_read_u8_be(byte_view_take(payload, byte_count(1)?)?)?
+			let count = byte_count_to_int(byte_view_count(payload)) - padding - 1
+			Ok(byte_view_to_chunk(byte_view_slice(payload, byte_count(1)?, byte_count(count)?)?))
+		end
+	else
+		Ok(byte_view_to_chunk(payload))
+	end
+end
+
+fn request_complete(state: http2::core::CoreReceiveConnectionState, stream_id: Int) -> Bool
+	let streams = http2::core::connection_state_streams(http2::core::receive_connection_connection(state))
+	match http2::core::stream_collection_find(streams, stream_id)
+		Some(entry) => begin
+			let label = http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(entry))
+			label == "half-closed-remote" or label == "closed"
+		end
+		None => false
+	end
+end
+
+fn reset_output(state: http2::core::CoreReceiveConnectionState) -> http2::core::CoreReceiveConnectionState
+	let connection = http2::core::receive_connection_connection(state)
+	if http2::core::receive_connection_initial_settings_accepted(state)
+		http2::core::receive_connection_state_after_initial_settings(connection, byte_chunk([]), http2::core::empty_output_buffer())
+	else
+		http2::core::receive_connection_state(connection, byte_chunk([]), http2::core::empty_output_buffer())
+	end
+end
+
+pub fn respond(stream: net::Stream, state: http2::core::CoreReceiveConnectionState, stream_id: Int, body: ByteChunk, deadline: Deadline) -> Result<(), String> effects [net::IO]
+	let headers = response_header(":status", "200", http2::hpack::empty_header_list())?
+	let head = http2::core::send_response_headers(http2::core::receive_connection_connection(state), 0, stream_id, headers, false)
+	let data = http2::core::send_data(http2::core::headers_send_state(head)?, 0, stream_id, body, true)
+	let _ = http2::core::data_send_state(data)?
+	write_bytes(stream, byte_append(http2::core::headers_send_bytes(head), http2::core::data_send_bytes(data)), deadline)
+end
+
+fn frames(stream: net::Stream, buffered: ByteChunk, state: http2::core::CoreReceiveConnectionState, request: { stream_id : Int, method : String, path : String }, body: ByteChunk, budget: Int, wire_count: Int, deadline: Deadline, server: Bool) -> Result<{ state : http2::core::CoreReceiveConnectionState, stream_id : Int, body : ByteChunk }, String> effects [net::IO]
+	if budget == 0 or wire_count > 32768
+		Err("connection exceeds example budget")
+	else
+		begin
+			let head = read_exact(stream, buffered, 9, deadline)?
+			let length = byte_read_u24_be(byte_view(head.bytes, byte_offset(0)?, byte_count(3)?)?)?
+			if length > 16384 or wire_count + length + 9 > 32768
+				Err("frame exceeds example budget")
+			else
+				begin
+					let payload = read_exact(stream, head.rest, length, deadline)?
+					let bytes = byte_append(head.bytes, payload.bytes)
+					let frame = http2::frame::decode(byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))?)?
+					let next = receive(state, bytes)?
+					let _ = write_bytes(stream, http2::core::output_buffer_bytes(http2::core::receive_connection_output(next)), deadline)?
+					let drain = http2::core::drain_application_events(next)
+					let current = request_from_event(http2::core::application_event_drain_events(drain), request)?
+					let clean = reset_output(http2::core::application_event_drain_state(drain))
+					let content = if frame.kind == 0 and frame.stream_id == current.stream_id
+						byte_append(body, data_payload(frame.payload, frame.flags)?)
+					else
+						body
+					end
+					if byte_count_to_int(byte_chunk_count(content)) > 8250
+						Err("RPC exceeds example budget")
+					else if server and current.stream_id != 0 and (current.method != "POST" or current.path != "/rpc")
+						Err("expected POST /rpc")
+					else if current.stream_id != 0 and request_complete(clean, current.stream_id)
+						Ok({ state: clean, stream_id: current.stream_id, body: content })
+					else
+						frames(stream, payload.rest, clean, current, content, budget - 1, wire_count + length + 9, deadline, server)
+					end
+				end
+			end
+		end
+	end
+end
+
+pub fn receive_request(stream: net::Stream, deadline: Deadline) -> Result<{ state : http2::core::CoreReceiveConnectionState, stream_id : Int, body : ByteChunk }, String> effects [net::IO]
+	let initial = http2::core::server_connection_state(0)?
+	let settings = http2::core::send_local_settings_batch(list_nil(), "server", http2::core::connection_state_local_settings_policy(initial), http2::core::connection_state_settings_ack(initial))?
+	let state = http2::core::connection_state_with_settings_ack(initial, http2::core::local_settings_send_ack_state(settings))
+	let _ = write_bytes(stream, http2::core::local_settings_send_bytes(settings), deadline)?
+	let preface = read_exact(stream, byte_chunk([]), 24, deadline)?
+	let received = receive(http2::core::receive_connection_state(state, byte_chunk([]), http2::core::empty_output_buffer()), preface.bytes)?
+	frames(stream, preface.rest, received, { stream_id: 0, method: "", path: "" }, byte_chunk([]), 64, 24, deadline, true)
+end
+
+fn exchange(stream: net::Stream, port: Int, body: ByteChunk, deadline: Deadline) -> Result<ByteChunk, String> effects [net::IO]
+	let initial = http2::core::client_connection_state(0)?
+	let settings = http2::core::send_local_settings_batch(list_nil(), "client", http2::core::connection_state_local_settings_policy(initial), http2::core::connection_state_settings_ack(initial))?
+	let state = http2::core::connection_state_with_settings_ack(initial, http2::core::local_settings_send_ack_state(settings))
+	let headers = response_header(":method", "POST", response_header(":scheme", "http", response_header(":authority", string::concat("127.0.0.1:", int_to_string(port)), response_header(":path", "/rpc", response_header("content-type", "application/octet-stream", http2::hpack::empty_header_list())?)?)?)?)?
+	let head = http2::core::send_request_headers(state, 0, 1, headers, false)
+	let data = http2::core::send_data(http2::core::headers_send_state(head)?, 0, 1, body, true)
+	let sent = http2::core::data_send_state(data)?
+	let preface = byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a")?
+	let bytes = byte_append(preface, byte_append(http2::core::local_settings_send_bytes(settings), byte_append(http2::core::headers_send_bytes(head), http2::core::data_send_bytes(data))))
+	let _ = write_bytes(stream, bytes, deadline)?
+	let result = frames(stream, byte_chunk([]), http2::core::receive_connection_state(sent, byte_chunk([]), http2::core::empty_output_buffer()), { stream_id: 1, method: "POST", path: "/rpc" }, byte_chunk([]), 64, 0, deadline, false)?
+	Ok(result.body)
+end
+
+pub fn request(port: Int, bytes: ByteChunk, deadline: Deadline) -> Result<ByteChunk, String> effects [net::IO]
+	let stream = match net::connect_with(net::Address(net::Tcp4, "127.0.0.1", port), Some(deadline), None)
+		Ok(value) => Ok(value)
+		Err(error) => Err(network_error(error))
+	end?
+	let result = exchange(stream, port, bytes, deadline)
+	let closed = net::close_stream(stream)
+	match result
+		Err(reason) => Err(reason)
+		Ok(value) => match closed
+			Ok(_) => Ok(value)
+			Err(error) => Err(network_error(error))
+		end
+	end
+end

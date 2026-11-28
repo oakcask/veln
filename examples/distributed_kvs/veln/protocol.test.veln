@@ -1,0 +1,120 @@
+use command as domain
+use protocol
+
+fn expect(condition: Bool) -> Result<(), String>
+	if condition
+		Ok(())
+	else
+		Err("binary protocol assertion failed")
+	end
+end
+
+test binary_schema_matches_independent_wire_vector() -> Result<(), String>
+	let message = protocol::Client(domain::ClientRequest(domain::RequestId(7, 1), domain::Put("e88cb6", "00f09f8db5")), false)
+	let bytes = protocol::pack_request(message)?
+	let vector = "4b560105000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000070000000100030005e88cb600f09f8db5"
+	let _ = expect(protocol::hex(protocol::view(bytes)?)? == vector)?
+	let decoded = protocol::unpack_request(byte_chunk_from_hex(vector)?)?
+	match decoded
+		protocol::Client(domain::ClientRequest(domain::RequestId(7, 1), domain::Put(key, value)), false) => expect(key == "e88cb6" and value == "00f09f8db5")
+		_ => Err("decoded request lost its operation or identity")
+	end
+end
+
+test rejects_trailing_octets_and_invalid_utf8() -> Result<(), String>
+	let bytes = protocol::pack_request(protocol::Status)?
+	let _ = match protocol::unpack_request(byte_append(bytes, byte_write_u8_be(0)?))
+		Err(_) => Ok(())
+		Ok(_) => Err("trailing octets were accepted")
+	end?
+	invalid_utf8(list_cons("80", list_cons("c080", list_cons("eda080", list_cons("f4908080", list_cons("e88c", list_nil()))))))
+end
+
+fn invalid_utf8(cases: List<String>) -> Result<(), String>
+	match cases
+		Nil => Ok(())
+		Cons(value, tail) => begin
+			let _ = match protocol::utf8(protocol::view(byte_chunk_from_hex(value)?)?)
+				Err(_) => Ok(())
+				Ok(_) => Err("invalid UTF-8 was accepted")
+			end?
+			invalid_utf8(tail)
+		end
+	end
+end
+
+fn repeat_hex(value: String, power: Int) -> String
+	if power == 0
+		value
+	else
+		begin
+			let half = repeat_hex(value, power - 1)
+			string::concat(half, half)
+		end
+	end
+end
+
+test maximum_ascii_key_and_four_octet_value_do_not_exhaust_the_stack() -> Result<(), String>
+	let key = repeat_hex("61", 12)
+	let value = repeat_hex("f09f8db5", 10)
+	let encoded = protocol::pack_request(protocol::Client(domain::ClientRequest(domain::RequestId(1, 1), domain::Put(key, value)), false))?
+	let decoded = protocol::unpack_request(encoded)?
+	match decoded
+		protocol::Client(domain::ClientRequest(_, domain::Put(decoded_key, decoded_value)), _) => expect(decoded_key == key and decoded_value == value and byte_count_to_int(byte_chunk_count(encoded)) == 8250)
+		_ => Err("maximum-size Put changed operation")
+	end
+end
+
+test reply_decoder_uses_request_to_distinguish_empty_value_from_write_success() -> Result<(), String>
+	let write = protocol::Client(domain::ClientRequest(domain::RequestId(1, 1), domain::Put("61", "")), false)
+	let read = protocol::Client(domain::ClientRequest(domain::RequestId(1, 2), domain::Get("61")), false)
+	let bytes = protocol::pack_reply(protocol::ClientResponse(3, Some(2), 7, protocol::Completed(domain::Applied)))?
+	let _ = match protocol::unpack_reply(bytes, write)?
+		protocol::ClientResponse(3, Some(2), 7, protocol::Completed(domain::Applied)) => Ok(())
+		_ => Err("write reply changed its meaning")
+	end?
+	match protocol::unpack_reply(bytes, read)?
+		protocol::ClientResponse(3, Some(2), 7, protocol::Completed(domain::Value(Some(value)))) => expect(value == "")
+		_ => Err("empty read value became an absent key or write reply")
+	end
+end
+
+test peer_codecs_preserve_vote_and_replication_coordinates() -> Result<(), String>
+	let vote = protocol::Peer(protocol::RequestVote(5, 2, protocol::LogPosition(7, 3)))
+	let _ = match protocol::unpack_request(protocol::pack_request(vote)?)?
+		protocol::Peer(protocol::RequestVote(5, 2, protocol::LogPosition(7, 3))) => Ok(())
+		_ => Err("vote request lost its last log position")
+	end?
+	let entry = domain::LogEntry(5, domain::Execute(domain::ClientRequest(domain::RequestId(9, 11), domain::Delete("61"))))
+	let append = protocol::Peer(protocol::AppendEntries(5, 2, protocol::LogPosition(7, 3), 6, Some(entry)))
+	let _ = match protocol::unpack_request(protocol::pack_request(append)?)?
+		protocol::Peer(protocol::AppendEntries(5, 2, protocol::LogPosition(7, 3), 6, Some(domain::LogEntry(5, domain::Execute(domain::ClientRequest(domain::RequestId(9, 11), domain::Delete(key))))))) => expect(key == "61")
+		_ => Err("append request lost its entry or prefix")
+	end?
+	let reply = protocol::PeerResponse(protocol::AppendReply(5, 3, true, 8))
+	match protocol::unpack_reply(protocol::pack_reply(reply)?, append)?
+		protocol::PeerResponse(protocol::AppendReply(5, 3, true, 8)) => Ok(())
+		_ => Err("append reply lost its matched index")
+	end
+end
+
+test completion_boundary_rejects_mismatched_decoded_replies() -> Result<(), String>
+	let vote = protocol::RequestVote(1, 1, protocol::LogPosition(0, 0))
+	let append = protocol::AppendEntries(1, 1, protocol::LogPosition(0, 0), 0, None)
+	let _ = match protocol::complete(vote, protocol::AppendReply(1, 2, true, 1))
+		Err(_) => Ok(())
+		Ok(_) => Err("vote completed with append reply")
+	end?
+	let _ = match protocol::complete(append, protocol::VoteReply(1, 2, true))
+		Err(_) => Ok(())
+		Ok(_) => Err("append completed with vote reply")
+	end?
+	let _ = match protocol::complete(vote, protocol::VoteReply(1, 2, true))?
+		protocol::VoteCompleted(_, _) => Ok(())
+		_ => Err("vote completion changed family")
+	end?
+	match protocol::complete(append, protocol::AppendReply(1, 2, true, 1))?
+		protocol::AppendCompleted(_, _) => Ok(())
+		_ => Err("append completion changed family")
+	end
+end
