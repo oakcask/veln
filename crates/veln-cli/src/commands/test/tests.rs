@@ -1,9 +1,9 @@
 use super::process_discovered_test_cases;
 use super::{
     JvmExecution, SchedulerError, TestCaseJob, TestExecution, TestJvmExecution,
-    TestProgramHookGuard, TestRunFiles, TestTimings, execute_test_case_job, execute_test_program,
-    preflight_runnable_test_case_jobs, prepare_test_case_job, resolve_test_jobs,
-    run_test_case_jobs,
+    TestProgramHookGuard, TestRunFiles, TestTimings, execute_runnable_test_cases_with_execution,
+    execute_test_case_job, execute_test_program, preflight_runnable_test_case_jobs,
+    prepare_test_case_job, resolve_test_jobs, run_test_case_jobs,
 };
 use std::collections::BTreeSet;
 use std::fs;
