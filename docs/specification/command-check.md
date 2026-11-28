@@ -110,7 +110,11 @@ A parse-clean non-generic path with lowercase base and final segments follows
 the same output contract when unique initial-only base recovery selects its
 refinement interpretation; `check` inserts the parse diagnostic before casing
 and type diagnostics. Any other parse diagnostic restores the file-level
-suppression. Other eligible files may still report semantic errors.
+suppression. Other eligible files may still report semantic errors. This
+includes `parse.float_literal` for a dotted-decimal Float value that rounds to
+infinity or rounds from nonzero to zero; the
+[Float literal specification](source-surface.md#float-literals) owns that
+admission boundary.
 The [import source-surface contract](source-surface.md#usage-and-declaration-forms)
 and [variant-refinement contract](source-surface.md#variant-refinement-shaped-type-text)
 define the two recoverable syntax boundaries. The

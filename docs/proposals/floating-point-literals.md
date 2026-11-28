@@ -74,8 +74,8 @@ Both exponent forms must supply their exact mathematical value to the existing
 shared Float conversion boundary. Decimal conversion must not round a
 significand or intermediate power of ten first. Hexadecimal conversion must
 not inherit decimal parser rules. A syntactically valid zero significand stays
-zero even when the exponent magnitude exceeds a host integer range. Unary
-negation preserves negative zero.
+zero even when the exponent magnitude exceeds a host integer range. Negating
+such a zero produces negative zero.
 
 Accept both forms in ordinary expressions and Float-literal patterns. Float
 module initializers remain dependent on the separate

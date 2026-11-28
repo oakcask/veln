@@ -152,7 +152,10 @@ Slash-prefixed comment-like text is not migrated.
 
 The parse gate applies to the complete selected set; semantic analysis is not
 a formatting gate. Formatting a module `let` declaration does not validate its
-semantics. The shared
+semantics. A dotted-decimal Float value that rounds to infinity or rounds from
+nonzero to zero reports the parse diagnostic specified under
+[Float literals](source-surface.md#float-literals), so no selected file is
+written. The shared
 [command-analysis specification](command-analysis.md)
 owns that boundary. After the parse gate, files are written sequentially. A
 filesystem write error fails the command but does not roll back earlier

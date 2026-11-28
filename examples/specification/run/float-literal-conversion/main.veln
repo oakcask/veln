@@ -1,11 +1,11 @@
 fn contract_rounds_once(value: Float) -> Bool
-require value == 9007199254740992.0
+require value == 9007199254740993.0
 	true
 end
 
 fn pattern_rounds_once(value: Float) -> Bool
 	match value
-		9007199254740992.0 => true
+		9007199254740993.0 => true
 		_ => false
 	end
 end
@@ -14,7 +14,8 @@ pub fn main() -> () effects [stdio]
 	let subnormal = 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004
 	let positive_zero = 0.0
 	let negative_zero = -0.0
-	if contract_rounds_once(9007199254740993.0) and pattern_rounds_once(9007199254740993.0) and subnormal > 0.0 and 1.0 / positive_zero > 0.0 and 1.0 / negative_zero < 0.0
+	let expression_rounds_once = 9007199254740993.0 == 9007199254740992.0
+	if expression_rounds_once and contract_rounds_once(9007199254740992.0) and pattern_rounds_once(9007199254740992.0) and subnormal > 0.0 and 1.0 / positive_zero > 0.0 and 1.0 / negative_zero < 0.0
 		stdio::println("float conversion ok")
 	else
 		stdio::println("float conversion failed")

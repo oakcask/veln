@@ -52,6 +52,12 @@ string literal is literal data and is never resolved as a name. Parentheses
 and commas inside a string literal do not close a grouped predicate or split a
 call's argument list.
 
+An accepted dotted-decimal Float literal contributes its once-rounded binary64
+value to contract comparison and runtime emission. A nonzero literal that
+would round to infinity or zero fails during parsing and never becomes a
+contract obligation. The shared source admission and diagnostic boundary is
+specified under [Float literals](source-surface.md#float-literals).
+
 Integer remainder uses the same operator contract in predicates as in ordinary
 expressions: `%` has multiply-level precedence and left associativity, and both
 operands and the result are `Int`. A `Float` context does not widen either
