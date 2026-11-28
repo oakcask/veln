@@ -108,6 +108,40 @@ fn bytecode_backend_runs_minimal_list_adt_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_binds_nested_constructor_and_record_patterns_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "type List<A>\n",
+        "  Nil\n",
+        "  Cons(head: A, tail: List<A>)\n",
+        "end\n",
+        "type Packet\n",
+        "  Payload(value: Result<{head: Int, tail: List<Int>}, String>)\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let packet: Packet = Payload(Ok({head: 1, tail: Cons(2, Nil)}))\n",
+        "  match packet\n",
+        "    Payload(Ok({head: first, tail: Cons(second, _)})) => stdio::println(int_to_string(first + second))\n",
+        "    _ => stdio::println(\"unexpected\")\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-nested-pattern-bindings", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "3\n");
+}
+
+#[test]
 fn bytecode_backend_runs_vec_try_map_with_context_and_error_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn attach(context: String, value: Int) -> Result<{prefix: String, value: Int}, String>\n",
